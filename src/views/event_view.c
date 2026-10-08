@@ -1,0 +1,156 @@
+﻿#include "views/event_view.h"
+#include "raylib.h"
+#include <string.h>
+
+static Rectangle GetOptionRect(int index, int screenWidth, int screenHeight, int totalOptions) {
+    int w = 500;
+    int h = 40;
+    int x = screenWidth / 2 - w / 2;
+    int startY = screenHeight / 2 + 20;
+    int spacing = 50;
+    
+    return (Rectangle){ (float)x, (float)(startY + index * spacing), (float)w, (float)h };
+}
+
+void EventView_Draw(const EventDef* event, int screenWidth, int screenHeight) {
+    if (!event) return;
+
+    // Fondo oscurecido
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 0, 0, 0, 180 });
+
+    // Pergamino
+    int modalW = 600;
+    int modalH = 400;
+    int mx = screenWidth / 2 - modalW / 2;
+    int my = screenHeight / 2 - modalH / 2;
+
+    DrawRectangle(mx, my, modalW, modalH, (Color){ 240, 230, 210, 255 });
+    DrawRectangleLines(mx, my, modalW, modalH, (Color){ 100, 80, 40, 255 });
+    DrawRectangleLines(mx+2, my+2, modalW-4, modalH-4, (Color){ 100, 80, 40, 255 });
+
+    // Titulo
+    int titleW = MeasureText(event->name, 24);
+    DrawText(event->name, screenWidth / 2 - titleW / 2, my + 30, 24, BLACK);
+    DrawLine(mx + 50, my + 60, mx + modalW - 50, my + 60, GRAY);
+
+    // Descripción (TODO: Word wrap)
+    DrawText(event->description, mx + 40, my + 80, 18, DARKGRAY);
+
+    // Opciones
+    for (int i = 0; i < event->optionCount; i++) {
+        Rectangle rect = GetOptionRect(i, screenWidth, screenHeight, event->optionCount);
+        
+        bool hover = CheckCollisionPointRec(GetMousePosition(), rect);
+        Color btnColor = hover ? (Color){ 200, 180, 150, 255 } : (Color){ 220, 200, 170, 255 };
+        
+        DrawRectangleRec(rect, btnColor);
+        DrawRectangleLinesEx(rect, 1, (Color){ 120, 100, 60, 255 });
+
+        int textW = MeasureText(event->options[i].text, 16);
+        DrawText(event->options[i].text, rect.x + rect.width / 2 - textW / 2, rect.y + 12, 16, BLACK);
+    }
+}
+
+int EventView_HandleInput(const EventDef* event, int screenWidth, int screenHeight) {
+    if (!event) return -1;
+    
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 mousePos = GetMousePosition();
+        for (int i = 0; i < event->optionCount; i++) {
+            Rectangle rect = GetOptionRect(i, screenWidth, screenHeight, event->optionCount);
+            if (CheckCollisionPointRec(mousePos, rect)) {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+void EventView_ApplyResult(const EventOption* option, GameMaster* gm, Army* army) {
+    if (!option || !gm || !army) return;
+
+    army->monedas += option->resultGold;
+    if (army->monedas < 0) army->monedas = 0;
+    
+    gm->infamy += option->resultInfamy;
+    if (gm->infamy < 0.0f) gm->infamy = 0.0f;
+    if (gm->infamy > 100.0f) gm->infamy = 100.0f;
+    
+    // Si startBattle es true, se levantaría la UI de batalla
+}
+
+void ResultView_Draw(const EventResult* res, int screenWidth, int screenHeight) {
+    if (!res) return;
+
+    int mw = 600;
+    int mh = 400;
+    int mx = (screenWidth - mw) / 2;
+    int my = (screenHeight - mh) / 2;
+
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 0, 0, 0, 180 });
+    DrawRectangle(mx, my, mw, mh, (Color){ 40, 35, 30, 255 });
+    DrawRectangleLinesEx((Rectangle){ mx, my, mw, mh }, 4, (Color){ 180, 150, 80, 255 });
+
+    DrawText(res->name, mx + 20, my + 20, 24, GOLD);
+
+    DrawTextEx(GetFontDefault(), res->description, (Vector2){ mx + 20, my + 60 }, 18, 2, LIGHTGRAY);
+
+    int btnW = 400;
+    int btnH = 40;
+    int btnX = mx + (mw - btnW) / 2;
+    int btnY = my + mh - 60;
+    
+    Rectangle btnRec = { btnX, btnY, btnW, btnH };
+    bool hover = CheckCollisionPointRec(GetMousePosition(), btnRec);
+    
+    DrawRectangleRec(btnRec, hover ? (Color){ 80, 70, 60, 255 } : (Color){ 60, 50, 40, 255 });
+    DrawRectangleLinesEx(btnRec, 2, (Color){ 120, 100, 70, 255 });
+    DrawText("ACEPTAR", btnX + btnW/2 - MeasureText("ACEPTAR", 18)/2, btnY + 11, 18, WHITE);
+}
+
+int ResultView_HandleInput(const EventResult* res, int screenWidth, int screenHeight) {
+    if (!res) return -1;
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        int mw = 600;
+        int mh = 400;
+        int mx = (screenWidth - mw) / 2;
+        int my = (screenHeight - mh) / 2;
+
+        int btnW = 400;
+        int btnH = 40;
+        int btnX = mx + (mw - btnW) / 2;
+        int btnY = my + mh - 60;
+        
+        Rectangle btnRec = { btnX, btnY, btnW, btnH };
+        if (CheckCollisionPointRec(GetMousePosition(), btnRec)) {
+            return 0; // Aceptar clicked
+        }
+    }
+    return -1;
+}
+
+void ResultView_Apply(const EventResult* res, GameMaster* gm, Army* army) {
+    army->monedas += res->resultGold;
+    gm->infamy += res->resultInfamy;
+    army->moral += res->resultMoral;
+    army->comida_disponible += res->resultFood;
+    army->agua_disponible += res->resultWater;
+    
+    army->iniciados -= res->lossInitiates;
+    army->soldados -= res->lossSoldiers;
+    army->sargentos -= res->lossSergeants;
+    
+    if (army->iniciados < 0) army->iniciados = 0;
+    if (army->soldados < 0) army->soldados = 0;
+    if (army->sargentos < 0) army->sargentos = 0;
+
+    if (gm->infamy < 0.0f) gm->infamy = 0.0f;
+    if (gm->infamy > 100.0f) gm->infamy = 100.0f;
+    if (army->moral < 0.0f) army->moral = 0.0f;
+    if (army->moral > 100.0f) army->moral = 100.0f;
+
+    if (res->startsBattle) {
+        gm->phase = PHASE_ENEMY; // O batalla segn el flujo del juego
+        // Aadiramos lgica de spawn de enemigo aqu si fuera necesario
+    }
+}

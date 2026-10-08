@@ -1,7 +1,8 @@
-#include "map_generator.h"
+﻿#include "map_generator.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 
 
 /* ============================================================
@@ -61,11 +62,37 @@ static bool CanRoadPass(
 static bool Map_CreateRoad(
     Map* map,
     HexTile* start,
-    HexTile* end
+    HexTile* end,
+    RoadType roadType
+);
+
+static bool Map_ConnectToNearestRoad(
+    Map* map,
+    HexTile* origin,
+    RoadType roadType,
+    bool connectToMainOnly
 );
 
 static void Map_CreateAlternativeRoads(
     Map* map
+);
+
+static void Map_GenerateBiomes(
+    Map* map,
+    int provinceLevel
+);
+
+static void Map_GenerateSettlement(
+    Map* map,
+    HexTile* center,
+    int settlementId,
+    SettlementType settlementType,
+    int provinceLevel
+);
+
+static void Map_GenerateStructures(
+    Map* map,
+    int provinceLevel
 );
 
 
@@ -248,7 +275,6 @@ static void SmoothTerrain(
 /* ============================================================
    BORDE
    ============================================================ */
-
 /*
     Determina si el tile está en el borde del mapa.
 */
@@ -273,8 +299,6 @@ static bool IsBoundaryTile(
 
     return false;
 }
-
-
 /*
     Determina si dos tiles pertenecen a la misma cara
     del borde exterior.
@@ -303,8 +327,6 @@ static bool ShareBoundarySide(
 
     return false;
 }
-
-
 /* ============================================================
    INICIO Y FINALES
    ============================================================ */
@@ -516,8 +538,6 @@ static HexTile* Map_GetRandomEndTile(
 
     return result;
 }
-
-
 /* ============================================================
    RÍOS
    ============================================================ */
@@ -647,8 +667,6 @@ static void Map_GenerateRivers(
     {
         return;
     }
-
-
     /*
         Por ahora tenemos un río.
         Este número puede convertirse posteriormente
@@ -739,12 +757,13 @@ static bool CanRoadPass(
 
 
 /*
-    Genera un camino entre dos tiles mediante BFS.
+    Genera un camino entre dos tiles mediante BFS con tipo de carretera.
 */
 static bool Map_CreateRoad(
     Map* map,
     HexTile* start,
-    HexTile* end
+    HexTile* end,
+    RoadType roadType
 )
 {
     if (map == NULL ||
@@ -864,7 +883,7 @@ static bool Map_CreateRoad(
 
     /*
         Si encontramos el destino,
-        reconstruimos el camino.
+        reconstruimos el camino asignando el tipo de ruta.
     */
     if (found)
     {
@@ -874,8 +893,15 @@ static bool Map_CreateRoad(
 
         while (current != NULL)
         {
-            current->isRoad =
-                true;
+            if (roadType == ROAD_MAIN)
+            {
+                current->road = ROAD_MAIN;
+            }
+            else if (current->road == ROAD_NONE)
+            {
+                current->road = ROAD_SECONDARY;
+            }
+            current->isRoad = true;
 
 
             if (current == start)
@@ -898,6 +924,118 @@ static bool Map_CreateRoad(
 
 
     return found;
+}
+
+
+/*
+    Conecta 'origin' al camino más cercano mediante BFS.
+    Si 'connectToMainOnly' es true, busca conectarse a un ROAD_MAIN.
+    De lo contrario, conecta a cualquier camino existente.
+*/
+static bool Map_ConnectToNearestRoad(
+    Map* map,
+    HexTile* origin,
+    RoadType roadType,
+    bool connectToMainOnly
+)
+{
+    if (map == NULL || origin == NULL)
+        return false;
+
+    if (connectToMainOnly && origin->road == ROAD_MAIN)
+        return true;
+    if (!connectToMainOnly && origin->road != ROAD_NONE)
+        return true;
+
+    int tileCount = map->tileCount;
+    bool* visited = calloc(tileCount, sizeof(bool));
+    HexTile** previous = calloc(tileCount, sizeof(HexTile*));
+    HexTile** queue = malloc(sizeof(HexTile*) * tileCount);
+
+    if (visited == NULL || previous == NULL || queue == NULL)
+    {
+        free(visited);
+        free(previous);
+        free(queue);
+        return false;
+    }
+
+    int queueStart = 0;
+    int queueEnd = 0;
+
+    int startIndex = (int)(origin - map->tiles);
+    visited[startIndex] = true;
+    queue[queueEnd++] = origin;
+
+    HexTile* targetRoad = NULL;
+
+    while (queueStart < queueEnd)
+    {
+        HexTile* current = queue[queueStart++];
+
+        if (current != origin)
+        {
+            if (connectToMainOnly && current->road == ROAD_MAIN)
+            {
+                targetRoad = current;
+                break;
+            }
+            else if (!connectToMainOnly && current->road != ROAD_NONE)
+            {
+                targetRoad = current;
+                break;
+            }
+        }
+
+        for (int d = 0; d < 6; d++)
+        {
+            HexTile* neighbor = current->neighbors[d];
+            if (neighbor == NULL)
+                continue;
+
+            if (!CanRoadPass(neighbor))
+                continue;
+
+            int index = (int)(neighbor - map->tiles);
+            if (visited[index])
+                continue;
+
+            visited[index] = true;
+            previous[index] = current;
+            queue[queueEnd++] = neighbor;
+        }
+    }
+
+    bool success = false;
+    if (targetRoad != NULL)
+    {
+        success = true;
+        HexTile* curr = targetRoad;
+        while (curr != NULL)
+        {
+            if (roadType == ROAD_MAIN)
+            {
+                curr->road = ROAD_MAIN;
+            }
+            else if (curr->road == ROAD_NONE)
+            {
+                curr->road = ROAD_SECONDARY;
+            }
+            curr->isRoad = true;
+
+            if (curr == origin)
+                break;
+
+            int idx = (int)(curr - map->tiles);
+            curr = previous[idx];
+        }
+    }
+
+    free(visited);
+    free(previous);
+    free(queue);
+
+    return success;
 }
 
 
@@ -930,9 +1068,9 @@ static void Map_CreateAlternativeRoads(
 
 
     /*
-        Cantidad de caminos alternativos.
+        Cantidad de caminos alternativos secundarios.
     */
-    int alternatives = 2;
+    int alternatives = 3;
 
 
     for (int i = 0;
@@ -1003,7 +1141,11 @@ static void Map_CreateAlternativeRoads(
             if (HexDistance(
                     start->coord,
                     tile->coord
-                ) < 3)
+                ) < 4 ||
+                HexDistance(
+                    start->coord,
+                    tile->coord
+                ) > 18)
             {
                 continue;
             }
@@ -1021,9 +1163,356 @@ static void Map_CreateAlternativeRoads(
             Map_CreateRoad(
                 map,
                 start,
-                end
+                end,
+                ROAD_SECONDARY
             );
         }
+    }
+}
+
+
+/* ============================================================
+   GENERACIÓN DE BIOMAS Y ESTRUCTURAS
+   ============================================================ */
+
+static void Map_GenerateBiomes(
+    Map* map,
+    int provinceLevel
+)
+{
+    if (map == NULL || map->tileCount <= 0)
+        return;
+
+    float* biomeValues =
+        malloc(sizeof(float) * map->tileCount);
+
+    if (biomeValues == NULL)
+        return;
+
+    for (int i = 0; i < map->tileCount; i++)
+    {
+        biomeValues[i] = RandomTerrainValue();
+    }
+
+    SmoothTerrain(map, biomeValues, 3);
+
+    for (int i = 0; i < map->tileCount; i++)
+    {
+        HexTile* tile = &map->tiles[i];
+
+        if (tile->terrain == TERRAIN_WATER)
+        {
+            tile->biome = BIOME_WATER;
+            continue;
+        }
+
+        float v = biomeValues[i];
+
+        switch (provinceLevel)
+        {
+            case 2:
+                /* Nivel 2: Árido / Desiertos y Cañones */
+                if (v < 55.0f)
+                    tile->biome = BIOME_DESERT;
+                else if (v < 80.0f)
+                    tile->biome = BIOME_PLAINS;
+                else
+                    tile->biome = BIOME_MOUNTAIN;
+                break;
+
+            case 3:
+                /* Nivel 3: Selvas, Junglas y Pantanos */
+                if (v < 50.0f)
+                    tile->biome = BIOME_JUNGLE;
+                else if (v < 75.0f)
+                    tile->biome = BIOME_FOREST;
+                else if (v < 85.0f)
+                    tile->biome = BIOME_PLAINS;
+                else
+                    tile->biome = BIOME_MOUNTAIN;
+                break;
+
+            case 4:
+                /* Nivel 4: Metrópolis / Tierras fortificadas */
+                if (v < 40.0f)
+                    tile->biome = BIOME_PLAINS;
+                else if (v < 65.0f)
+                    tile->biome = BIOME_FOREST;
+                else
+                    tile->biome = BIOME_MOUNTAIN;
+                break;
+
+            case 1:
+            default:
+                /* Nivel 1: Templado / Llanuras y Bosques */
+                if (v < 55.0f)
+                    tile->biome = BIOME_PLAINS;
+                else if (v < 85.0f)
+                    tile->biome = BIOME_FOREST;
+                else
+                    tile->biome = BIOME_MOUNTAIN;
+                break;
+        }
+    }
+
+    free(biomeValues);
+}
+
+
+static void Map_GenerateSettlement(
+    Map* map,
+    HexTile* center,
+    int settlementId,
+    SettlementType settlementType,
+    int provinceLevel
+)
+{
+    (void)map;
+    if (center == NULL || center->terrain != TERRAIN_LAND)
+        return;
+
+    /* Centro urbano del poblado: cuartel / ayuntamiento / castillo */
+    center->structure.type = STRUCT_TOWN_CASTLE;
+    center->structure.settlementId = settlementId;
+    center->structure.settlementType = settlementType;
+
+    if (settlementType == SETTLEMENT_PRIMARY)
+    {
+        center->structure.isGuarded = ((rand() % 100) < (35 + provinceLevel * 15));
+        /* Tasa porcentual de spawn para escuadrón enemigo si está ocupado */
+        center->structure.enemySpawnRate = center->structure.isGuarded ? 0.04f : 0.0f;
+    }
+    else
+    {
+        center->structure.isGuarded = ((rand() % 100) < (25 + provinceLevel * 15));
+        center->structure.enemySpawnRate = center->structure.isGuarded ? 0.04f : 0.0f;
+    }
+
+    HexTile* available[6];
+    int count = 0;
+
+    for (int d = 0; d < 6; d++)
+    {
+        HexTile* n = center->neighbors[d];
+        if (n != NULL &&
+            n->terrain == TERRAIN_LAND &&
+            n->special == TILE_SPECIAL_NONE &&
+            n->river == RIVER_NONE &&
+            n->structure.type == STRUCT_NONE)
+        {
+            available[count++] = n;
+        }
+    }
+
+    /* Mezclar vecinos */
+    for (int i = count - 1; i > 0; i--)
+    {
+        int j = rand() % (i + 1);
+        HexTile* tmp = available[i];
+        available[i] = available[j];
+        available[j] = tmp;
+    }
+
+    if (settlementType == SETTLEMENT_PRIMARY)
+    {
+        /* Ciudad Principal: centro urbano + mercado + armería + viviendas */
+        if (count >= 1)
+        {
+            available[0]->structure.type = STRUCT_TOWN_MARKET;
+            available[0]->structure.settlementId = settlementId;
+            available[0]->structure.settlementType = settlementType;
+            available[0]->structure.isGuarded = false;
+        }
+        if (count >= 2)
+        {
+            available[1]->structure.type = STRUCT_TOWN_ARMORY;
+            available[1]->structure.settlementId = settlementId;
+            available[1]->structure.settlementType = settlementType;
+            available[1]->structure.isGuarded = ((rand() % 100) < (25 + provinceLevel * 10));
+        }
+        if (count >= 3)
+        {
+            available[2]->structure.type = STRUCT_TOWN_HOUSES;
+            available[2]->structure.settlementId = settlementId;
+            available[2]->structure.settlementType = settlementType;
+            available[2]->structure.isGuarded = false;
+        }
+        if (count >= 4)
+        {
+            available[3]->structure.type = STRUCT_TOWN_HOUSES;
+            available[3]->structure.settlementId = settlementId;
+            available[3]->structure.settlementType = settlementType;
+            available[3]->structure.isGuarded = false;
+        }
+    }
+    else
+    {
+        /* Poblado Secundario: escala menor (1 servicio + 1 vivienda) */
+        if (count >= 1)
+        {
+            available[0]->structure.type = (rand() % 2 == 0) ? STRUCT_TOWN_MARKET : STRUCT_TOWN_ARMORY;
+            available[0]->structure.settlementId = settlementId;
+            available[0]->structure.settlementType = settlementType;
+            available[0]->structure.isGuarded = false;
+        }
+        if (count >= 2)
+        {
+            available[1]->structure.type = STRUCT_TOWN_HOUSES;
+            available[1]->structure.settlementId = settlementId;
+            available[1]->structure.settlementType = settlementType;
+            available[1]->structure.isGuarded = false;
+        }
+    }
+}
+
+
+static void Map_GenerateStructures(
+    Map* map,
+    int provinceLevel
+)
+{
+    if (map == NULL || map->tileCount <= 0)
+        return;
+
+    int nextSettlementId = 1;
+    HexTile* settlementCenters[10];
+    int placedSettlements = 0;
+
+    /* 1. Ciudad Principal (1 cluster primario con centro urbano) */
+    for (int attempt = 0; attempt < 800 && placedSettlements < 1; attempt++)
+    {
+        int idx = rand() % map->tileCount;
+        HexTile* tile = &map->tiles[idx];
+
+        if (tile->terrain != TERRAIN_LAND ||
+            tile->special != TILE_SPECIAL_NONE ||
+            tile->river == RIVER_PRESENT ||
+            tile->structure.type != STRUCT_NONE)
+        {
+            continue;
+        }
+
+        int freeNeighbors = 0;
+        for (int d = 0; d < 6; d++)
+        {
+            HexTile* n = tile->neighbors[d];
+            if (n != NULL &&
+                n->terrain == TERRAIN_LAND &&
+                n->special == TILE_SPECIAL_NONE &&
+                n->river == RIVER_NONE &&
+                n->structure.type == STRUCT_NONE)
+            {
+                freeNeighbors++;
+            }
+        }
+        if (freeNeighbors < 3)
+            continue;
+
+        settlementCenters[placedSettlements++] = tile;
+        Map_GenerateSettlement(map, tile, nextSettlementId++, SETTLEMENT_PRIMARY, provinceLevel);
+    }
+
+    /* 2. Poblados Secundarios (2 a 3 clusters secundarios) */
+    int secondaryTarget = 2;
+    for (int attempt = 0; attempt < 1000 && placedSettlements < (1 + secondaryTarget); attempt++)
+    {
+        int idx = rand() % map->tileCount;
+        HexTile* tile = &map->tiles[idx];
+
+        if (tile->terrain != TERRAIN_LAND ||
+            tile->special != TILE_SPECIAL_NONE ||
+            tile->river == RIVER_PRESENT ||
+            tile->structure.type != STRUCT_NONE)
+        {
+            continue;
+        }
+
+        int freeNeighbors = 0;
+        for (int d = 0; d < 6; d++)
+        {
+            HexTile* n = tile->neighbors[d];
+            if (n != NULL &&
+                n->terrain == TERRAIN_LAND &&
+                n->special == TILE_SPECIAL_NONE &&
+                n->river == RIVER_NONE &&
+                n->structure.type == STRUCT_NONE)
+            {
+                freeNeighbors++;
+            }
+        }
+        if (freeNeighbors < 2)
+            continue;
+
+        bool tooClose = false;
+        for (int s = 0; s < placedSettlements; s++)
+        {
+            if (HexDistance(tile->coord, settlementCenters[s]->coord) < 14)
+            {
+                tooClose = true;
+                break;
+            }
+        }
+        if (tooClose)
+            continue;
+
+        settlementCenters[placedSettlements++] = tile;
+        Map_GenerateSettlement(map, tile, nextSettlementId++, SETTLEMENT_SECONDARY, provinceLevel);
+    }
+
+    /* 3. Altares Divinos (3 altares) */
+    int altarsToPlace = 3;
+    int placedAltars = 0;
+    for (int attempt = 0; attempt < 800 && placedAltars < altarsToPlace; attempt++)
+    {
+        int idx = rand() % map->tileCount;
+        HexTile* tile = &map->tiles[idx];
+
+        if (tile->terrain != TERRAIN_LAND ||
+            tile->special != TILE_SPECIAL_NONE ||
+            tile->river == RIVER_PRESENT ||
+            tile->structure.type != STRUCT_NONE)
+        {
+            continue;
+        }
+
+        bool nearTown = false;
+        for (int d = 0; d < 6; d++)
+        {
+            if (tile->neighbors[d] != NULL &&
+                tile->neighbors[d]->structure.settlementId > 0)
+            {
+                nearTown = true;
+                break;
+            }
+        }
+        if (nearTown)
+            continue;
+
+        tile->structure.type = STRUCT_ALTAR;
+        tile->structure.isGuarded = ((rand() % 100) < (45 + provinceLevel * 15));
+        tile->structure.divineCardId = (rand() % 6) + 1;
+        placedAltars++;
+    }
+
+    /* 4. Atalayas (3 atalayas) */
+    int towersToPlace = 3;
+    int placedTowers = 0;
+    for (int attempt = 0; attempt < 800 && placedTowers < towersToPlace; attempt++)
+    {
+        int idx = rand() % map->tileCount;
+        HexTile* tile = &map->tiles[idx];
+
+        if (tile->terrain != TERRAIN_LAND ||
+            tile->special != TILE_SPECIAL_NONE ||
+            tile->river == RIVER_PRESENT ||
+            tile->structure.type != STRUCT_NONE)
+        {
+            continue;
+        }
+
+        tile->structure.type = STRUCT_WATCHTOWER;
+        tile->structure.isGuarded = ((rand() % 100) < (25 + provinceLevel * 10));
+        placedTowers++;
     }
 }
 
@@ -1035,7 +1524,8 @@ static void Map_CreateAlternativeRoads(
 Map Map_GenerateProcedural(
     int mapRadius,
     int landProbabilityPercent,
-    int endCount
+    int endCount,
+    int provinceLevel
 )
 {
     Map map;
@@ -1084,7 +1574,7 @@ Map Map_GenerateProcedural(
 
 
     /* ========================================================
-       1. GENERAR TILES Y VALORES ALEATORIOS
+       1. GENERAR TILES CON FORMA ORGÁNICA
        ======================================================== */
 
     float* terrainValues =
@@ -1098,6 +1588,24 @@ Map Map_GenerateProcedural(
         Map_Free(&map);
         return map;
     }
+
+
+    /*
+        Parámetros para silueta orgánica:
+        Deformación armónica basada en ángulo polar desde el centro del mapa.
+    */
+    float phase1 = ((float)(rand() % 628)) / 100.0f;
+    float phase2 = ((float)(rand() % 628)) / 100.0f;
+    float phase3 = ((float)(rand() % 628)) / 100.0f;
+    float phase4 = ((float)(rand() % 628)) / 100.0f;
+
+    /* Tabla de búsqueda espacial 2D rápida para conectar vecinos en O(1) */
+    int gridWidth = 2 * mapRadius + 1;
+    HexTile** gridLookup =
+        calloc(
+            gridWidth * gridWidth,
+            sizeof(HexTile*)
+        );
 
 
     for (int q = -mapRadius;
@@ -1125,39 +1633,66 @@ Map Map_GenerateProcedural(
             HexCoord coord =
                 HexCoord_Create(q, r);
 
-            /*
-                Guardamos el valor aleatorio
-                independientemente del terreno.
-            */
+            /* Coordenadas euclidianas relativas al centro */
+            float px =
+                sqrtf(3.0f) * ((float)q + (float)r / 2.0f);
+            float py =
+                1.5f * (float)r;
+            float dist =
+                sqrtf(px * px + py * py);
+            float angle =
+                atan2f(py, px);
+
+            /* Límite orgánico con armónicos naturales */
+            float maxR =
+                (float)mapRadius * 1.55f * (
+                    0.74f
+                    + 0.16f * sinf(2.0f * angle + phase1)
+                    + 0.10f * cosf(3.0f * angle + phase2)
+                    + 0.06f * sinf(5.0f * angle + phase3)
+                    + 0.04f * cosf(7.0f * angle + phase4)
+                );
+
+            if (dist > maxR)
+            {
+                /* Fuera de la frontera orgánica de la provincia */
+                continue;
+            }
+
             terrainValues[
                 map.tileCount
             ] =
                 RandomTerrainValue();
 
-            /*
-                Inicialmente todos son tierra.
-                El terreno real se decide después
-                del smoothing.
-            */
             map.tiles[
-                map.tileCount++
+                map.tileCount
             ] =
                 HexTile_Create(
                     coord,
                     1,
                     TERRAIN_LAND
                 );
+
+            if (gridLookup != NULL)
+            {
+                int gx = q + mapRadius;
+                int gy = r + mapRadius;
+                if (gx >= 0 && gx < gridWidth && gy >= 0 && gy < gridWidth)
+                {
+                    gridLookup[gx * gridWidth + gy] =
+                        &map.tiles[map.tileCount];
+                }
+            }
+
+            map.tileCount++;
         }
     }
 
 
     /* ========================================================
-       2. CONECTAR VECINOS
+       2. CONECTAR VECINOS EN O(1)
        ======================================================== */
 
-    /*
-        Esto debe hacerse ANTES del smoothing.
-    */
     for (int i = 0;
          i < map.tileCount;
          i++)
@@ -1172,13 +1707,27 @@ Map Map_GenerateProcedural(
                     (HexDirection)d
                 );
 
+            HexTile* neighbor = NULL;
 
-            HexTile* neighbor =
-                Map_FindTile(
-                    &map,
-                    target
-                );
+            if (gridLookup != NULL)
+            {
+                int gx = target.q + mapRadius;
+                int gy = target.r + mapRadius;
 
+                if (gx >= 0 && gx < gridWidth && gy >= 0 && gy < gridWidth)
+                {
+                    neighbor =
+                        gridLookup[gx * gridWidth + gy];
+                }
+            }
+            else
+            {
+                neighbor =
+                    Map_FindTile(
+                        &map,
+                        target
+                    );
+            }
 
             if (neighbor != NULL)
             {
@@ -1191,15 +1740,16 @@ Map Map_GenerateProcedural(
         }
     }
 
+    if (gridLookup != NULL)
+    {
+        free(gridLookup);
+    }
+
 
     /* ========================================================
        3. SMOOTHING DEL TERRENO
        ======================================================== */
 
-    /*
-        Tres iteraciones generan agrupaciones de agua
-        bastante más naturales que el random puro.
-    */
     SmoothTerrain(
         &map,
         terrainValues,
@@ -1230,6 +1780,16 @@ Map Map_GenerateProcedural(
 
 
     free(terrainValues);
+
+
+    /* ========================================================
+       4b. GENERAR BIOMAS POR NIVEL DE PROVINCIA
+       ======================================================== */
+
+    Map_GenerateBiomes(
+        &map,
+        provinceLevel
+    );
 
 
     /* ========================================================
@@ -1284,9 +1844,20 @@ Map Map_GenerateProcedural(
 
 
     /* ========================================================
-       8. CAMINOS DEL INICIO A CADA FINAL
+       8. GENERAR ESTRUCTURAS (PUEBLOS, ALTARES, ATALAYAS)
        ======================================================== */
 
+    Map_GenerateStructures(
+        &map,
+        provinceLevel
+    );
+
+
+    /* ========================================================
+       9. CAMINOS PRINCIPALES Y SECUNDARIOS
+       ======================================================== */
+
+    /* 9a. Camino Principal: De Inicio a cada Salida */
     if (start != NULL)
     {
         for (int i = 0;
@@ -1307,16 +1878,91 @@ Map Map_GenerateProcedural(
             Map_CreateRoad(
                 &map,
                 start,
-                tile
+                tile,
+                ROAD_MAIN
             );
         }
     }
 
+    /* 9b. Conectar Centro Urbano de Ciudad Principal al Camino Principal */
+    for (int i = 0;
+         i < map.tileCount;
+         i++)
+    {
+        HexTile* tile =
+            &map.tiles[i];
 
-    /* ========================================================
-       9. CAMINOS ALTERNATIVOS
-       ======================================================== */
+        if (tile->structure.type == STRUCT_TOWN_CASTLE &&
+            tile->structure.settlementType == SETTLEMENT_PRIMARY)
+        {
+            Map_ConnectToNearestRoad(
+                &map,
+                tile,
+                ROAD_MAIN,
+                true
+            );
+        }
+    }
 
+    /* 9c. Conectar Centro Urbano de Poblados Secundarios a la red con Camino Secundario */
+    for (int i = 0;
+         i < map.tileCount;
+         i++)
+    {
+        HexTile* tile =
+            &map.tiles[i];
+
+        if (tile->structure.type == STRUCT_TOWN_CASTLE &&
+            tile->structure.settlementType == SETTLEMENT_SECONDARY)
+        {
+            Map_ConnectToNearestRoad(
+                &map,
+                tile,
+                ROAD_SECONDARY,
+                false
+            );
+        }
+    }
+
+    /* 9d. Conectar Altares Divinos con Camino Secundario */
+    for (int i = 0;
+         i < map.tileCount;
+         i++)
+    {
+        HexTile* tile =
+            &map.tiles[i];
+
+        if (tile->structure.type == STRUCT_ALTAR)
+        {
+            Map_ConnectToNearestRoad(
+                &map,
+                tile,
+                ROAD_SECONDARY,
+                false
+            );
+        }
+    }
+
+    /* 9e. Conectar Atalayas con Camino Secundario */
+    for (int i = 0;
+         i < map.tileCount;
+         i++)
+    {
+        HexTile* tile =
+            &map.tiles[i];
+
+        if (tile->structure.type == STRUCT_WATCHTOWER)
+        {
+            Map_ConnectToNearestRoad(
+                &map,
+                tile,
+                ROAD_SECONDARY,
+                false
+            );
+        }
+    }
+
+    /* 9f. Senderos alternativos secundarios */
     Map_CreateAlternativeRoads(
         &map
     );
@@ -1328,7 +1974,7 @@ Map Map_GenerateProcedural(
 
     /*
         Si un camino atraviesa un río,
-        marcamos ese tile como puente.
+        marcamos ese tile como puente y fijamos peaje según tipo de camino.
     */
     for (int i = 0;
          i < map.tileCount;
@@ -1344,6 +1990,17 @@ Map Map_GenerateProcedural(
         {
             tile->bridge =
                 BRIDGE_ABANDONED;
+
+            tile->structure.type =
+                STRUCT_BRIDGE;
+
+            tile->structure.isGuarded =
+                ((rand() % 100) < (30 + provinceLevel * 15));
+
+            tile->structure.tollCost =
+                (tile->road == ROAD_MAIN)
+                    ? (20 + provinceLevel * 5)
+                    : (10 + provinceLevel * 4);
         }
     }
 
@@ -1370,3 +2027,20 @@ void Map_Free(
     map->tiles = NULL;
     map->tileCount = 0;
 }
+void Map_UpdateVision(Map* map, HexCoord center, int visionRange) {
+    for (int i = 0; i < map->tileCount; i++) {
+        map->tiles[i].visible = false;
+    }
+    for (int i = 0; i < map->tileCount; i++) {
+        int dist = HexCoord_Distance(map->tiles[i].coord, center);
+        if (dist <= visionRange) {
+            map->tiles[i].visible = true;
+            map->tiles[i].visited = true;
+        } else if (dist <= visionRange + 2) {
+            map->tiles[i].visited = true;
+        }
+    }
+}
+
+
+

@@ -1,4 +1,4 @@
-#ifndef MAP_GENERATOR_H
+﻿#ifndef MAP_GENERATOR_H
 #define MAP_GENERATOR_H
 
 #include "hex_tile.h"
@@ -21,12 +21,19 @@ typedef struct {
 
     landProbabilityPercent:
         Probabilidad de que una celda sea tierra.
+
+    endCount:
+        Cantidad de salidas de la provincia.
+
+    provinceLevel:
+        Nivel de la provincia (1 a 4) que define el pool de biomas y dificultad.
 */
 
 Map Map_GenerateProcedural(
     int mapRadius,
     int landProbabilityPercent,
-    int endCount
+    int endCount,
+    int provinceLevel
 );
 
 
@@ -38,4 +45,7 @@ void Map_Free(
     Map* map
 );
 
+void Map_UpdateVision(Map* map, HexCoord center, int visionRange);
+
 #endif
+

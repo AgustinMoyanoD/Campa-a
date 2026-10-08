@@ -1,0 +1,19 @@
+[EVENT]
+Id=abandoned_caravan_002
+Name=Caravana Abandonada
+Description=Entre los árboles uno de tus sargentos divisa una\ncaravana de carruajes casi destruídos.\n\nParecieran pertenecer al ejército del norte.
+Trigger=RANDOM
+Probability=8
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=40
+
+[OPTION_1]
+Text=Registrar caravana
+Result_pool=res_abn_car_002, res_abn_car_003, res_abn_car_004
+
+[OPTION_2]
+Text=Ignorarla.
