@@ -1,7 +1,7 @@
-[EVENT]
+﻿[EVENT]
 Id=abandoned_caravan_002
 Name=Caravana Abandonada
-Description=Entre los árboles uno de tus sargentos divisa una\ncaravana de carruajes casi destruídos.\n\nParecieran pertenecer al ejército del norte.
+Description=Entre los Ã¡rboles uno de tus sargentos divisa una\ncaravana de carruajes casi destruÃ­dos.\n\nParecieran pertenecer al ejÃ©rcito del norte.
 Trigger=RANDOM
 Probability=8
 MinInfamy=0
@@ -17,3 +17,5 @@ Result_pool=res_abn_car_002, res_abn_car_003, res_abn_car_004
 
 [OPTION_2]
 Text=Ignorarla.
+Result_pool=NONE
+

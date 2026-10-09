@@ -50,7 +50,7 @@ HexCoord PixelToHex(Vector2 position, float radius)
    HELPERS DE BIOMA / ALTURA
    ============================================================ */
 
-static float GetBiomeHeight(BiomeType biome)
+float GetBiomeHeight(BiomeType biome)
 {
     switch (biome) {
         case BIOME_WATER:    return  2.0f;
@@ -590,3 +590,4 @@ void MapView_DrawHexFillHighlight(const HexTile* tile, float radius, Vector2 ori
     }
     DrawTriangleFan(points, 8, color);
 }
+

@@ -1,4 +1,5 @@
 ﻿#include "raylib.h"
+#include <math.h>
 
 #include "map_generator.h"
 #include "map_view.h"
@@ -124,7 +125,7 @@ int main(void)
     /* REPARAR PUNTERO */
     Army_SetCommanderGeneral(&playerArmy);
 
-    GameMaster gm;
+    GameMaster gm = {0};
     GameMaster_Init(&gm);
     GameMaster_StartTurn(&gm, &playerArmy);
 
@@ -219,6 +220,41 @@ int main(void)
         /* ========================================================
            CÁMARA
            ======================================================== */
+        /* ========================================================
+           MOVIMIENTO DEL EJERCITO
+           ======================================================== */
+        if (playerArmy.isMoving && gm.phase != PHASE_EVENT) {
+            playerArmy.moveTimer += GetFrameTime();
+            if (playerArmy.moveTimer >= 0.25f) { // 0.25 seg por tile
+                playerArmy.moveTimer = 0.0f;
+                HexCoord nextPos = playerArmy.movePath[playerArmy.currentPathIndex];
+                
+                HexTile* targetTile = NULL;
+                for (int i = 0; i < levelMap.tileCount; i++) {
+                    if (levelMap.tiles[i].coord.q == nextPos.q && levelMap.tiles[i].coord.r == nextPos.r) {
+                        targetTile = &levelMap.tiles[i];
+                        break;
+                    }
+                }
+                
+                if (targetTile) {
+                    if (GameMaster_AttemptMove(&gm, &levelMap, &playerArmy, targetTile)) {
+                        Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm));
+                        playerArmy.currentPathIndex++;
+                        if (playerArmy.currentPathIndex >= playerArmy.pathLength) {
+                            playerArmy.isMoving = false;
+                        } else if (gm.phase == PHASE_EVENT) {
+                            playerArmy.isMoving = false; 
+                        }
+                    } else {
+                        playerArmy.isMoving = false;
+                    }
+                } else {
+                    playerArmy.isMoving = false;
+                }
+            }
+        }
+
         CameraController_Update(&cc, GetFrameTime());
 
 
@@ -288,20 +324,39 @@ int main(void)
              * Buscar el HexTile correspondiente.
              */
                         for (int i = 0; i < levelMap.tileCount; i++) {
-                HexTile* tile = &levelMap.tiles[i];
-
-                if (tile->coord.q == mouseHex.q && tile->coord.r == mouseHex.r) {
-                    if (tile == selectedTile) {
-                        if (gm.hasRolledThisTurn && GameMaster_AttemptMove(&gm, &levelMap, &playerArmy, tile)) {
-                            selectedTile = NULL;
-                            Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm));
+                            HexTile* tile = &levelMap.tiles[i];
+            
+                            if (tile->coord.q == mouseHex.q && tile->coord.r == mouseHex.r) {
+                                if (tile == selectedTile && !playerArmy.isMoving) {
+                                    if (gm.hasRolledThisTurn) {
+                                        HexTile* startTile = NULL;
+                                        for (int k = 0; k < levelMap.tileCount; k++) {
+                                            if (levelMap.tiles[k].coord.q == playerArmy.position.q && levelMap.tiles[k].coord.r == playerArmy.position.r) {
+                                                startTile = &levelMap.tiles[k]; break;
+                                            }
+                                        }
+                                        if (startTile) {
+                                            HexTile* path[128];
+                                            int cost = 0;
+                                            int pathLen = Map_FindPath(&levelMap, startTile, tile, &cost, path);
+                                            if (pathLen > 0 && gm.currentActionPoints >= cost) {
+                                                for (int p = 0; p < pathLen; p++) {
+                                                    playerArmy.movePath[p] = path[p]->coord;
+                                                }
+                                                playerArmy.pathLength = pathLen;
+                                                playerArmy.currentPathIndex = 0;
+                                                playerArmy.moveTimer = 0.0f;
+                                                playerArmy.isMoving = true;
+                                                selectedTile = NULL;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    selectedTile = tile;
+                                }
+                                break;
+                            }
                         }
-                    } else {
-                        selectedTile = tile;
-                    }
-                    break;
-                }
-            }
         }
 
 
@@ -350,12 +405,63 @@ int main(void)
 
         if (selectedTile != NULL)
         {
-            MapView_DrawHexHighlight(
-                selectedTile,
-                hexRadius,
-                origin,
-                GREEN
-            );
+            if (!playerArmy.isMoving) {
+                HexTile* startTile = NULL;
+                for (int k = 0; k < levelMap.tileCount; k++) {
+                    if (levelMap.tiles[k].coord.q == playerArmy.position.q && levelMap.tiles[k].coord.r == playerArmy.position.r) {
+                        startTile = &levelMap.tiles[k]; break;
+                    }
+                }
+                if (startTile) {
+                    HexTile* path[128];
+                    int cost = 0;
+                    int pathLen = Map_FindPath(&levelMap, startTile, selectedTile, &cost, path);
+                    
+                    Color pathColor = (gm.currentActionPoints >= cost) ? GREEN : RED;
+                    
+                    if (pathLen > 0) {
+                        // Resaltar suavemente solo la casilla destino
+                        MapView_DrawHexHighlight(selectedTile, hexRadius, origin, pathColor);
+                        
+                        // Dibujar linea segmentada siguiendo el camino
+                        Vector2 prev = HexToPixel(playerArmy.position, hexRadius);
+                        prev.x += origin.x; prev.y += origin.y;
+                        
+                        for (int p = 0; p < pathLen; p++) {
+                            Vector2 curr = HexToPixel(path[p]->coord, hexRadius);
+                            curr.x += origin.x; curr.y += origin.y;
+                            DrawLineEx(prev, curr, 6.0f, pathColor);
+                            prev = curr;
+                        }
+                        
+                        // Dibujar flecha al final (en prev)
+                        if (pathLen > 0) {
+                            Vector2 p1 = HexToPixel((pathLen > 1) ? path[pathLen-2]->coord : playerArmy.position, hexRadius);
+                            p1.x += origin.x; p1.y += origin.y;
+                            
+                            float angle = atan2f(prev.y - p1.y, prev.x - p1.x);
+                            float arrowSize = 20.0f;
+                            Vector2 t1 = { prev.x - arrowSize * cosf(angle - 0.5f), prev.y - arrowSize * sinf(angle - 0.5f) };
+                            Vector2 t2 = { prev.x - arrowSize * cosf(angle + 0.5f), prev.y - arrowSize * sinf(angle + 0.5f) };
+                            DrawLineEx(prev, t1, 6.0f, pathColor);
+                            DrawLineEx(prev, t2, 6.0f, pathColor);
+                        }
+                        
+                        // Centro de la ruta para el costo de PA
+                        int midIdx = pathLen / 2;
+                        Vector2 midPx = HexToPixel(path[midIdx]->coord, hexRadius);
+                        midPx.x += origin.x; midPx.y += origin.y;
+                        
+                        DrawCircleV(midPx, 18.0f, DARKGRAY);
+                        DrawCircleLines(midPx.x, midPx.y, 18.0f, pathColor);
+                        const char* text = TextFormat("%d PA", cost);
+                        int textW = MeasureText(text, 10);
+                        DrawText(text, midPx.x - textW/2, midPx.y - 5, 10, WHITE);
+                    }
+                }
+            } else {
+                MapView_DrawHexHighlight(selectedTile, hexRadius, origin, GREEN);
+            }
         }
 
 
@@ -405,7 +511,7 @@ int main(void)
                 ResultView_Draw(gm.activeResult, SW, SH);
                 int r_opt = (gm.eventTimer > 1.0f) ? ResultView_HandleInput(gm.activeResult, SW, SH) : -1;
                 if (r_opt == 0) {
-                    ResultView_Apply(gm.activeResult, &gm, &playerArmy);
+                    Event_ApplyResult(gm.activeResult, &playerArmy, &gm.infamy);
                     gm.phase = PHASE_PLAYER;
                     gm.activeResult = NULL;
                 }
@@ -430,7 +536,6 @@ int main(void)
                             gm.activeEvent = NULL;
                         }
                     } else {
-                        EventView_ApplyResult(chosenOpt, &gm, &playerArmy);
                         gm.phase = PHASE_PLAYER;
                         gm.activeEvent = NULL;
                     }
@@ -455,6 +560,12 @@ int main(void)
 
     return 0;
 }
+
+
+
+
+
+
 
 
 

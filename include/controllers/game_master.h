@@ -23,6 +23,7 @@ typedef enum {
 typedef struct {
     EventTrigger trigger;
     TimeOfDay timeOfDay;
+    int biome;
     float infamy;
     int gold;
     int food;
@@ -34,6 +35,7 @@ typedef struct {
     int currentTurn;
     int currentDay;
     TimeOfDay timeOfDay;
+    int biome;
     GamePhase phase;
     float infamy; // 0.0 to 100.0
     
@@ -67,6 +69,7 @@ EventResult* GameMaster_FindResult(GameMaster* gm, const char* id);
 
 
 void GameMaster_ApplyDiceRoll(GameMaster* gm, int diceTotal);
+
 
 
 

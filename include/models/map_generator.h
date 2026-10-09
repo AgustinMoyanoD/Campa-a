@@ -47,5 +47,7 @@ void Map_Free(
 
 void Map_UpdateVision(Map* map, HexCoord center, int visionRange);
 
+int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut);
 #endif
+
 

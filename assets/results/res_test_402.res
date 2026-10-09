@@ -1,12 +1,11 @@
-[RESULT]
+﻿[RESULT]
 Id=res_amb_402
-Name=¡Derrota!
-Description=Tu ejército le hizo frente a los bandidos y no podría haber salido peor.
-Result_Gold=0
-Result_Infamy=5.0
-Result_Moral=0
-Result_Food=5.0
-Result_Water=0
-Loss_Initiates=20
-Loss_Soldiers=10
-Loss_Sergeants=1
+Name=Â¡Derrota!
+Description=Tu ejÃ©rcito le hizo frente a los bandidos y no podrÃ­a haber salido peor.
+Effect=infamy:+5.0
+Effect=food:+5.0
+Effect=initiates:-20
+Effect=soldiers:-10
+Effect=sergeants:-1
+
+

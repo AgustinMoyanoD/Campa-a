@@ -66,18 +66,7 @@ int EventView_HandleInput(const EventDef* event, int screenWidth, int screenHeig
     return -1;
 }
 
-void EventView_ApplyResult(const EventOption* option, GameMaster* gm, Army* army) {
-    if (!option || !gm || !army) return;
 
-    army->monedas += option->resultGold;
-    if (army->monedas < 0) army->monedas = 0;
-    
-    gm->infamy += option->resultInfamy;
-    if (gm->infamy < 0.0f) gm->infamy = 0.0f;
-    if (gm->infamy > 100.0f) gm->infamy = 100.0f;
-    
-    // Si startBattle es true, se levantaría la UI de batalla
-}
 
 void ResultView_Draw(const EventResult* res, int screenWidth, int screenHeight) {
     if (!res) return;
@@ -129,28 +118,3 @@ int ResultView_HandleInput(const EventResult* res, int screenWidth, int screenHe
     return -1;
 }
 
-void ResultView_Apply(const EventResult* res, GameMaster* gm, Army* army) {
-    army->monedas += res->resultGold;
-    gm->infamy += res->resultInfamy;
-    army->moral += res->resultMoral;
-    army->comida_disponible += res->resultFood;
-    army->agua_disponible += res->resultWater;
-    
-    army->iniciados -= res->lossInitiates;
-    army->soldados -= res->lossSoldiers;
-    army->sargentos -= res->lossSergeants;
-    
-    if (army->iniciados < 0) army->iniciados = 0;
-    if (army->soldados < 0) army->soldados = 0;
-    if (army->sargentos < 0) army->sargentos = 0;
-
-    if (gm->infamy < 0.0f) gm->infamy = 0.0f;
-    if (gm->infamy > 100.0f) gm->infamy = 100.0f;
-    if (army->moral < 0.0f) army->moral = 0.0f;
-    if (army->moral > 100.0f) army->moral = 100.0f;
-
-    if (res->startsBattle) {
-        gm->phase = PHASE_ENEMY; // O batalla segn el flujo del juego
-        // Aadiramos lgica de spawn de enemigo aqu si fuera necesario
-    }
-}

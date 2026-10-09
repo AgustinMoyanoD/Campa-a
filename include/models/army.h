@@ -42,6 +42,13 @@ typedef struct {
     float salud;    /* 0.0f a 100.0f */
     int infamia;    /* Escala con saqueos y agresiones */
 
+    /* Animacion de Movimiento */
+    HexCoord movePath[128];
+    int pathLength;
+    int currentPathIndex;
+    float moveTimer;
+    bool isMoving;
+
 } Army;
 
 
@@ -116,3 +123,5 @@ bool Army_CheckMutiny(Army* army, int* outRebelLieutenantIndex);
 
 
 int Army_GetVision(const Army* army);
+
+

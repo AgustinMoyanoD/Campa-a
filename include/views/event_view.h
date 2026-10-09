@@ -11,11 +11,12 @@ void EventView_Draw(const EventDef* event, int screenWidth, int screenHeight);
 int EventView_HandleInput(const EventDef* event, int screenWidth, int screenHeight);
 
 // Aplica el resultado del evento seleccionado al GameMaster y al Army
-void EventView_ApplyResult(const EventOption* option, GameMaster* gm, Army* army);
+
 
 void ResultView_Draw(const EventResult* res, int screenWidth, int screenHeight);
 int ResultView_HandleInput(const EventResult* res, int screenWidth, int screenHeight);
-void ResultView_Apply(const EventResult* res, GameMaster* gm, Army* army);
+
 
 #endif /* EVENT_VIEW_H */
+
 

@@ -1,4 +1,4 @@
-#ifndef MAP_VIEW_H
+﻿#ifndef MAP_VIEW_H
 #define MAP_VIEW_H
 
 #include "raylib.h"
@@ -20,6 +20,7 @@ void MapView_Draw(
     bool debugRevealMap
 );
 
+float GetBiomeHeight(BiomeType biome);
 void MapView_DrawHexHighlight(
     const HexTile* tile,
     float          radius,
@@ -44,6 +45,7 @@ void MapView_DrawMinimap(
 );
 
 #endif /* MAP_VIEW_H */
+
 
 
 

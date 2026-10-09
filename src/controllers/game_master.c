@@ -59,9 +59,10 @@ void GameMaster_EndTurn(GameMaster* gm, Map* map, Army* playerArmy) {
 }
 
 static bool Event_MatchesContext(const EventDef* event, const EventContext* context) {
-    if (event->trigger != context->trigger && event->trigger != TRIGGER_RANDOM) return false;
-    
-    if (event->timeOfDay != -1 && event->timeOfDay != context->timeOfDay) return false;
+    if (event->hasTriggerKey && !event->triggers[context->trigger]) return false;
+    if (event->hasTimeKey && !event->timesOfDay[context->timeOfDay]) return false;
+    if (event->hasBiomeKey && !event->biomes[context->biome]) return false;
+
     if (context->infamy < event->minInfamy) return false;
     if (event->maxInfamy > 0 && context->infamy > event->maxInfamy) return false;
     if (context->gold < event->minGold) return false;
@@ -102,7 +103,7 @@ bool GameMaster_AttemptMove(GameMaster* gm, Map* map, Army* playerArmy, HexTile*
     BiomeProperties props = Biome_GetProperties(targetTile->biome);
     int apCost = props.actionPointCost;
 
-    if (gm->currentActionPoints >= apCost) {
+    if (gm->currentActionPoints >= apCost) {    
         gm->currentActionPoints -= apCost;
         playerArmy->position = targetTile->coord;
         
@@ -115,6 +116,7 @@ bool GameMaster_AttemptMove(GameMaster* gm, Map* map, Army* playerArmy, HexTile*
                         // Preparar el contexto del evento
         EventContext ctx;
         ctx.timeOfDay = gm->timeOfDay;
+        ctx.biome = targetTile->biome;
         ctx.infamy = gm->infamy;
         ctx.gold = playerArmy->monedas;
         ctx.food = (int)playerArmy->comida_disponible;
@@ -177,6 +179,8 @@ EventResult* GameMaster_FindResult(GameMaster* gm, const char* id) {
     }
     return NULL;
 }
+
+
 
 
 

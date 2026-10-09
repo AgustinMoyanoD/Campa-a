@@ -2044,3 +2044,131 @@ void Map_UpdateVision(Map* map, HexCoord center, int visionRange) {
 
 
 
+
+
+#define MAX_PATH_LENGTH 128
+
+typedef struct AStarNode_s {
+    HexTile* tile;
+    int g;
+    int f;
+    struct AStarNode_s* cameFrom;
+    bool closed;
+    bool open;
+} AStarNode;
+
+// Retorna el tamaño del camino (0 si no hay camino). pathOut debe tener al menos MAX_PATH_LENGTH
+int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut) {
+    if (!map || !start || !end) return 0;
+    if (start == end) return 0;
+
+    // Reservar array temporal para AStarNodes
+    AStarNode* nodes = (AStarNode*)calloc(map->tileCount, sizeof(AStarNode));
+    for (int i = 0; i < map->tileCount; i++) {
+        nodes[i].tile = &map->tiles[i];
+        nodes[i].g = 999999;
+        nodes[i].f = 999999;
+    }
+
+    // Funcion auxiliar para encontrar el nodo AStar de un HexTile
+    int startIndex = -1, endIndex = -1;
+    for (int i = 0; i < map->tileCount; i++) {
+        if (&map->tiles[i] == start) startIndex = i;
+        if (&map->tiles[i] == end) endIndex = i;
+    }
+    if (startIndex == -1 || endIndex == -1) {
+        free(nodes);
+        return 0;
+    }
+
+    nodes[startIndex].g = 0;
+    nodes[startIndex].f = HexCoord_Distance(start->coord, end->coord);
+    nodes[startIndex].open = true;
+
+    while (true) {
+        // Encontrar el nodo abierto con menor F
+        int currentIdx = -1;
+        int minF = 999999;
+        for (int i = 0; i < map->tileCount; i++) {
+            if (nodes[i].open && nodes[i].f < minF) {
+                minF = nodes[i].f;
+                currentIdx = i;
+            }
+        }
+
+        if (currentIdx == -1) break; // No path found
+        
+        if (currentIdx == endIndex) {
+            // Path found!
+            int length = 0;
+            AStarNode* curr = &nodes[endIndex];
+            
+            // Contar longitud (excluyendo el nodo de inicio)
+            AStarNode* temp = curr;
+            while (temp->cameFrom != NULL) {
+                length++;
+                temp = temp->cameFrom;
+            }
+            
+            if (length > MAX_PATH_LENGTH) {
+                free(nodes);
+                return 0; // Camino muy largo
+            }
+            
+            *outTotalCost = curr->g;
+            
+            // Reconstruir camino al reves
+            int w = length - 1;
+            while (curr->cameFrom != NULL) {
+                pathOut[w] = curr->tile;
+                // Buscar el cameFrom en el array
+                for (int i=0; i<map->tileCount; i++) {
+                    if (nodes[i].tile == curr->cameFrom->tile) {
+                        curr = &nodes[i];
+                        break;
+                    }
+                }
+                w--;
+            }
+            
+            free(nodes);
+            return length;
+        }
+
+        nodes[currentIdx].open = false;
+        nodes[currentIdx].closed = true;
+
+        // Evaluar vecinos
+        for (int i = 0; i < 6; i++) {
+            HexTile* neighbor = nodes[currentIdx].tile->neighbors[i];
+            if (!neighbor) continue;
+            
+            // Coste de entrar al vecino
+            int cost = Biome_GetProperties(neighbor->biome).actionPointCost;
+            if (neighbor->isRoad) cost = (cost > 1) ? cost - 1 : 1; // Basic road discount
+            
+            // Encontrar vecino en nodes
+            int nIdx = -1;
+            for (int j = 0; j < map->tileCount; j++) {
+                if (nodes[j].tile == neighbor) {
+                    nIdx = j;
+                    break;
+                }
+            }
+            
+            if (nIdx == -1 || nodes[nIdx].closed) continue;
+            
+            int tentativeG = nodes[currentIdx].g + cost;
+            if (!nodes[nIdx].open || tentativeG < nodes[nIdx].g) {
+                nodes[nIdx].g = tentativeG;
+                nodes[nIdx].f = tentativeG + HexCoord_Distance(neighbor->coord, end->coord);
+                nodes[nIdx].cameFrom = &nodes[currentIdx];
+                nodes[nIdx].open = true;
+            }
+        }
+    }
+
+    free(nodes);
+    return 0; // No path
+}
+

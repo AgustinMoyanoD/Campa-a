@@ -1,121 +1,47 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campfire - Editor de Eventos y Resultados</title>
+    <title>Campfire - Editor de Eventos V3</title>
     <style>
-        :root {
-            --bg: #1e1e1e;
-            --surface: #2d2d2d;
-            --primary: #d4af37;
-            --text: #e0e0e0;
-            --border: #444;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 15px;
-            margin-bottom: 15px;
-        }
+        :root { --bg: #1e1e1e; --surface: #2d2d2d; --primary: #d4af37; --text: #e0e0e0; --border: #444; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border); padding-bottom: 15px; margin-bottom: 15px; }
         h1 { margin: 0; color: var(--primary); }
-        button {
-            background-color: var(--primary);
-            color: #000;
-            border: none;
-            padding: 8px 16px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-        }
+        button { background-color: var(--primary); color: #000; border: none; padding: 8px 16px; font-weight: bold; cursor: pointer; border-radius: 4px; }
         button:hover { filter: brightness(1.1); }
-        .main-container {
-            display: flex;
-            gap: 20px;
-            flex: 1;
-            min-height: 0;
-        }
-        .sidebar {
-            width: 300px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-        }
-        .sidebar-header {
-            padding: 10px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-        }
-        .list-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-        .list-item {
-            padding: 8px;
-            margin-bottom: 5px;
-            background: #3a3a3a;
-            border-radius: 4px;
-            cursor: pointer;
-            border-left: 3px solid transparent;
-        }
+        .main-container { display: flex; gap: 20px; flex: 1; min-height: 0; }
+        .sidebar { width: 300px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+        .list-container { flex: 1; overflow-y: auto; padding: 10px; }
+        .list-item { padding: 8px; margin-bottom: 5px; background: #3a3a3a; border-radius: 4px; cursor: pointer; border-left: 3px solid transparent; }
         .list-item:hover { background: #4a4a4a; }
         .list-item.selected { border-left-color: var(--primary); background: #444; }
-        .editor {
-            flex: 1;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-            overflow-y: auto;
-        }
+        .editor { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; overflow-y: auto; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #aaa; }
-        input, textarea, select {
-            width: 100%;
-            padding: 8px;
-            background: #111;
-            color: white;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
+        input, textarea, select { width: 100%; padding: 8px; background: #111; color: white; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
         textarea { resize: vertical; min-height: 80px; }
-        .options-container {
-            border: 1px solid var(--border);
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            background: #222;
-        }
+        .options-container { border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-bottom: 10px; background: #222; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
         .hidden { display: none !important; }
         .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
         .tab { padding: 8px 15px; cursor: pointer; color: #888; }
         .tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); font-weight: bold; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; background: #111; padding: 10px; border: 1px solid var(--border); border-radius: 4px; }
+        .checkbox-group label { display: flex; align-items: center; font-weight: normal; margin: 0; color: white; gap: 5px; cursor: pointer; }
+        .checkbox-group input[type="checkbox"] { width: auto; margin: 0; }
+        .effect-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .effect-row select, .effect-row input { flex: 1; margin: 0; }
+        .effect-row button { background: #aa3333; color: white; padding: 8px 12px; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>Campfire - Editor de Eventos</h1>
+    <h1>Campfire - Editor de Eventos V3</h1>
     <div>
         <button id="btn-load">📂 Abrir Carpeta assets/</button>
         <button id="btn-save" class="hidden">💾 Guardar Cambios</button>
@@ -136,45 +62,28 @@
 
     <div class="editor" id="editor-area">
         <div id="welcome-msg" style="text-align: center; color: #888; margin-top: 20%;">
-            Selecciona un archivo de la lista o crea uno nuevo.
+            Selecciona un archivo o crea uno nuevo.
         </div>
         
         <!-- EDITOR RESULTADOS -->
         <div id="form-result" class="hidden">
             <h2 style="margin-top:0">Editar Resultado</h2>
-            <div class="form-group">
-                <label>ID del Resultado</label>
-                <input type="text" id="res-id" placeholder="ej: res_test_01">
-            </div>
-            <div class="form-group">
-                <label>Nombre (Título)</label>
-                <input type="text" id="res-name" placeholder="¡Victoria!">
-            </div>
-            <div class="form-group">
-                <label>Descripción</label>
-                <textarea id="res-desc" placeholder="Usa \n para saltos de línea"></textarea>
-            </div>
+            <div class="form-group"><label>ID del Resultado</label><input type="text" id="res-id"></div>
+            <div class="form-group"><label>Nombre (Título)</label><input type="text" id="res-name"></div>
+            <div class="form-group"><label>Descripción</label><textarea id="res-desc" placeholder="Usa \n para saltos de línea"></textarea></div>
             
-            <h3 style="border-bottom: 1px solid #444; padding-bottom:5px; margin-top: 20px;">Impacto General</h3>
-            <div class="grid-3">
-                <div class="form-group"><label>Oro</label><input type="number" id="res-gold" value="0"></div>
-                <div class="form-group"><label>Infamia</label><input type="number" step="0.1" id="res-infamy" value="0"></div>
-                <div class="form-group"><label>Moral</label><input type="number" id="res-moral" value="0"></div>
-                <div class="form-group"><label>Comida</label><input type="number" step="0.1" id="res-food" value="0"></div>
-                <div class="form-group"><label>Agua</label><input type="number" step="0.1" id="res-water" value="0"></div>
-            </div>
-
-            <h3 style="border-bottom: 1px solid #444; padding-bottom:5px; margin-top: 20px;">Pérdidas de Tropas</h3>
-            <div class="grid-3">
-                <div class="form-group"><label>Iniciados</label><input type="number" id="res-loss-ini" value="0"></div>
-                <div class="form-group"><label>Soldados</label><input type="number" id="res-loss-sol" value="0"></div>
-                <div class="form-group"><label>Sargentos</label><input type="number" id="res-loss-sar" value="0"></div>
-            </div>
+            <h3 style="border-bottom: 1px solid #444; padding-bottom:5px; margin-top: 20px;">Efectos</h3>
+            <div id="effects-list"></div>
+            <button id="btn-add-effect" style="background: #444; color: white; margin-bottom:20px;">+ Agregar Efecto</button>
             
-            <div class="form-group" style="margin-top: 20px;">
-                <label>
-                    <input type="checkbox" id="res-battle"> Inicia Batalla
+            <div class="form-group">
+                <label style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="res-battle" style="width:auto;"> Inicia Batalla
                 </label>
+            </div>
+            <div class="form-group" id="res-battle-opts" class="hidden">
+                <label>Enemigo (ID)</label>
+                <input type="text" id="res-battle-enemy">
             </div>
         </div>
 
@@ -188,29 +97,44 @@
             <div class="form-group"><label>Descripción</label><textarea id="ev-desc"></textarea></div>
             
             <div class="grid-3">
-                <div class="form-group">
-                    <label>Trigger</label>
-                    <select id="ev-trigger">
-                        <option value="RANDOM">RANDOM</option>
-                        <option value="ROAD">ROAD</option>
-                        <option value="CITY">CITY</option>
-                        <option value="MARKET">MARKET</option>
-                        <option value="HOUSE">HOUSE</option>
-                        <option value="CASTLE">CASTLE</option>
-                        <option value="ARMORY">ARMORY</option>
-                        <option value="NIGHT">NIGHT</option>
-                    </select>
-                </div>
                 <div class="form-group"><label>Probabilidad (1-100)</label><input type="number" id="ev-prob" value="50"></div>
-                <div class="form-group">
-                    <label>Hora (Time)</label>
-                    <select id="ev-time">
-                        <option value="">Cualquiera</option>
-                        <option value="MORNING">MORNING</option>
-                        <option value="MIDDAY">MIDDAY</option>
-                        <option value="AFTERNOON">AFTERNOON</option>
-                        <option value="NIGHT">NIGHT</option>
-                    </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Triggers</label>
+                <div class="checkbox-group" id="ev-triggers">
+                    <label><input type="checkbox" value="RANDOM"> RANDOM</label>
+                    <label><input type="checkbox" value="ROAD"> ROAD</label>
+                    <label><input type="checkbox" value="BATTLE_START"> BATTLE_START</label>
+                    <label><input type="checkbox" value="BATTLE_END"> BATTLE_END</label>
+                    <label><input type="checkbox" value="CITY"> CITY</label>
+                    <label><input type="checkbox" value="MARKET"> MARKET</label>
+                    <label><input type="checkbox" value="HOUSE"> HOUSE</label>
+                    <label><input type="checkbox" value="CASTLE"> CASTLE</label>
+                    <label><input type="checkbox" value="ARMORY"> ARMORY</label>
+                    <label><input type="checkbox" value="NIGHT"> NIGHT (legacy)</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Time (Hora)</label>
+                <div class="checkbox-group" id="ev-times">
+                    <label><input type="checkbox" value="MORNING"> MORNING</label>
+                    <label><input type="checkbox" value="MIDDAY"> MIDDAY</label>
+                    <label><input type="checkbox" value="AFTERNOON"> AFTERNOON</label>
+                    <label><input type="checkbox" value="NIGHT"> NIGHT</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Biome (Bioma)</label>
+                <div class="checkbox-group" id="ev-biomes">
+                    <label><input type="checkbox" value="PLAINS"> PLAINS</label>
+                    <label><input type="checkbox" value="FOREST"> FOREST</label>
+                    <label><input type="checkbox" value="DESERT"> DESERT</label>
+                    <label><input type="checkbox" value="JUNGLE"> JUNGLE</label>
+                    <label><input type="checkbox" value="MOUNTAIN"> MOUNTAIN</label>
+                    <label><input type="checkbox" value="WATER"> WATER</label>
                 </div>
             </div>
             
@@ -219,8 +143,8 @@
                 <div class="form-group"><label>Min Infamia</label><input type="number" step="0.1" id="ev-mininf" value="0"></div>
                 <div class="form-group"><label>Max Infamia</label><input type="number" step="0.1" id="ev-maxinf" value="100"></div>
                 <div class="form-group"><label>Min Oro</label><input type="number" id="ev-mingold" value="0"></div>
-                <div class="form-group"><label>Min Comida</label><input type="number" id="ev-minfood" value="0"></div>
-                <div class="form-group"><label>Min Agua</label><input type="number" id="ev-minwater" value="0"></div>
+                <div class="form-group"><label>Min Comida</label><input type="number" step="0.1" id="ev-minfood" value="0"></div>
+                <div class="form-group"><label>Min Agua</label><input type="number" step="0.1" id="ev-minwater" value="0"></div>
                 <div class="form-group"><label>Tamaño Ejército</label><input type="number" id="ev-minarmy" value="0"></div>
             </div>
 
@@ -233,24 +157,23 @@
 
 <script>
 let dirHandle = null;
-let mode = 'events'; // 'events' | 'results'
+let mode = 'events'; 
 let items = { events: [], results: [] };
 let selectedItem = null;
 
 const parseIni = (text) => {
     const lines = text.split('\n');
-    let obj = {};
+    let obj = { effects: [], options: [], triggers: [], times: [], biomes: [] };
     let currentOpt = -1;
     
     for (let line of lines) {
         line = line.trim();
-        if (line.charCodeAt(0) === 0xFEFF) line = line.substring(1); // strip BOM
+        if (line.charCodeAt(0) === 0xFEFF) line = line.substring(1);
         if (!line || line.startsWith('#')) continue;
         
         if (line.startsWith('[EVENT]') || line.startsWith('[RESULT]')) continue;
         if (line.startsWith('[OPTION_')) {
             currentOpt = parseInt(line.replace('[OPTION_', '').replace(']', '')) - 1;
-            if (!obj.options) obj.options = [];
             if (!obj.options[currentOpt]) obj.options[currentOpt] = {};
             continue;
         }
@@ -259,349 +182,362 @@ const parseIni = (text) => {
         if (idx > -1) {
             let key = line.substring(0, idx).trim();
             let val = line.substring(idx + 1).trim();
-            if (currentOpt >= 0) {
-                obj.options[currentOpt][key] = val;
+            if (currentOpt === -1) {
+                if (key === 'Effect') {
+                    const [stat, delta] = val.split(':').map(s=>s.trim());
+                    obj.effects.push({stat, delta});
+                }
+                else if (key === 'Trigger') obj.triggers = val.split(',').map(s=>s.trim());
+                else if (key === 'Time') obj.times = val.split(',').map(s=>s.trim());
+                else if (key === 'Biome') obj.biomes = val.split(',').map(s=>s.trim());
+                else obj[key] = val;
             } else {
-                obj[key] = val;
+                obj.options[currentOpt][key] = val;
             }
         }
     }
+    // Backward compatibility conversions internally just to show
+    const legacyMap = {
+        'Result_Gold': 'gold', 'Result_Infamy': 'infamy', 'Result_Moral': 'moral',
+        'Result_Food': 'food', 'Result_Water': 'water'
+    };
+    for (let [k, v] of Object.entries(legacyMap)) {
+        if (obj[k]) { obj.effects.push({stat: v, delta: '+'+obj[k].replace('+','')}); delete obj[k]; }
+    }
+    const legacyLoss = { 'Loss_Initiates':'initiates', 'Loss_Soldiers':'soldiers', 'Loss_Sergeants':'sergeants' };
+    for (let [k, v] of Object.entries(legacyLoss)) {
+        if (obj[k]) { obj.effects.push({stat: v, delta: '-'+obj[k].replace('-','')}); delete obj[k]; }
+    }
+    
     return obj;
 };
 
-const serializeResult = (res) => {
-    let out = '[RESULT]\n';
-    if(res.Id) out += 'Id=' + res.Id + '\n';
-    if(res.Name) out += 'Name=' + res.Name + '\n';
-    if(res.Description) out += 'Description=' + res.Description + '\n';
-    if(res.Result_Gold !== undefined && res.Result_Gold !== '') out += 'Result_Gold=' + res.Result_Gold + '\n';
-    if(res.Result_Infamy !== undefined && res.Result_Infamy !== '') out += 'Result_Infamy=' + res.Result_Infamy + '\n';
-    if(res.Result_Moral !== undefined && res.Result_Moral !== '') out += 'Result_Moral=' + res.Result_Moral + '\n';
-    if(res.Result_Food !== undefined && res.Result_Food !== '') out += 'Result_Food=' + res.Result_Food + '\n';
-    if(res.Result_Water !== undefined && res.Result_Water !== '') out += 'Result_Water=' + res.Result_Water + '\n';
-    if(res.Loss_Initiates !== undefined && res.Loss_Initiates !== '') out += 'Loss_Initiates=' + res.Loss_Initiates + '\n';
-    if(res.Loss_Soldiers !== undefined && res.Loss_Soldiers !== '') out += 'Loss_Soldiers=' + res.Loss_Soldiers + '\n';
-    if(res.Loss_Sergeants !== undefined && res.Loss_Sergeants !== '') out += 'Loss_Sergeants=' + res.Loss_Sergeants + '\n';
-    if(res.Result_Battle) out += 'Result_Battle=1\n';
-    return out;
-};
-
-const serializeEvent = (ev) => {
-    let out = '[EVENT]\n';
-    if(ev.Id) out += 'Id=' + ev.Id + '\n';
-    if(ev.Name) out += 'Name=' + ev.Name + '\n';
-    if(ev.Description) out += 'Description=' + ev.Description + '\n';
-    if(ev.Trigger) out += 'Trigger=' + ev.Trigger + '\n';
-    if(ev.Probability !== undefined && ev.Probability !== '') out += 'Probability=' + ev.Probability + '\n';
-    if(ev.Time) out += 'Time=' + ev.Time + '\n';
-    if(ev.MinInfamy !== undefined && ev.MinInfamy !== '') out += 'MinInfamy=' + ev.MinInfamy + '\n';
-    if(ev.MaxInfamy !== undefined && ev.MaxInfamy !== '') out += 'MaxInfamy=' + ev.MaxInfamy + '\n';
-    if(ev.MinGold !== undefined && ev.MinGold !== '') out += 'MinGold=' + ev.MinGold + '\n';
-    if(ev.MinFood !== undefined && ev.MinFood !== '') out += 'MinFood=' + ev.MinFood + '\n';
-    if(ev.MinWater !== undefined && ev.MinWater !== '') out += 'MinWater=' + ev.MinWater + '\n';
-    if(ev.MinArmySize !== undefined && ev.MinArmySize !== '') out += 'MinArmySize=' + ev.MinArmySize + '\n';
+const stringifyIni = (type, obj) => {
+    let out = type === 'events' ? '[EVENT]\n' : '[RESULT]\n';
+    out += `Id=${obj.Id}\n`;
+    out += `Name=${obj.Name}\n`;
+    if (obj.Description) out += `Description=${obj.Description}\n`;
     
-    if (ev.options) {
-        for (let i=0; i<ev.options.length; i++) {
-            let opt = ev.options[i];
-            if (!opt) continue;
-            out += '\n[OPTION_' + (i+1) + ']\n';
-            if(opt.Text) out += 'Text=' + opt.Text + '\n';
-            if(opt.Result_pool) out += 'Result_pool=' + opt.Result_pool + '\n';
-            if(opt.Result_Gold) out += 'Result_Gold=' + opt.Result_Gold + '\n';
-            if(opt.Result_Infamy) out += 'Result_Infamy=' + opt.Result_Infamy + '\n';
-            if(opt.Result_Moral) out += 'Result_Moral=' + opt.Result_Moral + '\n';
+    if (type === 'events') {
+        if (obj.triggers && obj.triggers.length) out += `Trigger=${obj.triggers.join(', ')}\n`;
+        if (obj.times && obj.times.length) out += `Time=${obj.times.join(', ')}\n`;
+        if (obj.biomes && obj.biomes.length) out += `Biome=${obj.biomes.join(', ')}\n`;
+        
+        const fields = ['Probability','MinInfamy','MaxInfamy','MinGold','MinFood','MinWater','MinArmySize'];
+        for (let f of fields) { if (obj[f] !== undefined && obj[f] !== '') out += `${f}=${obj[f]}\n`; }
+        
+        out += '\n';
+        for (let i=0; i<obj.options.length; i++) {
+            let opt = obj.options[i];
+            out += `[OPTION_${i+1}]\n`;
+            if (opt.Text) out += `Text=${opt.Text}\n`;
+            out += `Result_pool=${opt.Result_pool || 'NONE'}\n\n`;
+        }
+    } else {
+        if (obj.effects) {
+            for (let e of obj.effects) {
+                out += `Effect=${e.stat}:${e.delta}\n`;
+            }
+        }
+        if (obj.Result_Battle) {
+            out += `Result_Battle=1\n`;
+            out += `Enemy=${obj.Enemy||''}\n`;
         }
     }
-    return out;
+    return out.trim() + '\n';
 };
 
 document.getElementById('btn-load').addEventListener('click', async () => {
-    if (window.showDirectoryPicker) {
-        try {
-            dirHandle = await window.showDirectoryPicker();
-            document.getElementById('workspace').classList.remove('hidden');
-            document.getElementById('btn-load').innerText = "Carpeta Cargada";
-            document.getElementById('btn-save').classList.remove('hidden');
-            await scanDirectory();
-        } catch (e) {
-            alert('Error al acceder a la carpeta de forma directa: ' + e.message + '\n\nPasando a modo de descarga y lectura básica.');
-            useFallbackMode();
-        }
-    } else {
-        alert('Tu navegador no soporta el acceso directo a carpetas. Pasando a modo de compatibilidad.');
-        useFallbackMode();
+    try {
+        dirHandle = await window.showDirectoryPicker();
+        await loadFiles();
+        document.getElementById('btn-save').classList.remove('hidden');
+        document.getElementById('workspace').classList.remove('hidden');
+    } catch (e) {
+        console.error(e);
+        alert('Error abriendo carpeta o cancelado.');
     }
 });
 
-function useFallbackMode() {
-    let input = document.createElement('input');
-    input.type = 'file';
-    input.webkitdirectory = true;
-    input.multiple = true;
-    input.onchange = async (e) => {
-        items.events = [];
-        items.results = [];
-        let files = e.target.files;
-        for (let i = 0; i < files.length; i++) {
-            let f = files[i];
-            if (f.name.endsWith('.evt')) await loadFallbackFile(f, 'events');
-            if (f.name.endsWith('.res')) await loadFallbackFile(f, 'results');
+let eventsDirHandle = null;
+let resultsDirHandle = null;
+
+async function loadFiles() {
+    items = { events: [], results: [] };
+    
+    try { eventsDirHandle = await dirHandle.getDirectoryHandle('events', { create: false }); } catch(e) { eventsDirHandle = dirHandle; }
+    try { resultsDirHandle = await dirHandle.getDirectoryHandle('results', { create: false }); } catch(e) { resultsDirHandle = dirHandle; }
+    
+    // Leer eventos
+    for await (const entry of eventsDirHandle.values()) {
+        if (entry.kind === 'file' && entry.name.endsWith('.evt')) {
+            const file = await entry.getFile();
+            items.events.push({ handle: entry, parentHandle: eventsDirHandle, data: parseIni(await file.text()), isNew: false, filename: entry.name });
         }
-        document.getElementById('workspace').classList.remove('hidden');
-        document.getElementById('btn-load').innerText = "Archivos Cargados (Modo Descarga)";
-        document.getElementById('btn-save').innerText = "📥 Descargar Archivo Modificado";
-        document.getElementById('btn-save').classList.remove('hidden');
-        renderList();
-    };
-    input.click();
-}
-
-async function loadFallbackFile(file, type) {
-    const text = await file.text();
-    const obj = parseIni(text);
-    obj._filename = file.name;
-    obj._isFallback = true;
-    items[type].push(obj);
-}
-
-async function scanDirectory() {
-    items.events = [];
-    items.results = [];
-    for await (const entry of dirHandle.values()) {
-        if (entry.kind === 'directory') {
-            for await (const subEntry of entry.values()) {
-                if (subEntry.kind === 'file') {
-                    if (subEntry.name.endsWith('.evt')) await loadFile(subEntry, entry, 'events');
-                    if (subEntry.name.endsWith('.res')) await loadFile(subEntry, entry, 'results');
+    }
+    
+    // Leer resultados
+    for await (const entry of resultsDirHandle.values()) {
+        if (entry.kind === 'file' && (entry.name.endsWith('.res') || entry.name.endsWith('.evt'))) {
+            if (entry.name.endsWith('.evt')) continue; // Solo mostrar .res
+            const file = await entry.getFile();
+            items.results.push({ handle: entry, parentHandle: resultsDirHandle, data: parseIni(await file.text()), isNew: false, filename: entry.name });
+        }
+    }
+    
+    // Fallback: buscar tambien en la raiz si el usuario abrio la carpeta directamente
+    if (eventsDirHandle !== dirHandle) {
+        for await (const entry of dirHandle.values()) {
+            if (entry.kind === 'file') {
+                if (entry.name.endsWith('.evt')) {
+                    const file = await entry.getFile();
+                    items.events.push({ handle: entry, parentHandle: dirHandle, data: parseIni(await file.text()), isNew: false, filename: entry.name });
+                } else if (entry.name.endsWith('.res')) {
+                    const file = await entry.getFile();
+                    items.results.push({ handle: entry, parentHandle: dirHandle, data: parseIni(await file.text()), isNew: false, filename: entry.name });
                 }
             }
         }
     }
+    
     renderList();
-}
-
-async function loadFile(fileHandle, parentHandle, type) {
-    const file = await fileHandle.getFile();
-    const text = await file.text();
-    const obj = parseIni(text);
-    obj._filename = fileHandle.name;
-    obj._handle = fileHandle;
-    obj._parent = parentHandle;
-    items[type].push(obj);
 }
 
 function renderList() {
     const list = document.getElementById('file-list');
     list.innerHTML = '';
-    items[mode].forEach((item, idx) => {
-        let div = document.createElement('div');
+    const currentItems = items[mode];
+    
+    currentItems.forEach((item, index) => {
+        const div = document.createElement('div');
         div.className = 'list-item' + (selectedItem === item ? ' selected' : '');
-        div.innerText = item.Id || item._filename || 'Sin nombre';
+        div.textContent = item.data.Id || item.filename;
         div.onclick = () => selectItem(item);
         list.appendChild(div);
     });
+}
+
+document.getElementById('tab-events').onclick = (e) => { mode = 'events'; updateTabs(e.target); };
+document.getElementById('tab-results').onclick = (e) => { mode = 'results'; updateTabs(e.target); };
+
+function updateTabs(target) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    target.classList.add('active');
+    selectedItem = null;
+    document.getElementById('form-event').classList.add('hidden');
+    document.getElementById('form-result').classList.add('hidden');
+    document.getElementById('welcome-msg').classList.remove('hidden');
+    renderList();
 }
 
 function selectItem(item) {
     selectedItem = item;
     renderList();
     document.getElementById('welcome-msg').classList.add('hidden');
+    
     if (mode === 'events') {
         document.getElementById('form-event').classList.remove('hidden');
         document.getElementById('form-result').classList.add('hidden');
-        fillEventForm(item);
+        fillEventForm(item.data);
     } else {
         document.getElementById('form-result').classList.remove('hidden');
         document.getElementById('form-event').classList.add('hidden');
-        fillResultForm(item);
+        fillResultForm(item.data);
     }
 }
 
-function fillResultForm(res) {
-    document.getElementById('res-id').value = res.Id || '';
-    document.getElementById('res-name').value = res.Name || '';
-    document.getElementById('res-desc').value = res.Description ? res.Description.replace(/\\n/g, '\n') : '';
-    document.getElementById('res-gold').value = res.Result_Gold || 0;
-    document.getElementById('res-infamy').value = res.Result_Infamy || 0;
-    document.getElementById('res-moral').value = res.Result_Moral || 0;
-    document.getElementById('res-food').value = res.Result_Food || 0;
-    document.getElementById('res-water').value = res.Result_Water || 0;
-    document.getElementById('res-loss-ini').value = res.Loss_Initiates || 0;
-    document.getElementById('res-loss-sol').value = res.Loss_Soldiers || 0;
-    document.getElementById('res-loss-sar').value = res.Loss_Sergeants || 0;
-    document.getElementById('res-battle').checked = !!res.Result_Battle;
-}
+document.getElementById('btn-new').onclick = () => {
+    const id = prompt("Ingresa el ID del nuevo " + (mode === 'events' ? 'Evento' : 'Resultado') + ":");
+    if (!id) return;
+    const newItem = {
+        isNew: true,
+        filename: id + (mode === 'events' ? '.evt' : '.res'),
+        data: { Id: id, Name: 'Nuevo', options: [], effects: [], triggers: [], times: [], biomes: [] }
+    };
+    items[mode].push(newItem);
+    selectItem(newItem);
+};
 
-function fillEventForm(ev) {
-    document.getElementById('ev-id').value = ev.Id || '';
-    document.getElementById('ev-name').value = ev.Name || '';
-    document.getElementById('ev-desc').value = ev.Description ? ev.Description.replace(/\\n/g, '\n') : '';
-    document.getElementById('ev-trigger').value = ev.Trigger || 'RANDOM';
-    document.getElementById('ev-prob').value = ev.Probability !== undefined ? ev.Probability : 50;
-    document.getElementById('ev-time').value = ev.Time || '';
+// EFFECTS BUILDER
+function renderEffects() {
+    const list = document.getElementById('effects-list');
+    list.innerHTML = '';
+    if (!selectedItem.data.effects) selectedItem.data.effects = [];
     
-    document.getElementById('ev-mininf').value = ev.MinInfamy || 0;
-    document.getElementById('ev-maxinf').value = ev.MaxInfamy || 100;
-    document.getElementById('ev-mingold').value = ev.MinGold || 0;
-    document.getElementById('ev-minfood').value = ev.MinFood || 0;
-    document.getElementById('ev-minwater').value = ev.MinWater || 0;
-    document.getElementById('ev-minarmy').value = ev.MinArmySize || 0;
-    
-    renderOptions(ev.options || []);
-}
-
-function renderOptions(options) {
-    const container = document.getElementById('options-list');
-    container.innerHTML = '';
-    document.getElementById('opt-count').innerText = options.length;
-    
-    let resOptions = '<option value="">(Ninguno)</option>' + 
-        items.results.map(r => '<option value="' + r.Id + '">' + r.Id + ' (' + r.Name + ')</option>').join('');
-    
-    options.forEach((opt, idx) => {
-        let div = document.createElement('div');
-        div.className = 'options-container';
-        div.innerHTML = `
-            <strong>Opción ${idx+1}</strong> <button onclick="removeOpt(${idx})" style="background:red;padding:2px 5px;font-size:10px;">X</button>
-            <div class="form-group"><label>Texto</label><input type="text" class="opt-text" value="${opt.Text || ''}"></div>
-            <div class="form-group"><label>Result_pool (IDs separados por coma, o elige)</label>
-                <input type="text" class="opt-pool" value="${opt.Result_pool || ''}" placeholder="res_1, res_2...">
-            </div>
-            <div class="form-group"><label>Agregar al pool:</label>
-                <select onchange="addPool(this, ${idx})">${resOptions}</select>
-            </div>
+    selectedItem.data.effects.forEach((eff, i) => {
+        const row = document.createElement('div');
+        row.className = 'effect-row';
+        row.innerHTML = `
+            <select class="eff-stat">
+                <option value="gold" ${eff.stat==='gold'?'selected':''}>Oro</option>
+                <option value="infamy" ${eff.stat==='infamy'?'selected':''}>Infamia</option>
+                <option value="moral" ${eff.stat==='moral'?'selected':''}>Moral</option>
+                <option value="food" ${eff.stat==='food'?'selected':''}>Comida</option>
+                <option value="water" ${eff.stat==='water'?'selected':''}>Agua</option>
+                <option value="initiates" ${eff.stat==='initiates'?'selected':''}>Iniciados</option>
+                <option value="soldiers" ${eff.stat==='soldiers'?'selected':''}>Soldados</option>
+                <option value="sergeants" ${eff.stat==='sergeants'?'selected':''}>Sargentos</option>
+            </select>
+            <input type="text" class="eff-delta" value="${eff.delta}" placeholder="ej: +10, -50%, -ALL">
+            <button class="eff-del">X</button>
         `;
-        container.appendChild(div);
+        row.querySelector('.eff-del').onclick = () => {
+            selectedItem.data.effects.splice(i, 1);
+            renderEffects();
+        };
+        row.querySelector('.eff-stat').onchange = (e) => eff.stat = e.target.value;
+        row.querySelector('.eff-delta').onchange = (e) => eff.delta = e.target.value;
+        list.appendChild(row);
     });
 }
+document.getElementById('btn-add-effect').onclick = () => {
+    selectedItem.data.effects.push({stat: 'gold', delta: '+10'});
+    renderEffects();
+};
 
-window.removeOpt = (idx) => {
-    selectedItem.options.splice(idx, 1);
-    renderOptions(selectedItem.options);
-};
-window.addPool = (sel, idx) => {
-    if (!sel.value) return;
-    let inputs = document.querySelectorAll('.opt-pool');
-    let current = inputs[idx].value;
-    inputs[idx].value = current ? current + ', ' + sel.value : sel.value;
-    sel.value = '';
-};
+function fillResultForm(data) {
+    document.getElementById('res-id').value = data.Id || '';
+    document.getElementById('res-name').value = data.Name || '';
+    document.getElementById('res-desc').value = data.Description || '';
+    document.getElementById('res-battle').checked = !!data.Result_Battle;
+    document.getElementById('res-battle-enemy').value = data.Enemy || '';
+    renderEffects();
+}
+
+// OPTIONS BUILDER
+function renderOptions() {
+    const list = document.getElementById('options-list');
+    list.innerHTML = '';
+    if (!selectedItem.data.options) selectedItem.data.options = [];
+    document.getElementById('opt-count').textContent = selectedItem.data.options.length;
+    
+    selectedItem.data.options.forEach((opt, i) => {
+        const div = document.createElement('div');
+        div.className = 'options-container';
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <strong>Opción ${i+1}</strong>
+                <button class="opt-del" style="background:#aa3333; padding:2px 8px;">X</button>
+            </div>
+            <div class="form-group"><label>Texto</label><input type="text" class="opt-text" value="${opt.Text||''}"></div>
+            <div class="form-group">
+                <label>Result pool (IDs separados por coma) o NONE</label>
+                <input type="text" class="opt-pool" value="${opt.Result_pool||'NONE'}">
+            </div>
+        `;
+        div.querySelector('.opt-del').onclick = () => { selectedItem.data.options.splice(i, 1); renderOptions(); };
+        div.querySelector('.opt-text').onchange = (e) => opt.Text = e.target.value;
+        div.querySelector('.opt-pool').onchange = (e) => opt.Result_pool = e.target.value || 'NONE';
+        list.appendChild(div);
+    });
+    document.getElementById('btn-add-opt').style.display = selectedItem.data.options.length >= 5 ? 'none' : 'block';
+}
 
 document.getElementById('btn-add-opt').onclick = () => {
-    if (!selectedItem.options) selectedItem.options = [];
-    if (selectedItem.options.length < 5) {
-        selectedItem.options.push({});
-        renderOptions(selectedItem.options);
-    }
+    selectedItem.data.options.push({ Text: 'Nueva Opción', Result_pool: 'NONE' });
+    renderOptions();
 };
 
-document.getElementById('tab-events').onclick = (e) => { 
-    mode = 'events'; 
-    e.target.classList.add('active');
-    document.getElementById('tab-results').classList.remove('active');
-    selectedItem = null;
-    document.getElementById('form-event').classList.add('hidden');
-    document.getElementById('form-result').classList.add('hidden');
-    renderList(); 
-};
-document.getElementById('tab-results').onclick = (e) => { 
-    mode = 'results'; 
-    e.target.classList.add('active');
-    document.getElementById('tab-events').classList.remove('active');
-    selectedItem = null;
-    document.getElementById('form-event').classList.add('hidden');
-    document.getElementById('form-result').classList.add('hidden');
-    renderList(); 
-};
+function checkBoxes(group, arr) {
+    document.querySelectorAll(`#${group} input`).forEach(cb => cb.checked = (arr && arr.includes(cb.value)));
+}
 
-function syncFormToItem() {
-    if(!selectedItem) return;
-    if(mode === 'events') {
-        selectedItem.Id = document.getElementById('ev-id').value;
-        selectedItem.Name = document.getElementById('ev-name').value;
-        selectedItem.Description = document.getElementById('ev-desc').value.replace(/\n/g, '\\n');
-        selectedItem.Trigger = document.getElementById('ev-trigger').value;
-        selectedItem.Probability = document.getElementById('ev-prob').value;
-        selectedItem.Time = document.getElementById('ev-time').value;
-        selectedItem.MinInfamy = document.getElementById('ev-mininf').value;
-        selectedItem.MaxInfamy = document.getElementById('ev-maxinf').value;
-        selectedItem.MinGold = document.getElementById('ev-mingold').value;
-        selectedItem.MinFood = document.getElementById('ev-minfood').value;
-        selectedItem.MinWater = document.getElementById('ev-minwater').value;
-        selectedItem.MinArmySize = document.getElementById('ev-minarmy').value;
-        
-        let texts = document.querySelectorAll('.opt-text');
-        let pools = document.querySelectorAll('.opt-pool');
-        if(selectedItem.options) {
-            for(let i=0; i<selectedItem.options.length; i++) {
-                selectedItem.options[i].Text = texts[i].value;
-                selectedItem.options[i].Result_pool = pools[i].value;
-            }
-        }
-    } else {
-        selectedItem.Id = document.getElementById('res-id').value;
-        selectedItem.Name = document.getElementById('res-name').value;
-        selectedItem.Description = document.getElementById('res-desc').value.replace(/\n/g, '\\n');
-        selectedItem.Result_Gold = document.getElementById('res-gold').value;
-        selectedItem.Result_Infamy = document.getElementById('res-infamy').value;
-        selectedItem.Result_Moral = document.getElementById('res-moral').value;
-        selectedItem.Result_Food = document.getElementById('res-food').value;
-        selectedItem.Result_Water = document.getElementById('res-water').value;
-        selectedItem.Loss_Initiates = document.getElementById('res-loss-ini').value;
-        selectedItem.Loss_Soldiers = document.getElementById('res-loss-sol').value;
-        selectedItem.Loss_Sergeants = document.getElementById('res-loss-sar').value;
-        selectedItem.Result_Battle = document.getElementById('res-battle').checked ? 1 : 0;
-    }
+function fillEventForm(data) {
+    document.getElementById('ev-id').value = data.Id || '';
+    document.getElementById('ev-name').value = data.Name || '';
+    document.getElementById('ev-desc').value = data.Description || '';
+    document.getElementById('ev-prob').value = data.Probability || 50;
+    
+    checkBoxes('ev-triggers', data.triggers);
+    checkBoxes('ev-times', data.times);
+    checkBoxes('ev-biomes', data.biomes);
+
+    document.getElementById('ev-mininf').value = data.MinInfamy || 0;
+    document.getElementById('ev-maxinf').value = data.MaxInfamy || 100;
+    document.getElementById('ev-mingold').value = data.MinGold || 0;
+    document.getElementById('ev-minfood').value = data.MinFood || 0;
+    document.getElementById('ev-minwater').value = data.MinWater || 0;
+    document.getElementById('ev-minarmy').value = data.MinArmySize || 0;
+    renderOptions();
+}
+
+function gatherCheckboxes(group) {
+    let arr = [];
+    document.querySelectorAll(`#${group} input:checked`).forEach(cb => arr.push(cb.value));
+    return arr;
 }
 
 document.getElementById('btn-save').onclick = async () => {
-    if(!selectedItem) return;
-    syncFormToItem();
+    if (!selectedItem) return;
     
-    let name = selectedItem._filename || (selectedItem.Id + (mode === 'events' ? '.evt' : '.res'));
-    const content = mode === 'events' ? serializeEvent(selectedItem) : serializeResult(selectedItem);
+    let isError = false;
     
-    if (selectedItem._isFallback || !selectedItem._parent) {
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        a.click();
-        URL.revokeObjectURL(url);
-        alert('Archivo descargado: ' + name + '\n\nRecuerda moverlo manualmente a tu carpeta assets.');
+    if (mode === 'events') {
+        selectedItem.data.Id = document.getElementById('ev-id').value;
+        selectedItem.data.Name = document.getElementById('ev-name').value;
+        selectedItem.data.Description = document.getElementById('ev-desc').value;
+        selectedItem.data.Probability = document.getElementById('ev-prob').value;
+        selectedItem.data.triggers = gatherCheckboxes('ev-triggers');
+        selectedItem.data.times = gatherCheckboxes('ev-times');
+        selectedItem.data.biomes = gatherCheckboxes('ev-biomes');
+        selectedItem.data.MinInfamy = document.getElementById('ev-mininf').value;
+        selectedItem.data.MaxInfamy = document.getElementById('ev-maxinf').value;
+        selectedItem.data.MinGold = document.getElementById('ev-mingold').value;
+        selectedItem.data.MinFood = document.getElementById('ev-minfood').value;
+        selectedItem.data.MinWater = document.getElementById('ev-minwater').value;
+        selectedItem.data.MinArmySize = document.getElementById('ev-minarmy').value;
+        
+        selectedItem.data.options.forEach(opt => {
+            if (!opt.Result_pool || opt.Result_pool.trim() === '') opt.Result_pool = 'NONE';
+        });
     } else {
-        try {
-            const fileHandle = await selectedItem._parent.getFileHandle(name, { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(content);
-            await writable.close();
-            alert('Guardado exitoso: ' + name);
-            renderList();
-        } catch(e) {
-            alert('Error al guardar: ' + e);
-        }
-    }
-};
-
-document.getElementById('btn-new').onclick = async () => {
-    let newItem = { _filename: 'nuevo_' + Date.now() + (mode === 'events' ? '.evt' : '.res') };
-    
-    if (dirHandle && items.events.length > 0 && !items.events[0]._isFallback) {
-        for await (const entry of dirHandle.values()) {
-            if (entry.kind === 'directory' && entry.name === mode) {
-                newItem._parent = entry;
-                break;
+        selectedItem.data.Id = document.getElementById('res-id').value;
+        selectedItem.data.Name = document.getElementById('res-name').value;
+        selectedItem.data.Description = document.getElementById('res-desc').value;
+        selectedItem.data.Result_Battle = document.getElementById('res-battle').checked ? "1" : "";
+        selectedItem.data.Enemy = document.getElementById('res-battle-enemy').value;
+        
+        // Validation
+        selectedItem.data.effects.forEach(e => {
+            if (!e.delta) isError = true;
+            if ((e.delta.includes('%') || e.delta.includes('ALL')) && 
+                !['initiates','soldiers','sergeants'].includes(e.stat)) {
+                alert("Error: % y ALL solo son validos para tropas (Iniciados, Soldados, Sargentos).");
+                isError = true;
             }
-        }
-    } else {
-        newItem._isFallback = true;
+        });
     }
     
-    items[mode].push(newItem);
-    selectItem(newItem);
+    if (isError) return;
+    
+    selectedItem.filename = selectedItem.data.Id + (mode === 'events' ? '.evt' : '.res');
+    renderList();
+    
+    const outText = stringifyIni(mode, selectedItem.data);
+    
+    try {
+        let fileHandle;
+        if (selectedItem.isNew) {
+            let parentDir = (mode === 'events') ? (eventsDirHandle || dirHandle) : (resultsDirHandle || dirHandle);
+            fileHandle = await parentDir.getFileHandle(selectedItem.filename, { create: true });
+            selectedItem.handle = fileHandle;
+            selectedItem.parentHandle = parentDir;
+            selectedItem.isNew = false;
+        } else {
+            fileHandle = selectedItem.handle;
+            // renombrar no es facil con esta API sin borrar y crear. Lo guardamos en el handle original por ahora.
+        }
+        
+        const writable = await fileHandle.createWritable();
+        await writable.write(outText);
+        await writable.close();
+        alert("¡Guardado exitosamente!");
+    } catch (e) {
+        console.error(e);
+        alert("Error guardando el archivo.");
+    }
 };
 </script>
 </body>
 </html>
+

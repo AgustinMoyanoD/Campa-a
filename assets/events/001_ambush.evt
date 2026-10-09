@@ -13,8 +13,8 @@ MinArmySize=0
 
 [OPTION_1]
 Text=Pagar peaje
-Result_pool=res_test_034
+Result_pool=res_amb_006,res_amb_010
 
 [OPTION_2]
 Text=Atacar sin piedad
-Result_pool=res_test_031, res_test_054, res_test_402
+Result_pool=res_amb_031, res_amb_054, res_amb_402
