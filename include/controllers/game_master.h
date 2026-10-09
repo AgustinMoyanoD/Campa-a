@@ -20,6 +20,7 @@ typedef enum {
     PHASE_PLAYER,
     PHASE_ENEMY,
     PHASE_EVENT,
+    PHASE_DRAFT,
     PHASE_GAME_OVER,
     PHASE_VICTORY
 } GamePhase;

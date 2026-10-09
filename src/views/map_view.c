@@ -502,12 +502,12 @@ void MapView_DrawPath(HexTile** path, int length, float radius, Vector2 origin) 
     
     for (int i = 0; i < length - 1; i++) {
         Vector2 p1 = HexToPixel(path[i]->coord, radius);
-        p1.y *= 0.5f;
+        
         p1.x += origin.x;
         p1.y += origin.y;
         
         Vector2 p2 = HexToPixel(path[i+1]->coord, radius);
-        p2.y *= 0.5f;
+        
         p2.x += origin.x;
         p2.y += origin.y;
         

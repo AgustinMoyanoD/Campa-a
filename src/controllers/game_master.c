@@ -40,10 +40,19 @@ void GameMaster_StartTurn(GameMaster* gm, Army* playerArmy) {
     gm->eventTimer = 0.0f;
 }
 
+#include <stdlib.h>
+
 void GameMaster_ProcessEnemyTurn(GameMaster* gm, Map* map) {
     if (!gm || !map) return;
-    // Lógica futura: mover enemigos, spanwear, etc.
-    // Por ahora solo pasa la fase.
+    
+    if (gm->enemyCount < 3) {
+        int r = rand() % map->tileCount;
+        if (map->tiles[r].isRoad || map->tiles[r].structure.type != STRUCT_NONE) {
+            EnemySquad e = Enemy_Create("Militantes Ocultos", map->tiles[r].coord, 30 + (gm->currentDay * 5), 10 + gm->currentDay, 10, 0, 0);
+            if (gm->currentDay >= 5) Enemy_AddTag(&e, TAG_HEAVILY_ARMORED);
+            gm->enemies[gm->enemyCount++] = e;
+        }
+    }
 }
 
 void GameMaster_EndTurn(GameMaster* gm, Map* map, Army* playerArmy) {
@@ -58,6 +67,11 @@ void GameMaster_EndTurn(GameMaster* gm, Map* map, Army* playerArmy) {
         if (gm->infamy > 100.0f) gm->infamy = 100.0f;
     }
     gm->currentTurn++;
+
+    if (gm->currentDay > 30) {
+        gm->phase = PHASE_VICTORY;
+        return;
+    }
 
     // Fase del enemigo
     gm->phase = PHASE_ENEMY;
@@ -143,6 +157,12 @@ bool GameMaster_AttemptMove(GameMaster* gm, Map* map, Army* playerArmy, HexTile*
                 case STRUCT_TOWN_ARMORY: ctx.trigger = TRIGGER_ARMORY; break;
                 default: ctx.trigger = TRIGGER_CITY; break;
             }
+        }
+
+        if (targetTile->structure.type == STRUCT_ALTAR) {
+            gm->phase = PHASE_DRAFT;
+            targetTile->structure.type = STRUCT_NONE;
+            return true;
         }
         if (gm->timeOfDay == TIME_NIGHT && ctx.trigger == TRIGGER_RANDOM) {
             ctx.trigger = TRIGGER_NIGHT;

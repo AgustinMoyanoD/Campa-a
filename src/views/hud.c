@@ -1,4 +1,5 @@
 #include "hud.h"
+#include "presentation/audio_manager.h"
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -36,6 +37,7 @@ void Hud_Update(HudState* hud, float deltaTime)
         if ((int)(hud->dice.rollTimer * 20.0f) % 2 == 0) {
             hud->dice.valor1 = (rand() % 6) + 1;
             hud->dice.valor2 = (rand() % 6) + 1;
+            Audio_PlaySfx(SFX_DICE_LAND);
         }
         
         if (hud->dice.rollTimer >= hud->dice.rollDuration) {
@@ -44,6 +46,7 @@ void Hud_Update(HudState* hud, float deltaTime)
             /* Valores finales */
             hud->dice.valor1 = (rand() % 6) + 1;
             hud->dice.valor2 = (rand() % 6) + 1;
+            Audio_PlaySfx(SFX_DICE_LAND);
         }
     }
 }
@@ -51,6 +54,8 @@ void Hud_Update(HudState* hud, float deltaTime)
 void Hud_RollDice(HudState* hud)
 {
     if (hud && !hud->dice.rolling) {
+        
+        Audio_PlaySfx(SFX_DICE_ROLL);
         hud->dice.rolling = true;
         hud->dice.rollTimer = 0.0f;
     }

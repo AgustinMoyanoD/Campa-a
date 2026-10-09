@@ -17,6 +17,7 @@
 #include "views/event_view.h"
 #include "views/combat_view.h"
 #include "views/enemy_view.h"
+#include "views/draft_view.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -133,6 +134,7 @@ int main(void)
     Army_SetCommanderGeneral(&playerArmy);
 
     GameMaster gm = {0};
+    DraftContext activeDraft = {0};
     GameMaster_Init(&gm);
 
     ModifierDef* def1 = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, "ares_marea_roja");
@@ -161,10 +163,13 @@ int main(void)
        TILE SELECCIONADO
        ============================================================ */
 
-    HexTile* selectedTile = NULL;
-        bool isArmyMoving = false;
+        HexTile* selectedTile = NULL;
+    bool isArmyMoving = false;
     Vector2 visualArmyPos = {0};
     bool firstFrame = true;
+    
+    float skyR = 255.0f, skyG = 255.0f, skyB = 255.0f;
+    TimeOfDay lastTimeOfDay = gm.timeOfDay;
 
 
     /* ============================================================
@@ -173,6 +178,25 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        float dt = GetFrameTime();
+        if (lastTimeOfDay != gm.timeOfDay) {
+            float targetR = 255.0f, targetG = 255.0f, targetB = 255.0f;
+            switch(gm.timeOfDay) {
+                case TIME_MORNING: targetR=255.0f; targetG=240.0f; targetB=220.0f; break; // Alba calida
+                case TIME_MIDDAY:  targetR=255.0f; targetG=255.0f; targetB=255.0f; break; // Sol pleno
+                case TIME_AFTERNOON:targetR=255.0f; targetG=200.0f; targetB=150.0f; break; // Atardecer naranja
+                case TIME_NIGHT:   targetR=100.0f; targetG=120.0f; targetB=180.0f; break; // Noche azulada
+            }
+            Tween_Start(&skyR, targetR, 1.5f, Ease_Linear);
+            Tween_Start(&skyG, targetG, 1.5f, Ease_Linear);
+            Tween_Start(&skyB, targetB, 1.5f, Ease_Linear);
+            lastTimeOfDay = gm.timeOfDay;
+        }
+        Tween_Update(dt);
+        Sequence_Update(dt);
+        ScreenFX_Update(dt);
+        Audio_Update(dt);
+        if (firstFrame) { Vector2 p = HexToPixel(playerArmy.position, hexRadius); visualArmyPos = p; firstFrame = false; }
         /* ========================================================
            CAMBIO DE PROVINCIA Y REGENERACIÓN
            ======================================================== */
@@ -225,7 +249,7 @@ int main(void)
             selectedTile = NULL;
             
             /* Reposicionar ejército */
-            for (int i = 0; i < levelMap.tileCount; i++) { if (levelMap.tiles[i].special == TILE_SPECIAL_START) { playerArmy.position = levelMap.tiles[i].coord; break; } } Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
+            for (int i = 0; i < levelMap.tileCount; i++) { if (levelMap.tiles[i].special == TILE_SPECIAL_START) { playerArmy.position = levelMap.tiles[i].coord; break; } } visualArmyPos = HexToPixel(playerArmy.position, hexRadius); Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
     {
         Vector2 pos = HexToPixel(playerArmy.position, hexRadius);
         pos.x += origin.x;
@@ -257,7 +281,7 @@ int main(void)
                     playerArmy.currentPathIndex++;
                     
                     Vector2 targetPixel = HexToPixel(playerArmy.position, hexRadius);
-                    targetPixel.y *= 0.5f;
+                    
                     
                     SeqAction moveAct = {0};
                     moveAct.duration = 0.25f;
@@ -458,30 +482,7 @@ int main(void)
                     if (pathLen > 0) {
                         // Resaltar suavemente solo la casilla destino
                         MapView_DrawHexHighlight(selectedTile, hexRadius, origin, pathColor);
-                        
-                        // Dibujar linea segmentada siguiendo el camino
-                        Vector2 prev = HexToPixel(playerArmy.position, hexRadius);
-                        prev.x += origin.x; prev.y += origin.y;
-                        
-                        for (int p = 0; p < pathLen; p++) {
-                            Vector2 curr = HexToPixel(path[p]->coord, hexRadius);
-                            curr.x += origin.x; curr.y += origin.y;
-                            DrawLineEx(prev, curr, 6.0f, pathColor);
-                            prev = curr;
-                        }
-                        
-                        // Dibujar flecha al final (en prev)
-                        if (pathLen > 0) {
-                            Vector2 p1 = HexToPixel((pathLen > 1) ? path[pathLen-2]->coord : playerArmy.position, hexRadius);
-                            p1.x += origin.x; p1.y += origin.y;
-                            
-                            float angle = atan2f(prev.y - p1.y, prev.x - p1.x);
-                            float arrowSize = 20.0f;
-                            Vector2 t1 = { prev.x - arrowSize * cosf(angle - 0.5f), prev.y - arrowSize * sinf(angle - 0.5f) };
-                            Vector2 t2 = { prev.x - arrowSize * cosf(angle + 0.5f), prev.y - arrowSize * sinf(angle + 0.5f) };
-                            DrawLineEx(prev, t1, 6.0f, pathColor);
-                            DrawLineEx(prev, t2, 6.0f, pathColor);
-                        }
+                        MapView_DrawPath(path, pathLen, hexRadius, origin);
                         
                         // Centro de la ruta para el costo de PA
                         int midIdx = pathLen / 2;
@@ -502,6 +503,9 @@ int main(void)
 
 
         EndMode2D();
+        BeginBlendMode(BLEND_MULTIPLIED);
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ (unsigned char)skyR, (unsigned char)skyG, (unsigned char)skyB, 255 });
+        EndBlendMode();
 
 
         /* ========================================================
@@ -527,28 +531,54 @@ int main(void)
         DrawRectangleLinesEx(minimapRect, 2, (Color){ 140, 100, 50, 255 });
         MapView_DrawMinimap(&levelMap, minimapRect, playerArmy.position, hudState.blinkTimer, &gameAssets, debugRevealMap);
 
-        /* Panel Tile Seleccionado (Debug opcional, movido a la derecha superior) */
-        if (selectedTile != NULL)
+                /* Tooltip de Exploracion */
+        if (selectedTile != NULL && !gm.inCombat && gm.phase != PHASE_EVENT)
         {
             BiomeProperties props = Biome_GetProperties(selectedTile->biome);
-            int px = SW - 310;
-            int py = 10;
+            Vector2 mPos = GetMousePosition();
             
-            DrawRectangle(px, py, 300, 130, (Color){ 245, 245, 248, 220 });
-            DrawRectangleLines(px, py, 300, 130, (Color){ 160, 160, 175, 255 });
+            int foodCost = props.actionPointCost * 2; // Ejemplo base
+            
+            int tw = 200;
+            int th = 85;
+            int px = mPos.x + 15;
+            int py = mPos.y + 15;
+            
+            // Keep tooltip inside screen bounds
+            if (px + tw > SW) px = mPos.x - tw - 15;
+            if (py + th > SH) py = mPos.y - th - 15;
+            
+            DrawRectangle(px, py, tw, th, (Color){ 20, 20, 25, 235 });
+            DrawRectangleLines(px, py, tw, th, (Color){ 100, 80, 40, 255 });
 
-            DrawText(TextFormat("Tile: q=%d, r=%d", selectedTile->coord.q, selectedTile->coord.r), px+10, py+10, 14, BLACK);
-            DrawText(TextFormat("Bioma: %s", props.name), px+10, py+30, 12, DARKBLUE);
-            DrawText(TextFormat("PA: %d", props.actionPointCost), px+10, py+50, 11, DARKGRAY);
-        }
-        if (gm.inCombat) {
+            DrawText(props.name, px+10, py+10, 16, GOLD);
+            if (!selectedTile->visited && !selectedTile->visible) {
+                DrawText("Desconocido", px+10, py+35, 14, GRAY);
+            } else {
+                DrawText(TextFormat("Costo: %d PA", props.actionPointCost), px+10, py+35, 14, RAYWHITE);
+                DrawText(TextFormat("Consumo: %d Suministros", foodCost), px+10, py+55, 14, RED);
+            }
+        }        if (gm.inCombat) {
             if (CombatView_Update(&gm.activeCombat, SW, SH)) {
                 gm.inCombat = false;
-                gm.phase = PHASE_PLAYER;
+                if (Army_GetTotalWeight(&playerArmy) <= 0) {
+                    gm.phase = PHASE_GAME_OVER;
+                } else {
+                    gm.phase = PHASE_PLAYER;
+                    visualArmyPos = HexToPixel(playerArmy.position, hexRadius);
+                }
             }
         } else if (gm.phase == PHASE_EVENT) { gm.eventTimer += GetFrameTime(); }
         if (gm.inCombat) {
             CombatView_Draw(&gm.activeCombat, SW, SH);
+        } else if (gm.phase == PHASE_DRAFT) {
+            if (activeDraft.choices[0] == NULL) {
+                DraftView_Init(&activeDraft, &gm.modRegistry);
+            }
+            if (DraftView_UpdateDraw(&activeDraft, &playerArmy, SW, SH) == 1) {
+                gm.phase = PHASE_PLAYER;
+                activeDraft.choices[0] = NULL;
+            }
         } else if (gm.phase == PHASE_EVENT && (gm.activeEvent || gm.activeResult)) {
             if (gm.activeResult) {
                 ResultView_Draw(gm.activeResult, SW, SH);

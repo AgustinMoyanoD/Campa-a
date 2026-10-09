@@ -45,6 +45,7 @@ void Combat_RollEvaluation(CombatContext* ctx, int dice1, int dice2) {
     ctx->evalRoll = dice1 + dice2;
     ModContext mCtx = { &ctx->gm->modRegistry, ctx->playerArmy, ctx->enemy, ctx, 0, 0 };
     ctx->evalRoll = Modifier_Query(HOOK_EVAL_ROLL, EFFECT_EVALUATION, EFFECT_SIDE_SELF, &mCtx, ctx->evalRoll, NULL);
+    if(ctx->log.count < MAX_STEPS) { ctx->log.steps[ctx->log.count].type = STEP_ROLL; ctx->log.steps[ctx->log.count].as.roll.d1 = dice1; ctx->log.steps[ctx->log.count].as.roll.d2 = dice2; ctx->log.steps[ctx->log.count].as.roll.total = ctx->evalRoll; ctx->log.count++; }
     
     // Evaluar y revelar
     if (ctx->evalRoll >= 6 && ctx->evalRoll <= 8) {
@@ -67,6 +68,7 @@ void Combat_RollPlanning(CombatContext* ctx, int dice1, int dice2) {
     ctx->planRoll = dice1 + dice2;
     ModContext mCtx = { &ctx->gm->modRegistry, ctx->playerArmy, ctx->enemy, ctx, 0, 0 };
     ctx->planRoll = Modifier_Query(HOOK_PLAN_ROLL, EFFECT_PLANNING, EFFECT_SIDE_SELF, &mCtx, ctx->planRoll, NULL);
+    if(ctx->log.count < MAX_STEPS) { ctx->log.steps[ctx->log.count].type = STEP_ROLL; ctx->log.steps[ctx->log.count].as.roll.d1 = dice1; ctx->log.steps[ctx->log.count].as.roll.d2 = dice2; ctx->log.steps[ctx->log.count].as.roll.total = ctx->planRoll; ctx->log.count++; }
     
     // Unlock plans
     ctx->canSkirmish = true;
