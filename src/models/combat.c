@@ -33,6 +33,7 @@ void Combat_Init(CombatContext* ctx, struct GameMaster* gm, Army* army, EnemySqu
     Modifier_CollectActions(HOOK_COMBAT_START, &mCtx, actions, 8);
     ctx->state = COMBAT_STATE_EVALUATION;
     ctx->round = 1;
+    ctx->log.count = 0;
     ctx->endReason = COMBAT_END_NONE;
     ctx->playerInitialWeight = Army_GetTotalWeight(army);
     ctx->playerInitialMorale = army->moral;
@@ -113,6 +114,13 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
     if (ctx->forceAdvantage < -8) ctx->forceAdvantage = -8;
     
     ctx->playerScore = ctx->execRoll + ctx->forceAdvantage + playerPlanMods;
+    if(ctx->log.count < MAX_STEPS) {
+        ctx->log.steps[ctx->log.count].type = STEP_ROLL;
+        ctx->log.steps[ctx->log.count].as.roll.d1 = dice1;
+        ctx->log.steps[ctx->log.count].as.roll.d2 = dice2;
+        ctx->log.steps[ctx->log.count].as.roll.total = ctx->execRoll;
+        ctx->log.count++;
+    }
     
     ModContext mCtx = { &ctx->gm->modRegistry, ctx->playerArmy, ctx->enemy, ctx, 0, 0 };
     ctx->playerScore = Modifier_Query(HOOK_EXEC_ROLL, EFFECT_EXECUTION, EFFECT_SIDE_SELF, &mCtx, ctx->playerScore, &ctx->breakdown);
@@ -147,6 +155,13 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
     ctx->totalCasualtyWeight = Modifier_Query(HOOK_EXEC_DAMAGE, EFFECT_CASUALTIES, EFFECT_SIDE_SELF, &mCtx, ctx->totalCasualtyWeight, NULL);
     
     Combat_DistributeCasualties(ctx);
+    if(ctx->log.count < MAX_STEPS) {
+        ctx->log.steps[ctx->log.count].type = STEP_CASUALTIES;
+        ctx->log.steps[ctx->log.count].as.casualties.initiates = ctx->casualtiesInitiates;
+        ctx->log.steps[ctx->log.count].as.casualties.soldiers = ctx->casualtiesSoldiers;
+        ctx->log.steps[ctx->log.count].as.casualties.sergeants = ctx->casualtiesSergeants;
+        ctx->log.count++;
+    }
     
     // Moral drop
     float moralDrop = 0.0f;

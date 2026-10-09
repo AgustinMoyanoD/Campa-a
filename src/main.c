@@ -7,6 +7,10 @@
 #include "army.h"
 #include "general.h"
 #include "asset_manager.h"
+#include "presentation/audio_manager.h"
+#include "presentation/screen_fx.h"
+#include "presentation/tween.h"
+#include "presentation/sequence.h"
 #include "camera_controller.h"
 #include "controllers/game_master.h"
 #include "views/event_view.h"
@@ -597,6 +601,7 @@ int main(void)
             DrawText("VICTORIA", screenWidth/2 - MeasureText("VICTORIA", 40)/2, screenHeight/2 - 40, 40, GOLD);
             DrawText("Has conquistado el ultimo objetivo.", screenWidth/2 - MeasureText("Has conquistado el ultimo objetivo.", 20)/2, screenHeight/2 + 20, 20, LIGHTGRAY);
         }
+        ScreenFX_DrawOverlays();
         EndDrawing();
     }
 
@@ -610,6 +615,7 @@ int main(void)
     );
 
     Assets_Unload(&gameAssets);
+    Audio_Shutdown();
     CloseWindow();
 
     return 0;

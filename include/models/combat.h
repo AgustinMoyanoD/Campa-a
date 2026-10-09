@@ -4,6 +4,7 @@
 #include "models/army.h"
 #include "models/enemy.h"
 #include "models/modifier.h"
+#include "models/combat_log.h"
 
 // Fases de la maquina de estados de combate
 typedef enum {
@@ -43,6 +44,7 @@ typedef struct CombatContext {
     int round;
     int playerInitialWeight;
     float playerInitialMorale;
+    CombatLog log;
     struct GameMaster* gm;
     Army* playerArmy;
     EnemySquad* enemy;
