@@ -11,6 +11,7 @@
 #include "presentation/screen_fx.h"
 #include "presentation/tween.h"
 #include "presentation/sequence.h"
+#include "presentation/ui_widgets.h"
 #include "camera_controller.h"
 #include "controllers/game_master.h"
 #include "views/event_view.h"
@@ -161,6 +162,9 @@ int main(void)
        ============================================================ */
 
     HexTile* selectedTile = NULL;
+        bool isArmyMoving = false;
+    Vector2 visualArmyPos = {0};
+    bool firstFrame = true;
 
 
     /* ============================================================
@@ -237,12 +241,9 @@ int main(void)
         /* ========================================================
            MOVIMIENTO DEL EJERCITO
            ======================================================== */
-        if (playerArmy.isMoving && gm.phase != PHASE_EVENT) {
-            playerArmy.moveTimer += GetFrameTime();
-            if (playerArmy.moveTimer >= 0.25f) { // 0.25 seg por tile
-                playerArmy.moveTimer = 0.0f;
+                if (playerArmy.isMoving && gm.phase != PHASE_EVENT && !Sequence_IsBusy()) {
+            if (playerArmy.currentPathIndex < playerArmy.pathLength) {
                 HexCoord nextPos = playerArmy.movePath[playerArmy.currentPathIndex];
-                
                 HexTile* targetTile = NULL;
                 for (int i = 0; i < levelMap.tileCount; i++) {
                     if (levelMap.tiles[i].coord.q == nextPos.q && levelMap.tiles[i].coord.r == nextPos.r) {
@@ -251,33 +252,34 @@ int main(void)
                     }
                 }
                 
-                if (targetTile) {
-                    if (GameMaster_AttemptMove(&gm, &levelMap, &playerArmy, targetTile)) {
-                        Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
-                        playerArmy.currentPathIndex++;
-                        
-                        // Verificar colision con enemigos
-                        for (int e = 0; e < gm.enemyCount; e++) {
-                            if (gm.enemies[e].isActive && gm.enemies[e].position.q == playerArmy.position.q && gm.enemies[e].position.r == playerArmy.position.r) {
-                                gm.inCombat = true;
-                                gm.phase = PHASE_EVENT;
-                                Combat_Init(&gm.activeCombat, &gm, &playerArmy, &gm.enemies[e]);
-                                playerArmy.isMoving = false;
-                                break;
-                            }
-                        }
-
-                        if (playerArmy.currentPathIndex >= playerArmy.pathLength) {
+                if (targetTile && GameMaster_AttemptMove(&gm, &levelMap, &playerArmy, targetTile)) {
+                    Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
+                    playerArmy.currentPathIndex++;
+                    
+                    Vector2 targetPixel = HexToPixel(playerArmy.position, hexRadius);
+                    targetPixel.y *= 0.5f;
+                    
+                    SeqAction moveAct = {0};
+                    moveAct.duration = 0.25f;
+                    Sequence_Push(moveAct);
+                    
+                    Tween_Start(&visualArmyPos.x, targetPixel.x, 0.25f, Ease_Linear);
+                    Tween_Start(&visualArmyPos.y, targetPixel.y, 0.25f, Ease_Linear);
+                    
+                    for (int e = 0; e < gm.enemyCount; e++) {
+                        if (gm.enemies[e].isActive && gm.enemies[e].position.q == playerArmy.position.q && gm.enemies[e].position.r == playerArmy.position.r) {
+                            gm.inCombat = true;
+                            gm.phase = PHASE_EVENT;
+                            Combat_Init(&gm.activeCombat, &gm, &playerArmy, &gm.enemies[e]);
                             playerArmy.isMoving = false;
-                        } else if (gm.phase == PHASE_EVENT) {
-                            playerArmy.isMoving = false; 
+                            break;
                         }
-                    } else {
-                        playerArmy.isMoving = false;
                     }
                 } else {
                     playerArmy.isMoving = false;
                 }
+            } else {
+                playerArmy.isMoving = false;
             }
         }
 
@@ -407,7 +409,7 @@ int main(void)
         int dynamicRenderRadius = (int)(((GetScreenWidth() / cc.camera.zoom) / (hexRadius * 1.5f))) + 6;
         if (dynamicRenderRadius > 40) dynamicRenderRadius = 40;
 
-        MapView_Draw(&levelMap, hexRadius, origin, false, viewCenter, dynamicRenderRadius, playerArmy.position, &gameAssets, debugRevealMap);
+        MapView_Draw(&levelMap, hexRadius, origin, false, viewCenter, dynamicRenderRadius, visualArmyPos, &gameAssets, debugRevealMap);
 
         // Dibujar Enemigos
         for (int i = 0; i < gm.enemyCount; i++) {

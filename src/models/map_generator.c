@@ -2149,6 +2149,8 @@ int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexT
         for (int i = 0; i < 6; i++) {
             HexTile* neighbor = nodes[currentIdx].tile->neighbors[i];
             if (!neighbor) continue;
+            // Solo atravesar casillas conocidas para no filtrar info de la niebla
+            if (!neighbor->visited && !neighbor->visible && neighbor != end) continue;
             
             // Coste de entrar al vecino
             int cost = Biome_GetProperties(neighbor->biome).actionPointCost;

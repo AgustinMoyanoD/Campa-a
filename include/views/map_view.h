@@ -1,4 +1,4 @@
-﻿#ifndef MAP_VIEW_H
+#ifndef MAP_VIEW_H
 #define MAP_VIEW_H
 
 #include "raylib.h"
@@ -15,7 +15,7 @@ void MapView_Draw(
     bool             drawConnections,
     HexCoord viewCenter,
     int              renderRadius,
-    HexCoord         armyPos,
+    Vector2         armyPos,
     const GameAssets* assets,
     bool debugRevealMap
 );
@@ -35,6 +35,8 @@ void MapView_DrawHexFillHighlight(
     Color          color
 );
 
+
+void MapView_DrawPath(HexTile** path, int length, float radius, Vector2 origin);
 void MapView_DrawMinimap(
     const Map*  map,
     Rectangle   destRect,

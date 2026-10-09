@@ -1,13 +1,13 @@
-﻿#include "map_view.h"
+#include "map_view.h"
 #include "rlgl.h"
 #include <stddef.h>
 #include <math.h>
 #include <stdlib.h>
 
 /* ============================================================
-   PERSPECTIVA ISOMÉTRICA
+   PERSPECTIVA ISOM�TRICA
    Factor de aplastamiento 2:1. El eje Y se multiplica por 0.5
-   para dar la ilusión de profundidad.
+   para dar la ilusi�n de profundidad.
    ============================================================ */
 
 #define ISO_SCALE_Y 0.5f
@@ -22,7 +22,7 @@ Vector2 HexToPixel(HexCoord coord, float radius)
 
 HexCoord PixelToHex(Vector2 position, float radius)
 {
-    /* Revertir el aplastamiento del eje Y antes de la conversión inversa */
+    /* Revertir el aplastamiento del eje Y antes de la conversi�n inversa */
     float unscaledY = position.y / ISO_SCALE_Y;
 
     float q = (sqrtf(3.0f) / 3.0f * position.x - 1.0f / 3.0f * unscaledY) / radius;
@@ -90,11 +90,11 @@ static Color GetBiomeTopColor(BiomeType biome)
 }
 
 /* ============================================================
-   DIBUJO DEL BLOQUE ISOMÉTRICO (caras laterales + cara superior)
+   DIBUJO DEL BLOQUE ISOM�TRICO (caras laterales + cara superior)
    ============================================================ */
 
 /*
- * Vértices del hexágono "pointy-top" aplastado:
+ * V�rtices del hex�gono "pointy-top" aplastado:
  *
  *        0
  *      /   \
@@ -106,7 +106,7 @@ static Color GetBiomeTopColor(BiomeType biome)
  *
  * Con ISO_SCALE_Y las coordenadas Y se comprimen al 50%.
  * Los lados visibles desde la perspectiva sur son: 4-5-0, 0-1-2.
- * Dibujamos los quads 4→5→0 y 0→1→2 como caras laterales.
+ * Dibujamos los quads 4?5?0 y 0?1?2 como caras laterales.
  */
 
 static void ComputeHexVertices(Vector2 center, float radius, Vector2 pts[6])
@@ -167,7 +167,7 @@ static void DrawHexTop(Vector2 center, float radius,
     }
 }
 
-/* Dibuja el cuerpo lateral (prisma) del bloque isométrico */
+/* Dibuja el cuerpo lateral (prisma) del bloque isom�trico */
 static void DrawHexSides(Vector2 baseCenter, float radius,
                           float height, Color sideColor)
 {
@@ -181,7 +181,7 @@ static void DrawHexSides(Vector2 baseCenter, float radius,
     }
 
     /* Solo las caras visibles desde el sur: derecha (0-1) y frontal (5-0) */
-    /* Cara derecha: vértices 0, 1 (top) → 1, 0 (base) */
+    /* Cara derecha: v�rtices 0, 1 (top) ? 1, 0 (base) */
     rlBegin(RL_QUADS);
     Color dark = (Color){ (unsigned char)(sideColor.r * 0.7f),
                            (unsigned char)(sideColor.g * 0.7f),
@@ -192,7 +192,7 @@ static void DrawHexSides(Vector2 baseCenter, float radius,
     rlVertex2f(base[1].x, base[1].y);
     rlVertex2f(base[0].x, base[0].y);
 
-    /* Cara frontal izquierda: 5-0 (top) → 0-5 (base) */
+    /* Cara frontal izquierda: 5-0 (top) ? 0-5 (base) */
     Color mid = (Color){ (unsigned char)(sideColor.r * 0.85f),
                           (unsigned char)(sideColor.g * 0.85f),
                           (unsigned char)(sideColor.b * 0.85f), 255 };
@@ -214,7 +214,7 @@ static void DrawHexSides(Vector2 baseCenter, float radius,
 }
 
 /* ============================================================
-   DIBUJO DE ESTRUCTURAS CON TEXTURA (o fallback geométrico)
+   DIBUJO DE ESTRUCTURAS CON TEXTURA (o fallback geom�trico)
    ============================================================ */
 
 static void DrawStructure(StructureType type, Vector2 topPos, float radius, bool isPrimary, bool isGuarded, const GameAssets* assets, Color tint) {
@@ -262,7 +262,7 @@ static void DrawStructure(StructureType type, Vector2 topPos, float radius, bool
         }
 
     } else {
-        /* Fallback geométrico del sistema anterior */
+        /* Fallback geom�trico del sistema anterior */
         switch (type) {
             case STRUCT_ALTAR:
                 DrawRectangle((int)(topPos.x - radius*0.22f), (int)(topPos.y - radius*0.4f),
@@ -346,10 +346,10 @@ static bool IsTileInRange(const HexTile* tile, HexCoord center, int renderRadius
 }
 
 /* ============================================================
-   FUNCIÓN PRINCIPAL DE DIBUJADO
+   FUNCI�N PRINCIPAL DE DIBUJADO
    ============================================================ */
 
-void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnections, HexCoord viewCenter, int renderRadius, HexCoord armyPos, const GameAssets* assets, bool debugRevealMap) {
+void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnections, HexCoord viewCenter, int renderRadius, Vector2 armyPos, const GameAssets* assets, bool debugRevealMap) {
     if (!map) return;
 
     bool hasAssets = (assets && assets->loaded);
@@ -370,7 +370,7 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
         count++;
     }
 
-    /* 2. Ordenar atrás→adelante (Y menor = más al norte = se dibuja antes) */
+    /* 2. Ordenar atr�s?adelante (Y menor = m�s al norte = se dibuja antes) */
     qsort(nodes, count, sizeof(RenderNode), CompareRenderNodes);
 
     /* 3. Dibujar cada tile */
@@ -415,7 +415,7 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
         }
         DrawHexTop(topPos, radius, topColor, tileTex, srcFrame, hasAssets && tileTex.id != 0, tint);
 
-        /* ── Ríos entre vecinos ── */
+        /* -- R�os entre vecinos -- */
         for (int d = 0; d < 6; d++) {
             const HexTile* nb = t->neighbors[d];
             if (!nb) continue;
@@ -437,18 +437,18 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
             }
         }
 
-        /* ── Estructuras ── */
+        /* -- Estructuras -- */
         if (t->structure.type != STRUCT_NONE)
             DrawStructure(t->structure.type, topPos, radius, t->structure.settlementType == SETTLEMENT_PRIMARY, t->structure.isGuarded, assets, tint);
 
-        /* ── Marcadores de inicio / fin ── */
+        /* -- Marcadores de inicio / fin -- */
         if (t->special == TILE_SPECIAL_START)
             DrawCircleV(topPos, radius * 0.35f, GOLD);
         else if (t->special == TILE_SPECIAL_END)
             DrawCircleV(topPos, radius * 0.35f, RED);
 
-        /* ── Token del ejército ── */
-        if (t->coord.q == armyPos.q && t->coord.r == armyPos.r) {
+        /* -- Token del ej�rcito -- */
+        if (false) {
             if (hasAssets && assets->armyToken.id != 0) {
                 float tw = (float)assets->armyToken.width;
                 float th = (float)assets->armyToken.height;
@@ -496,6 +496,24 @@ void MapView_DrawHexHighlight(const HexTile* tile, float radius, Vector2 origin,
 /* ============================================================
    MINIMAPA
    ============================================================ */
+
+void MapView_DrawPath(HexTile** path, int length, float radius, Vector2 origin) {
+    if (!path || length < 2) return;
+    
+    for (int i = 0; i < length - 1; i++) {
+        Vector2 p1 = HexToPixel(path[i]->coord, radius);
+        p1.y *= 0.5f;
+        p1.x += origin.x;
+        p1.y += origin.y;
+        
+        Vector2 p2 = HexToPixel(path[i+1]->coord, radius);
+        p2.y *= 0.5f;
+        p2.x += origin.x;
+        p2.y += origin.y;
+        
+        DrawLineEx(p1, p2, 4.0f, Fade(GOLD, 0.7f));
+    }
+}
 
 void MapView_DrawMinimap(const Map* map, Rectangle dest,
                           HexCoord armyPos, float blinkTimer,
