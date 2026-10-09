@@ -53,6 +53,7 @@ typedef struct {
 
     /* Token del ejército (sprite estático de momento) */
     Texture2D armyToken;
+    Texture2D enemyToken;
 
     bool loaded; /* TRUE si los assets se cargaron correctamente */
 } GameAssets;

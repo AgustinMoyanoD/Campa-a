@@ -1,4 +1,4 @@
-ï»¿#include "controllers/game_master.h"
+#include "controllers/game_master.h"
 #include <stdio.h>
 #include "raylib.h"
 #include <string.h>
@@ -21,6 +21,15 @@ void GameMaster_Init(GameMaster* gm)
     // Tambien puede haber resultados en la carpeta de eventos
     gm->resultCount += Result_LoadAll("assets/events", &gm->results[gm->resultCount], 128 - gm->resultCount);
     gm->activeEvent = NULL;
+
+    gm->modRegistry.count = Modifier_LoadAll("assets/modifiers", gm->modRegistry.defs, MAX_MODIFIERS);
+    TraceLog(LOG_INFO, "[MOD] %d modificadores cargados", gm->modRegistry.count);
+    for (int i = 0; i < gm->modRegistry.count; i++) {
+        TraceLog(LOG_INFO, "  - %s", gm->modRegistry.defs[i].id);
+    }
+
+    gm->inCombat = false;
+    gm->enemyCount = 0;
 }
 
 void GameMaster_StartTurn(GameMaster* gm, Army* playerArmy) {
@@ -33,7 +42,7 @@ void GameMaster_StartTurn(GameMaster* gm, Army* playerArmy) {
 
 void GameMaster_ProcessEnemyTurn(GameMaster* gm, Map* map) {
     if (!gm || !map) return;
-    // LÃ³gica futura: mover enemigos, spanwear, etc.
+    // Lógica futura: mover enemigos, spanwear, etc.
     // Por ahora solo pasa la fase.
 }
 
@@ -45,7 +54,7 @@ void GameMaster_EndTurn(GameMaster* gm, Map* map, Army* playerArmy) {
     if (gm->timeOfDay > TIME_NIGHT) {
         gm->timeOfDay = TIME_MORNING;
         gm->currentDay++;
-        gm->infamy += 1.0f; // Sube la infamia levemente al pasar un dÃ­a
+        gm->infamy += 1.0f; // Sube la infamia levemente al pasar un día
         if (gm->infamy > 100.0f) gm->infamy = 100.0f;
     }
     gm->currentTurn++;
@@ -99,12 +108,13 @@ bool GameMaster_AttemptMove(GameMaster* gm, Map* map, Army* playerArmy, HexTile*
     // Debe ser adyacente
     if (HexCoord_Distance(playerArmy->position, targetTile->coord) > 1) return false;
 
-    // Coste de PA segÃºn el bioma
+    // Coste de PA según el bioma
     BiomeProperties props = Biome_GetProperties(targetTile->biome);
     int apCost = props.actionPointCost;
 
     if (gm->currentActionPoints >= apCost) {    
         gm->currentActionPoints -= apCost;
+        playerArmy->previousPosition = playerArmy->position;
         playerArmy->position = targetTile->coord;
         
         // Consumir recursos (simplificado)
@@ -150,9 +160,9 @@ bool GameMaster_AttemptMove(GameMaster* gm, Map* map, Army* playerArmy, HexTile*
     return false;
 }
 
-int GameMaster_GetVisionModifier(const GameMaster* gm) {
+int GameMaster_GetVisionModifier(const GameMaster* gm, const Army* army) {
     if (!gm) return 0;
-    // De noche, la visiÃ³n baja en 1
+    // De noche, la visión baja en 1
     if (gm->timeOfDay == TIME_NIGHT) return -1;
     return 0;
 }
@@ -160,9 +170,11 @@ int GameMaster_GetVisionModifier(const GameMaster* gm) {
 
 
 
-void GameMaster_ApplyDiceRoll(GameMaster* gm, int diceTotal) {
+void GameMaster_ApplyDiceRoll(GameMaster* gm, Army* army, int diceTotal) {
     if (!gm) return;
-    gm->currentActionPoints = gm->baseActionPoints + diceTotal;
+    int baseAP = gm->baseActionPoints + diceTotal;
+    ModContext mCtx = { &gm->modRegistry, army, NULL, NULL, gm->timeOfDay, gm->infamy };
+    gm->currentActionPoints = Modifier_Query(HOOK_MAP_BASE_PA, EFFECT_PA, EFFECT_SIDE_SELF, &mCtx, baseAP, NULL);
     gm->hasRolledThisTurn = true;
 }
 
@@ -185,3 +197,17 @@ EventResult* GameMaster_FindResult(GameMaster* gm, const char* id) {
 
 
 
+
+
+
+void GameMaster_SpawnTestEnemies(GameMaster* gm, Map* map, HexCoord playerPos) {
+    gm->enemyCount = 0;
+    HexCoord pos1 = {playerPos.q + 2, playerPos.r};
+    if (!Map_GetTile(map, pos1)) pos1 = (HexCoord){playerPos.q - 2, playerPos.r};
+    gm->enemies[gm->enemyCount++] = Enemy_Create("Bandidaje Local", pos1, 45, 10, 8, 2, 0);
+    HexCoord pos2 = {playerPos.q + 1, playerPos.r + 2};
+    if (!Map_GetTile(map, pos2)) pos2 = (HexCoord){playerPos.q - 1, playerPos.r - 2};
+    gm->enemies[gm->enemyCount++] = Enemy_Create("Patrulla Real", pos2, 80, 12, 10, 10, 2);
+    Enemy_AddTag(&gm->enemies[1], TAG_HEAVILY_ARMORED);
+    Enemy_AddTag(&gm->enemies[1], TAG_CAVALRY);
+}

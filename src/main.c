@@ -1,4 +1,4 @@
-ï»¿#include "raylib.h"
+#include "raylib.h"
 #include <math.h>
 
 #include "map_generator.h"
@@ -10,6 +10,8 @@
 #include "camera_controller.h"
 #include "controllers/game_master.h"
 #include "views/event_view.h"
+#include "views/combat_view.h"
+#include "views/enemy_view.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -33,7 +35,7 @@ int main(void)
     InitWindow(
         screenWidth,
         screenHeight,
-        "Estrategia TÃ¡ctica - Nivel 1 Procedural"
+        "Estrategia Táctica - Nivel 1 Procedural"
     );
 
     ToggleFullscreen();
@@ -90,7 +92,7 @@ int main(void)
 
     General generalPrueba = General_Create(
         "Cayo Marcio", 38,
-        4, 3, 3, 2, 5
+        1, 3, 3, 2, 5
     );
 
     /* Buscar el tile de inicio para spawnear el army */
@@ -116,7 +118,7 @@ int main(void)
     );
 
     Lieutenant lt = Lieutenant_Create(
-        "Publio Varro", 26,
+        "Publio Varro", NULL, 26,
         2, 1, 1, 0, 2,
         72 /* lealtad */
     );
@@ -127,10 +129,18 @@ int main(void)
 
     GameMaster gm = {0};
     GameMaster_Init(&gm);
+
+    ModifierDef* def1 = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, "ares_marea_roja");
+    if (def1) Army_EquipModifier(&playerArmy, def1);
+    ModifierDef* def2 = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, "hermes_pie_alado");
+    if (def2) Army_EquipModifier(&playerArmy, def2);
+    ModifierDef* def3 = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, "zeus_rayo");
+    if (def3) Army_EquipModifier(&playerArmy, def3);
+    GameMaster_SpawnTestEnemies(&gm, &levelMap, playerArmy.position);
     GameMaster_StartTurn(&gm, &playerArmy);
 
-    /* Inicializar visiÃ³n del ejÃ©rcito sobre el mapa en el tile inicial */
-    Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm));
+    /* Inicializar visión del ejército sobre el mapa en el tile inicial */
+    Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
     {
         Vector2 pos = HexToPixel(playerArmy.position, hexRadius);
         pos.x += origin.x;
@@ -156,14 +166,14 @@ int main(void)
     while (!WindowShouldClose())
     {
         /* ========================================================
-           CAMBIO DE PROVINCIA Y REGENERACIÃ“N
+           CAMBIO DE PROVINCIA Y REGENERACIÓN
            ======================================================== */
 
         bool regenerate = false;
 
         if (gm.phase != PHASE_EVENT && IsKeyPressed(KEY_ENTER)) {
             GameMaster_EndTurn(&gm, &levelMap, &playerArmy);
-            Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm));
+            Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
         }
 
         if (IsKeyPressed(KEY_F1)) debugRevealMap = !debugRevealMap;
@@ -206,8 +216,8 @@ int main(void)
 
             selectedTile = NULL;
             
-            /* Reposicionar ejÃ©rcito */
-            for (int i = 0; i < levelMap.tileCount; i++) { if (levelMap.tiles[i].special == TILE_SPECIAL_START) { playerArmy.position = levelMap.tiles[i].coord; break; } } Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm));
+            /* Reposicionar ejército */
+            for (int i = 0; i < levelMap.tileCount; i++) { if (levelMap.tiles[i].special == TILE_SPECIAL_START) { playerArmy.position = levelMap.tiles[i].coord; break; } } Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
     {
         Vector2 pos = HexToPixel(playerArmy.position, hexRadius);
         pos.x += origin.x;
@@ -218,7 +228,7 @@ int main(void)
 
 
         /* ========================================================
-           CÃMARA
+           CÁMARA
            ======================================================== */
         /* ========================================================
            MOVIMIENTO DEL EJERCITO
@@ -239,8 +249,20 @@ int main(void)
                 
                 if (targetTile) {
                     if (GameMaster_AttemptMove(&gm, &levelMap, &playerArmy, targetTile)) {
-                        Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm));
+                        Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
                         playerArmy.currentPathIndex++;
+                        
+                        // Verificar colision con enemigos
+                        for (int e = 0; e < gm.enemyCount; e++) {
+                            if (gm.enemies[e].isActive && gm.enemies[e].position.q == playerArmy.position.q && gm.enemies[e].position.r == playerArmy.position.r) {
+                                gm.inCombat = true;
+                                gm.phase = PHASE_EVENT;
+                                Combat_Init(&gm.activeCombat, &gm, &playerArmy, &gm.enemies[e]);
+                                playerArmy.isMoving = false;
+                                break;
+                            }
+                        }
+
                         if (playerArmy.currentPathIndex >= playerArmy.pathLength) {
                             playerArmy.isMoving = false;
                         } else if (gm.phase == PHASE_EVENT) {
@@ -265,7 +287,7 @@ int main(void)
         bool wasRolling = hudState.dice.rolling;
         Hud_Update(&hudState, GetFrameTime());
         if (wasRolling && !hudState.dice.rolling) {
-            GameMaster_ApplyDiceRoll(&gm, hudState.dice.valor1 + hudState.dice.valor2);
+            GameMaster_ApplyDiceRoll(&gm, &playerArmy, hudState.dice.valor1 + hudState.dice.valor2);
         }
         Assets_UpdateAnimations(&gameAssets, GetFrameTime());
         if (gm.phase != PHASE_EVENT) Hud_HandleInput(&hudState, &gm);
@@ -284,7 +306,7 @@ int main(void)
             !CheckCollisionPointRec(GetMousePosition(), hudState.rollBtnRect))
         {
             /*
-             * PosiciÃ³n del mouse en pantalla.
+             * Posición del mouse en pantalla.
              */
             Vector2 mousePosition =
                 GetMousePosition();
@@ -292,15 +314,15 @@ int main(void)
             /*
              * Convertir de coordenadas de pantalla
              * a coordenadas del mundo teniendo en cuenta
-             * la cÃ¡mara y el zoom.
+             * la cámara y el zoom.
              */
             Vector2 worldPosition =
                 GetScreenToWorld2D(mousePosition, cc.camera);
 
             /*
-             * MapView dibuja los hexÃ¡gonos de esta forma:
+             * MapView dibuja los hexágonos de esta forma:
              *
-             * posiciÃ³n del hexÃ¡gono =
+             * posición del hexágono =
              * HexToPixel(coord) + origin
              *
              * Por lo tanto, quitamos origin antes
@@ -310,7 +332,7 @@ int main(void)
             worldPosition.y -= origin.y;
 
             /*
-             * Convertir posiciÃ³n del mouse
+             * Convertir posición del mouse
              * a coordenadas hexagonales.
              */
             HexCoord mouseHex =
@@ -382,6 +404,14 @@ int main(void)
         if (dynamicRenderRadius > 40) dynamicRenderRadius = 40;
 
         MapView_Draw(&levelMap, hexRadius, origin, false, viewCenter, dynamicRenderRadius, playerArmy.position, &gameAssets, debugRevealMap);
+
+        // Dibujar Enemigos
+        for (int i = 0; i < gm.enemyCount; i++) {
+            HexTile* t = Map_GetTile(&levelMap, gm.enemies[i].position);
+            if (t && (t->visible || debugRevealMap)) {
+                EnemyView_DrawOnMap(&gm.enemies[i], origin, hexRadius, &gameAssets);
+            }
+        }
 
 
                 /*
@@ -476,7 +506,7 @@ int main(void)
         int SH = GetScreenHeight();
 
         /* Panel comandante (arriba izquierda) */
-        Hud_DrawCommanderPanel(&playerArmy, &hudState, 10, 10, 340);
+        Hud_DrawCommanderPanel(&playerArmy, &gm, &hudState, 10, 10, 340);
 
         /* Panel stats ejercito (abajo izquierda) */
         Hud_DrawArmyStatsPanel(&playerArmy, &gm, 10, SH - 160, 400, 150);
@@ -505,14 +535,29 @@ int main(void)
             DrawText(TextFormat("Bioma: %s", props.name), px+10, py+30, 12, DARKBLUE);
             DrawText(TextFormat("PA: %d", props.actionPointCost), px+10, py+50, 11, DARKGRAY);
         }
-        if (gm.phase == PHASE_EVENT) { gm.eventTimer += GetFrameTime(); }
-        if (gm.phase == PHASE_EVENT && (gm.activeEvent || gm.activeResult)) {
+        if (gm.inCombat) {
+            if (CombatView_Update(&gm.activeCombat, SW, SH)) {
+                gm.inCombat = false;
+                gm.phase = PHASE_PLAYER;
+            }
+        } else if (gm.phase == PHASE_EVENT) { gm.eventTimer += GetFrameTime(); }
+        if (gm.inCombat) {
+            CombatView_Draw(&gm.activeCombat, SW, SH);
+        } else if (gm.phase == PHASE_EVENT && (gm.activeEvent || gm.activeResult)) {
             if (gm.activeResult) {
                 ResultView_Draw(gm.activeResult, SW, SH);
                 int r_opt = (gm.eventTimer > 1.0f) ? ResultView_HandleInput(gm.activeResult, SW, SH) : -1;
                 if (r_opt == 0) {
                     Event_ApplyResult(gm.activeResult, &playerArmy, &gm.infamy);
-                    gm.phase = PHASE_PLAYER;
+                    if (gm.activeResult->startsBattle) {
+                        gm.inCombat = true;
+                        static EnemySquad dummyEnemy;
+                        dummyEnemy = Enemy_Create(gm.activeResult->battleEnemy, (HexCoord){0,0}, 35, 12, 10, 5, 2);
+                        Enemy_AddTag(&dummyEnemy, TAG_CAVALRY);
+                        Combat_Init(&gm.activeCombat, &gm, &playerArmy, &dummyEnemy);
+                    } else {
+                        gm.phase = PHASE_PLAYER;
+                    }
                     gm.activeResult = NULL;
                 }
             } else if (gm.activeEvent) {
@@ -543,6 +588,15 @@ int main(void)
             }
         }
 
+                if (gm.phase == PHASE_GAME_OVER) {
+            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.8f));
+            DrawText("DERROTA TOTAL", screenWidth/2 - MeasureText("DERROTA TOTAL", 40)/2, screenHeight/2 - 40, 40, RED);
+            DrawText("Tu ejercito ha sido aniquilado.", screenWidth/2 - MeasureText("Tu ejercito ha sido aniquilado.", 20)/2, screenHeight/2 + 20, 20, LIGHTGRAY);
+        } else if (gm.phase == PHASE_VICTORY) {
+            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.8f));
+            DrawText("VICTORIA", screenWidth/2 - MeasureText("VICTORIA", 40)/2, screenHeight/2 - 40, 40, GOLD);
+            DrawText("Has conquistado el ultimo objetivo.", screenWidth/2 - MeasureText("Has conquistado el ultimo objetivo.", 20)/2, screenHeight/2 + 20, 20, LIGHTGRAY);
+        }
         EndDrawing();
     }
 
@@ -560,6 +614,14 @@ int main(void)
 
     return 0;
 }
+
+
+
+
+
+
+
+
 
 
 

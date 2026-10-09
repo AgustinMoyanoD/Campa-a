@@ -1,4 +1,4 @@
-Ôªø#ifndef HUD_H
+#ifndef HUD_H
 #define HUD_H
 
 #include "raylib.h"
@@ -10,19 +10,19 @@
 typedef struct {
     int valor1;         /* Valor actual del dado 1 (1-6) */
     int valor2;         /* Valor actual del dado 2 (1-6) */
-    bool rolling;       /* TRUE mientras se est√° animando el tiro */
-    float rollTimer;    /* Tiempo acumulado de la animaci√≥n de tiro */
-    float rollDuration; /* Duraci√≥n total de la animaci√≥n (0.5s) */
+    bool rolling;       /* TRUE mientras se est· animando el tiro */
+    float rollTimer;    /* Tiempo acumulado de la animaciÛn de tiro */
+    float rollDuration; /* DuraciÛn total de la animaciÛn (0.5s) */
 } DiceState;
 
 /* Estado del HUD */
 typedef struct {
     bool statsExpanded;     /* TRUE = panel de stats del comandante visible */
-    float blinkTimer;       /* Timer acumulado para parpadeo del pe√≥n en el minimapa */
+    float blinkTimer;       /* Timer acumulado para parpadeo del peÛn en el minimapa */
     DiceState dice;
     
-    Rectangle cmdPanelRect; /* √Årea clickeable del panel del comandante */
-    Rectangle rollBtnRect;  /* √Årea clickeable del bot√≥n ROLL */
+    Rectangle cmdPanelRect; /* ¡rea clickeable del panel del comandante */
+    Rectangle rollBtnRect;  /* ¡rea clickeable del botÛn ROLL */
 } HudState;
 
 /* Inicializa el estado del HUD */
@@ -31,17 +31,18 @@ HudState Hud_Init(void);
 /* Actualiza timers internos (llamar cada frame con deltaTime) */
 void Hud_Update(HudState* hud, float deltaTime);
 
-/* Tira los dados (inicia la animaci√≥n) */
+/* Tira los dados (inicia la animaciÛn) */
 void Hud_RollDice(HudState* hud);
 
 /* Dibuja el panel del comandante (arriba izquierda) */
 void Hud_DrawCommanderPanel(
     const Army*  army,
+    const GameMaster* gm,
     HudState*    hud,
     int x, int y, int w
 );
 
-/* Dibuja el panel de stats y recursos del ej√©rcito (abajo izquierda) */
+/* Dibuja el panel de stats y recursos del ejÈrcito (abajo izquierda) */
 void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, int x, int y, int w, int h);
 
 /* Dibuja el panel de dados (abajo centro) */

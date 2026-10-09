@@ -2,6 +2,7 @@
 #define GENERAL_H
 
 #include <stdbool.h>
+#include "models/effect.h"
 
 #define MAX_GENERAL_DIVINE_CARDS 3
 #define MAX_LIEUTENANT_DIVINE_CARDS 1
@@ -18,22 +19,24 @@ typedef enum {
 
 /* ============================================================
    ESTRUCTURA DEL GENERAL
-   - Sus estadÃ­sticas nunca pueden ser negativas (mÃ­nimo 0).
+   - Sus estadísticas nunca pueden ser negativas (mínimo 0).
    - Puede portar hasta 3 cartas divinas pasivas.
    ============================================================ */
 
 typedef struct {
-    char name[64];
+        char name[64];
     int age;
 
-    int divineCards[MAX_GENERAL_DIVINE_CARDS];
-    int divineCardCount;
+    ModifierInstance cards[3];
+    int cardCount;
+    ModifierInstance curses[4];
+    int curseCount;
 
     /* Puntos base de atributos (siempre >= 0) */
-    int vision;         /* Puntos de visiÃ³n en niebla de guerra */
+    int vision;         /* Puntos de visión en niebla de guerra */
     int leadership;     /* Puntos de dirigencia (movimiento base por turno) */
-    int evaluation;     /* EstimaciÃ³n de tropas y composiciÃ³n enemiga */
-    int planning;       /* Capacidad tÃ¡ctica y selecciÃ³n de estrategia */
+    int evaluation;     /* Estimación de tropas y composición enemiga */
+    int planning;       /* Capacidad táctica y selección de estrategia */
     int execution;      /* Fuerza de mando y efectividad en combate */
 
 } General;
@@ -42,16 +45,18 @@ typedef struct {
 /* ============================================================
    ESTRUCTURA DEL TENIENTE
    - Puede tener atributos reducidos o incluso NEGATIVOS.
-   - Cuenta Ãºnicamente con 1 carta divina pasiva.
-   - Posee lealtad (0 a 100), factor clave en motines y traiciÃ³n.
+   - Cuenta únicamente con 1 carta divina pasiva.
+   - Posee lealtad (0 a 100), factor clave en motines y traición.
    ============================================================ */
 
 typedef struct {
-    char name[64];
+        char name[64];
     int age;
 
-    int divineCard;             /* ID de la carta divina equipada (0 si ninguna) */
-    bool hasDivineCard;
+    ModifierInstance patronCard;
+    bool hasPatronCard;
+    ModifierInstance curses[4];
+    int curseCount;
 
     /* Puntos de atributos (pueden ser negativos por inexperiencia o defectos) */
     int vision;
@@ -66,8 +71,8 @@ typedef struct {
 
 
 /* ============================================================
-   REFERENCIA POLIMÃ“RFICA AL COMANDANTE EN JEFE
-   Permite que la tropa estÃ© dirigida tanto por el General
+   REFERENCIA POLIMÓRFICA AL COMANDANTE EN JEFE
+   Permite que la tropa esté dirigida tanto por el General
    como por cualquiera de los Tenientes mediante una interfaz unificada.
    ============================================================ */
 
@@ -78,7 +83,7 @@ typedef struct {
 
 
 /* ============================================================
-   FUNCIONES DE CONSTRUCCIÃ“N Y GESTIÃ“N DE OFICIALES
+   FUNCIONES DE CONSTRUCCIÓN Y GESTIÓN DE OFICIALES
    ============================================================ */
 
 General General_Create(
@@ -92,7 +97,7 @@ General General_Create(
 );
 
 Lieutenant Lieutenant_Create(
-    const char* name,
+    const char* name, const char* patronCardId,
     int age,
     int vision,
     int leadership,
@@ -102,7 +107,7 @@ Lieutenant Lieutenant_Create(
     int loyalty
 );
 
-/* MÃ©todos polimÃ³rficos de consulta sobre el oficial al mando */
+/* Métodos polimórficos de consulta sobre el oficial al mando */
 CommanderRef Commander_FromGeneral(General* general);
 CommanderRef Commander_FromLieutenant(Lieutenant* lt);
 
@@ -115,10 +120,14 @@ int Commander_GetEvaluation(CommanderRef cmd);
 int Commander_GetPlanning(CommanderRef cmd);
 int Commander_GetExecution(CommanderRef cmd);
 int Commander_GetLoyalty(CommanderRef cmd);
-int Commander_GetDivineCardCount(CommanderRef cmd);
-int Commander_GetDivineCard(CommanderRef cmd, int index);
 
-bool Commander_AddDivineCard(CommanderRef cmd, int cardId);
-bool Commander_ReplaceDivineCard(CommanderRef cmd, int slotIndex, int cardId);
 
+
+int Commander_GetActiveModifierCount(CommanderRef cmd);
+const char* Commander_GetActiveModifier(CommanderRef cmd, int index);
+bool Commander_AddActiveModifier(CommanderRef cmd, const char* modId);
 #endif /* GENERAL_H */
+
+
+
+

@@ -1,10 +1,11 @@
-Ôªø#include "army.h"
+#include "army.h"
+#include "models/modifier.h"
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
 
 /* ============================================================
-   CREACI√ìN DE LA ARMY
+   CREACI”N DE LA ARMY
    ============================================================ */
 
 Army Army_Create(
@@ -26,7 +27,7 @@ Army Army_Create(
     army.general = general;
     army.lieutenantCount = 0;
 
-    /* Por defecto, el General est√° al mando inicial de la Army */
+    /* Por defecto, el General est· al mando inicial de la Army */
     army.commander = Commander_FromGeneral(&army.general);
 
     army.sargentos = (sargentos >= 0) ? sargentos : 0;
@@ -38,7 +39,7 @@ Army Army_Create(
     army.monedas = (monedas >= 0) ? monedas : 0;
     army.ganado = (ganado >= 0) ? ganado : 0;
 
-    army.moral = 80.0f;  /* Moral inicial s√≥lida */
+    army.moral = 80.0f;  /* Moral inicial sÛlida */
     army.salud = 100.0f; /* Salud plena */
     army.infamia = 0;
 
@@ -51,9 +52,14 @@ int Army_GetTotalSoldiers(const Army* army)
     return army->sargentos + army->soldados + army->iniciados;
 }
 
+int Army_GetTotalWeight(const Army* army) {
+    if (!army) return 0;
+    return (army->sargentos * 5) + (army->soldados * 2) + (army->iniciados * 1);
+}
+
 
 /* ============================================================
-   GESTI√ìN DE OFICIALES
+   GESTI”N DE OFICIALES
    ============================================================ */
 
 bool Army_AddLieutenant(Army* army, Lieutenant lt)
@@ -83,7 +89,7 @@ bool Army_SetCommanderLieutenant(Army* army, int lieutenantIndex)
 
 
 /* ============================================================
-   CONSUMO LOG√çSTICO DE RECURSOS
+   CONSUMO LOGÕSTICO DE RECURSOS
    ============================================================ */
 
 float Army_CalculateWaterUsage(int cantSoldados, int cantGanado)
@@ -95,7 +101,7 @@ float Army_CalculateWaterUsage(int cantSoldados, int cantGanado)
 
 float Army_CalculateFoodUsage(int cantSoldados, int cantGanado)
 {
-    /* Cada soldado consume 1.0 raci√≥n de comida.
+    /* Cada soldado consume 1.0 raciÛn de comida.
        El ganado consume 0.2 raciones adicionales de mantenimiento. */
     return ((float)cantSoldados * 1.0f) + ((float)cantGanado * 0.2f);
 }
@@ -115,7 +121,7 @@ void Army_ConsumeTurnResources(Army* army)
     }
     else
     {
-        /* Escasez de agua: deshidrataci√≥n y ca√≠da de moral */
+        /* Escasez de agua: deshidrataciÛn y caÌda de moral */
         army->agua_disponible = 0.0f;
         army->moral -= 8.0f;
         army->salud -= 4.0f;
@@ -128,7 +134,7 @@ void Army_ConsumeTurnResources(Army* army)
     }
     else
     {
-        /* Hambruna: se puede sacrificar ganado autom√°ticamente o mermar salud */
+        /* Hambruna: se puede sacrificar ganado autom·ticamente o mermar salud */
         if (army->ganado > 0)
         {
             /* Sacrificio de emergencia: 1 cabeza de ganado aporta 15 de comida */
@@ -161,17 +167,17 @@ void Army_ConsumeTurnResources(Army* army)
 
 
 /* ============================================================
-   F√ìRMULAS DE ESTAD√çSTICAS GLOBALES DE LA ARMY
+   F”RMULAS DE ESTADÕSTICAS GLOBALES DE LA ARMY
    ============================================================ */
 
 /*
-    F√≥rmula de Ejecuci√≥n:
-    f_ejecuci√≥n = Ejecuci√≥n_comandante + sargentos + (soldados / B) + f(iniciados)
+    FÛrmula de EjecuciÛn:
+    f_ejecuciÛn = EjecuciÛn_comandante + sargentos + (soldados / B) + f(iniciados)
 
     Para los iniciados:
-    - Tener pocos iniciados aporta una bonificaci√≥n positiva (refuerzos frescos).
-    - Conforme el n√∫mero de iniciados crece demasiado sin suficiente disciplina,
-      el t√©rmino decae y se convierte en una penalizaci√≥n neta (caos, estorbo, desorden).
+    - Tener pocos iniciados aporta una bonificaciÛn positiva (refuerzos frescos).
+    - Conforme el n˙mero de iniciados crece demasiado sin suficiente disciplina,
+      el tÈrmino decae y se convierte en una penalizaciÛn neta (caos, estorbo, desorden).
 */
 float Army_CalculateExecution(const Army* army, float B)
 {
@@ -180,13 +186,13 @@ float Army_CalculateExecution(const Army* army, float B)
     if (B <= 0.05f) B = DEFAULT_EXECUTION_B;
 
     float execCommander = (float)Commander_GetExecution(army->commander);
-    float valSargentos = (float)army->sargentos * 1.5f; /* Sargentos aportan liderazgo t√°ctico */
+    float valSargentos = (float)army->sargentos * 1.5f; /* Sargentos aportan liderazgo t·ctico */
     float valSoldados = (float)army->soldados / B;
 
     /*
         Efecto de los iniciados:
         Aporte positivo inicial modulado por e^(-iniciados / K).
-        Si supera los 20 iniciados, el desborde aplica penalizaci√≥n progresiva.
+        Si supera los 20 iniciados, el desborde aplica penalizaciÛn progresiva.
     */
     float nIniciados = (float)army->iniciados;
     float aporteIniciados = (nIniciados * 0.6f) * expf(-nIniciados / 18.0f);
@@ -224,7 +230,7 @@ float Army_CalculateVision(const Army* army)
     float vis = (float)Commander_GetVision(army->commander);
     if (army->sargentos > 0)
     {
-        vis += 1.0f; /* Sargentos act√∫an como batidores */
+        vis += 1.0f; /* Sargentos act˙an como batidores */
     }
 
     return (vis > 1.0f) ? vis : 1.0f;
@@ -261,7 +267,7 @@ ArmyStats Army_GetStats(const Army* army, float B)
 
 
 /* ============================================================
-   SISTEMA DE MOT√çN Y TRAICI√ìN
+   SISTEMA DE MOTÕN Y TRAICI”N
    ============================================================ */
 
 float Army_CalculateMutinyRisk(const Army* army)
@@ -289,14 +295,14 @@ float Army_CalculateMutinyRisk(const Army* army)
         }
     }
 
-    /* Si ning√∫n teniente es desleal, el riesgo es nulo */
+    /* Si ning˙n teniente es desleal, el riesgo es nulo */
     if (maxLieutenantDisloyalty <= 0.0f)
         return 0.0f;
 
-    /* El riesgo porcentual escala con el d√©ficit de moral y la deslealtad */
+    /* El riesgo porcentual escala con el dÈficit de moral y la deslealtad */
     float risk = moralDeficit * maxLieutenantDisloyalty * 100.0f;
 
-    /* A mayor infamia, mayor es la fricci√≥n interna si la moral es p√©sima */
+    /* A mayor infamia, mayor es la fricciÛn interna si la moral es pÈsima */
     if (army->infamia > 20)
     {
         risk += (float)army->infamia * 0.15f;
@@ -320,7 +326,7 @@ bool Army_CheckMutiny(Army* army, int* outRebelLieutenantIndex)
 
     if (roll < risk)
     {
-        /* Encuentra al teniente con menor lealtad que lidera el mot√≠n */
+        /* Encuentra al teniente con menor lealtad que lidera el motÌn */
         int worstIdx = 0;
         int lowestLoyalty = 100;
         for (int i = 0; i < army->lieutenantCount; i++)
@@ -355,3 +361,127 @@ int Army_GetVision(const Army* army) {
     return vis;
 }
 
+EquipResult Army_EquipModifier(Army* army, const ModifierDef* def) {
+    if (!army || !def) return EQUIP_INVALID;
+    if (Army_HasModifier(army, def->id)) return EQUIP_DUPLICATE;
+    int remaining = -1;
+    if (def->durationType == DURATION_BATTLES || def->durationType == DURATION_DAYS) remaining = def->durationValue;
+    
+    if (def->target == MOD_TARGET_COMMANDER && def->kind == MOD_KIND_CARD) {
+        if (army->commander.type == OFFICER_GENERAL) {
+            General* g = (General*)army->commander.ptr;
+            if (g->cardCount >= 3) return EQUIP_SLOTS_FULL;
+            strncpy(g->cards[g->cardCount].id, def->id, 31);
+            g->cards[g->cardCount].remaining = remaining;
+            g->cardCount++;
+            return EQUIP_OK;
+        } else {
+            Lieutenant* lt = (Lieutenant*)army->commander.ptr;
+            if (lt->hasPatronCard) return EQUIP_SLOTS_FULL;
+            strncpy(lt->patronCard.id, def->id, 31);
+            lt->patronCard.remaining = remaining;
+            lt->hasPatronCard = true;
+            return EQUIP_OK;
+        }
+    } else if (def->target == MOD_TARGET_COMMANDER && def->kind == MOD_KIND_CURSE) {
+        if (army->commander.type == OFFICER_GENERAL) {
+            General* g = (General*)army->commander.ptr;
+            if (g->curseCount >= 4) return EQUIP_SLOTS_FULL;
+            strncpy(g->curses[g->curseCount].id, def->id, 31);
+            g->curses[g->curseCount].remaining = remaining;
+            g->curseCount++;
+            return EQUIP_OK;
+        } else {
+            Lieutenant* lt = (Lieutenant*)army->commander.ptr;
+            if (lt->curseCount >= 4) return EQUIP_SLOTS_FULL;
+            strncpy(lt->curses[lt->curseCount].id, def->id, 31);
+            lt->curses[lt->curseCount].remaining = remaining;
+            lt->curseCount++;
+            return EQUIP_OK;
+        }
+    } else if (def->target == MOD_TARGET_ARMY) {
+        if (army->curseCount >= 8) return EQUIP_SLOTS_FULL;
+        strncpy(army->curses[army->curseCount].id, def->id, 31);
+        army->curses[army->curseCount].remaining = remaining;
+        army->curseCount++;
+        return EQUIP_OK;
+    }
+    return EQUIP_INVALID;
+}
+
+bool Army_ReplaceCard(Army* army, int slot, const ModifierDef* def) {
+    if (!army || !def || def->kind != MOD_KIND_CARD) return false;
+    int remaining = -1;
+    if (def->durationType == DURATION_BATTLES || def->durationType == DURATION_DAYS) remaining = def->durationValue;
+    
+    if (army->commander.type == OFFICER_GENERAL) {
+        General* g = (General*)army->commander.ptr;
+        if (slot < 0 || slot >= 3) return false;
+        strncpy(g->cards[slot].id, def->id, 31);
+        g->cards[slot].remaining = remaining;
+        if (slot >= g->cardCount) g->cardCount = slot + 1;
+        return true;
+    } else {
+        Lieutenant* lt = (Lieutenant*)army->commander.ptr;
+        if (slot != 0) return false;
+        strncpy(lt->patronCard.id, def->id, 31);
+        lt->patronCard.remaining = remaining;
+        lt->hasPatronCard = true;
+        return true;
+    }
+}
+
+bool Army_RemoveModifier(Army* army, const char* id) {
+    if (!army || !id) return false;
+    if (army->commander.type == OFFICER_GENERAL) {
+        General* g = (General*)army->commander.ptr;
+        for (int i = 0; i < g->cardCount; i++) {
+            if (strcmp(g->cards[i].id, id) == 0) {
+                for (int j = i; j < g->cardCount - 1; j++) g->cards[j] = g->cards[j+1];
+                g->cardCount--; return true;
+            }
+        }
+        for (int i = 0; i < g->curseCount; i++) {
+            if (strcmp(g->curses[i].id, id) == 0) {
+                for (int j = i; j < g->curseCount - 1; j++) g->curses[j] = g->curses[j+1];
+                g->curseCount--; return true;
+            }
+        }
+    } else {
+        Lieutenant* lt = (Lieutenant*)army->commander.ptr;
+        if (lt->hasPatronCard && strcmp(lt->patronCard.id, id) == 0) { lt->hasPatronCard = false; return true; }
+        for (int i = 0; i < lt->curseCount; i++) {
+            if (strcmp(lt->curses[i].id, id) == 0) {
+                for (int j = i; j < lt->curseCount - 1; j++) lt->curses[j] = lt->curses[j+1];
+                lt->curseCount--; return true;
+            }
+        }
+    }
+    for (int i = 0; i < army->curseCount; i++) {
+        if (strcmp(army->curses[i].id, id) == 0) {
+            for (int j = i; j < army->curseCount - 1; j++) army->curses[j] = army->curses[j+1];
+            army->curseCount--; return true;
+        }
+    }
+    return false;
+}
+
+void Army_TickModifiers(Army* army, enum DurationType type) {
+    // Phase B tick implementation placeholder
+}
+
+bool Army_HasModifier(const Army* army, const char* id);
+bool Army_HasModifier(const Army* army, const char* id) {
+    if (!army || !id) return false;
+    if (army->commander.type == OFFICER_GENERAL) {
+        General* g = (General*)army->commander.ptr;
+        for (int i = 0; i < g->cardCount; i++) if (strcmp(g->cards[i].id, id) == 0) return true;
+        for (int i = 0; i < g->curseCount; i++) if (strcmp(g->curses[i].id, id) == 0) return true;
+    } else {
+        Lieutenant* lt = (Lieutenant*)army->commander.ptr;
+        if (lt->hasPatronCard && strcmp(lt->patronCard.id, id) == 0) return true;
+        for (int i = 0; i < lt->curseCount; i++) if (strcmp(lt->curses[i].id, id) == 0) return true;
+    }
+    for (int i = 0; i < army->curseCount; i++) if (strcmp(army->curses[i].id, id) == 0) return true;
+    return false;
+}

@@ -1,10 +1,12 @@
-﻿#ifndef GAME_MASTER_H
+#ifndef GAME_MASTER_H
 #define GAME_MASTER_H
 
 #include "models/army.h"
 #include "models/map_generator.h"
 #include "models/enemy.h"
 #include "models/event.h"
+#include "models/modifier.h"
+#include "models/combat.h"
 #include <stdbool.h>
 
 typedef enum {
@@ -17,7 +19,9 @@ typedef enum {
 typedef enum {
     PHASE_PLAYER,
     PHASE_ENEMY,
-    PHASE_EVENT
+    PHASE_EVENT,
+    PHASE_GAME_OVER,
+    PHASE_VICTORY
 } GamePhase;
 
 typedef struct {
@@ -31,7 +35,7 @@ typedef struct {
     int armySize;
 } EventContext;
 
-typedef struct {
+typedef struct GameMaster {
     int currentTurn;
     int currentDay;
     TimeOfDay timeOfDay;
@@ -45,6 +49,14 @@ typedef struct {
     int resultCount;
     EventResult* activeResult;
     EventDef* activeEvent;
+    
+    ModifierRegistry modRegistry;
+
+    EnemySquad enemies[64];
+    int enemyCount;
+
+    bool inCombat;
+    struct CombatContext activeCombat;
 
     int baseActionPoints;
     bool hasRolledThisTurn;
@@ -55,11 +67,12 @@ typedef struct {
 } GameMaster;
 
 void GameMaster_Init(GameMaster* gm);
+void GameMaster_SpawnTestEnemies(GameMaster* gm, Map* map, HexCoord playerPos);
 void GameMaster_StartTurn(GameMaster* gm, Army* playerArmy);
 void GameMaster_EndTurn(GameMaster* gm, Map* map, Army* playerArmy);
 bool GameMaster_AttemptMove(GameMaster* gm, Map* map, Army* playerArmy, HexTile* targetTile);
 void GameMaster_ProcessEnemyTurn(GameMaster* gm, Map* map);
-int GameMaster_GetVisionModifier(const GameMaster* gm);
+int GameMaster_GetVisionModifier(const GameMaster* gm, const Army* army);
 
 EventDef* GameMaster_FindTriggeredEvent(GameMaster* gm, const EventContext* context);
 
@@ -68,7 +81,14 @@ EventResult* GameMaster_FindResult(GameMaster* gm, const char* id);
 #endif /* GAME_MASTER_H */
 
 
-void GameMaster_ApplyDiceRoll(GameMaster* gm, int diceTotal);
+void GameMaster_ApplyDiceRoll(GameMaster* gm, Army* army, int diceTotal);
+
+
+
+
+
+
+
 
 
 

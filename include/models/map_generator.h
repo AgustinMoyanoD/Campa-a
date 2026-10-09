@@ -1,4 +1,4 @@
-﻿#ifndef MAP_GENERATOR_H
+#ifndef MAP_GENERATOR_H
 #define MAP_GENERATOR_H
 
 #include "hex_tile.h"
@@ -45,6 +45,7 @@ void Map_Free(
     Map* map
 );
 
+HexTile* Map_GetTile(const Map* map, HexCoord coord);
 void Map_UpdateVision(Map* map, HexCoord center, int visionRange);
 
 int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut);

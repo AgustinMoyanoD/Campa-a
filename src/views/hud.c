@@ -1,4 +1,5 @@
-ï»¿#include "hud.h"
+#include "hud.h"
+#include <string.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -31,7 +32,7 @@ void Hud_Update(HudState* hud, float deltaTime)
     if (hud->dice.rolling) {
         hud->dice.rollTimer += deltaTime;
         
-        /* AnimaciÃ³n rÃ¡pida de cambio de caras mientras gira */
+        /* Animación rápida de cambio de caras mientras gira */
         if ((int)(hud->dice.rollTimer * 20.0f) % 2 == 0) {
             hud->dice.valor1 = (rand() % 6) + 1;
             hud->dice.valor2 = (rand() % 6) + 1;
@@ -72,7 +73,7 @@ void Hud_HandleInput(HudState* hud, GameMaster* gm)
     }
 }
 
-static void Hud_DrawDivineCardSlot(int x, int y, int w, int h, bool hasCard, int cardId)
+static void Hud_DrawDivineCardSlot(int x, int y, int w, int h, bool hasCard, const char* cardId, int remaining, const GameMaster* gm)
 {
     Color border = hasCard ? GOLD : DARKGRAY;
     Color bg     = hasCard ? (Color){ 50, 40, 65, 230 }
@@ -80,7 +81,20 @@ static void Hud_DrawDivineCardSlot(int x, int y, int w, int h, bool hasCard, int
     DrawRectangle(x, y, w, h, bg);
     DrawRectangleLines(x, y, w, h, border);
     if (hasCard) {
-        DrawText(TextFormat("#%d", cardId), x+4, y+4, 10, GOLD);
+        char initial = '?';
+        if (gm) {
+            for (int m = 0; m < gm->modRegistry.count; m++) {
+                if (strcmp(gm->modRegistry.defs[m].id, cardId) == 0) {
+                    if (gm->modRegistry.defs[m].source[0] != '\0') {
+                        initial = gm->modRegistry.defs[m].source[0];
+                    } else if (gm->modRegistry.defs[m].name[0] != '\0') {
+                        initial = gm->modRegistry.defs[m].name[0];
+                    }
+                    break;
+                }
+            }
+        }
+        DrawText(TextFormat("%c", initial), x+4, y+4, 14, GOLD);
         DrawCircle(x + w/2, y + h/2, w/5, (Color){ 180, 120, 255, 200 });
     } else {
         DrawText("?", x + w/2 - 4, y + h/2 - 6, 12, DARKGRAY);
@@ -107,7 +121,7 @@ static void Hud_DrawCommanderStats(const Army* army, int x, int y, int w, int h)
     }
 }
 
-void Hud_DrawCommanderPanel(const Army* army, HudState* hud, int x, int y, int w)
+void Hud_DrawCommanderPanel(const Army* army, const GameMaster* gm, HudState* hud, int x, int y, int w)
 {
     int hBase = 90;
     
@@ -135,7 +149,7 @@ void Hud_DrawCommanderPanel(const Army* army, HudState* hud, int x, int y, int w
     
     /* Cartas Divinas (a la derecha) */
     int slots = (cmd.type == OFFICER_GENERAL) ? MAX_GENERAL_DIVINE_CARDS : MAX_LIEUTENANT_DIVINE_CARDS;
-    int cardCount = Commander_GetDivineCardCount(cmd);
+    int cardCount = Commander_GetActiveModifierCount(cmd);
     
     int cardW = 36;
     int cardH = 48;
@@ -144,15 +158,24 @@ void Hud_DrawCommanderPanel(const Army* army, HudState* hud, int x, int y, int w
     
     for (int i = 0; i < slots; i++) {
         bool hasCard = (i < cardCount);
-        int cardId = hasCard ? Commander_GetDivineCard(cmd, i) : 0;
-        Hud_DrawDivineCardSlot(cardX + i * (cardW + 6), cardY, cardW, cardH, hasCard, cardId);
+        const char* cardId = "";
+        int remaining = -1;
+        if (hasCard) {
+            cardId = Commander_GetActiveModifier(cmd, i);
+            if (cmd.type == OFFICER_GENERAL) {
+                remaining = ((General*)cmd.ptr)->cards[i].remaining;
+            } else if (cmd.type == OFFICER_LIEUTENANT) {
+                remaining = ((Lieutenant*)cmd.ptr)->patronCard.remaining;
+            }
+        }
+        Hud_DrawDivineCardSlot(cardX + i * (cardW + 6), cardY, cardW, cardH, hasCard, cardId, remaining, gm);
     }
     
-    /* Indicador de menÃº desplegable */
-    const char* toggleText = hud->statsExpanded ? "â–² Ocultar Stats" : "â–¼ Mostrar Stats";
+    /* Indicador de menú desplegable */
+    const char* toggleText = hud->statsExpanded ? "? Ocultar Stats" : "? Mostrar Stats";
     DrawText(toggleText, portraitX + portraitSize + 12, y + 64, 11, GRAY);
     
-    /* Dibujar panel desplegable si estÃ¡ expandido */
+    /* Dibujar panel desplegable si está expandido */
     if (hud->statsExpanded) {
         Hud_DrawCommanderStats(army, x, y + hBase, w, 100);
     }
@@ -283,6 +306,8 @@ void Hud_DrawTopBar(const GameMaster* gm, int screenWidth) {
     DrawText(TextFormat("Infamia: %.1f%%", gm->infamy), screenWidth / 2 - 40, 8, 14, RED);
     DrawText("[ENTER] Pasar Turno", screenWidth - 160, 8, 14, YELLOW);
 }
+
+
 
 
 

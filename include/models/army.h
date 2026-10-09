@@ -1,4 +1,4 @@
-Ôªø#ifndef ARMY_H
+#ifndef ARMY_H
 #define ARMY_H
 
 #include "hex_tile.h"
@@ -7,16 +7,17 @@
 
 #define MAX_ARMY_LIEUTENANTS 6
 
-/* Constante por defecto B para la f√≥rmula de ejecuci√≥n (peso relativo de tropa regular) */
+/* Constante por defecto B para la fÛrmula de ejecuciÛn (peso relativo de tropa regular) */
 #define DEFAULT_EXECUTION_B 2.0f
 
 /* ============================================================
-   ESTRUCTURA DE LA ARMY (EJ√âRCITO / DIVISI√ìN)
+   ESTRUCTURA DE LA ARMY (EJ…RCITO / DIVISI”N)
    ============================================================ */
 
 typedef struct {
-    /* Posici√≥n en el mapa hexagonal */
+    /* PosiciÛn en el mapa hexagonal */
     HexCoord position;
+    HexCoord previousPosition;
 
     /* Oficiales */
     General general;
@@ -26,16 +27,19 @@ typedef struct {
     /* Oficial actualmente al mando de esta tropa */
     CommanderRef commander;
 
-    /* Tropas por categor√≠a de experiencia */
-    int sargentos;  /* Soldados veteranos experimentados: alto valor t√°ctico */
-    int soldados;   /* Soldados regulares de l√≠nea */
-    int iniciados;  /* Reclutas novatos reci√©n alistados */
+    /* Tropas por categorÌa de experiencia */
+    int sargentos;  /* Soldados veteranos experimentados: alto valor t·ctico */
+    int soldados;   /* Soldados regulares de lÌnea */
+    int iniciados;  /* Reclutas novatos reciÈn alistados */
 
-    /* Recursos log√≠sticos de utilidad */
+    /* Recursos logÌsticos de utilidad */
     float agua_disponible;
     float comida_disponible;
     int monedas;
     int ganado;     /* Animales vivos: reserva de emergencia y carga */
+
+    ModifierInstance curses[8];
+    int curseCount;
 
     /* Indicadores vitales */
     float moral;    /* 0.0f a 100.0f */
@@ -53,20 +57,20 @@ typedef struct {
 
 
 /* ============================================================
-   ESTAD√çSTICAS CALCULADAS DE LA ARMY
+   ESTADÕSTICAS CALCULADAS DE LA ARMY
    ============================================================ */
 
 typedef struct {
     float vision;
     float movilidad;    /* Puntos de dirigencia / movimiento por turno */
     float evaluacion;   /* Etapa 1 del combate: reconocimiento enemigo */
-    float planificacion;/* Etapa 2 del combate: estrategia t√°ctica */
+    float planificacion;/* Etapa 2 del combate: estrategia t·ctica */
     float ejecucion;    /* Etapa 3 del combate: poder de choque */
 } ArmyStats;
 
 
 /* ============================================================
-   FUNCIONES DE CONSTRUCCI√ìN Y GESTI√ìN
+   FUNCIONES DE CONSTRUCCI”N Y GESTI”N
    ============================================================ */
 
 Army Army_Create(
@@ -83,23 +87,24 @@ Army Army_Create(
 
 /* Totales y recuento de tropas */
 int Army_GetTotalSoldiers(const Army* army);
+int Army_GetTotalWeight(const Army* army);
 
-/* Gesti√≥n de oficiales al mando */
+/* GestiÛn de oficiales al mando */
 bool Army_AddLieutenant(Army* army, Lieutenant lt);
 void Army_SetCommanderGeneral(Army* army);
 bool Army_SetCommanderLieutenant(Army* army, int lieutenantIndex);
 
-/* Consumo log√≠stico por turno */
+/* Consumo logÌstico por turno */
 float Army_CalculateWaterUsage(int cantSoldados, int cantGanado);
 float Army_CalculateFoodUsage(int cantSoldados, int cantGanado);
 void Army_ConsumeTurnResources(Army* army);
 
 /* ============================================================
-   F√ìRMULAS DE ESTAD√çSTICAS GLOBALES DE LA ARMY
+   F”RMULAS DE ESTADÕSTICAS GLOBALES DE LA ARMY
    ============================================================ */
 
 /*
-    F√≥rmula de Ejecuci√≥n solicitada:
+    FÛrmula de EjecuciÛn solicitada:
     f_ejecucion = ejecucion_comandante + sargentos + (soldados / B) + f(iniciados)
     Donde tener pocos iniciados ayuda ligeramente, pero tener demasiados perjudica.
 */
@@ -112,16 +117,28 @@ float Army_CalculatePlanning(const Army* army);
 ArmyStats Army_GetStats(const Army* army, float B);
 
 /* ============================================================
-   SISTEMA DE MOT√çN Y TRAICI√ìN
-   Eval√∫a el riesgo de mot√≠n si la moral cae y hay tenientes con baja lealtad.
+   SISTEMA DE MOTÕN Y TRAICI”N
+   Eval˙a el riesgo de motÌn si la moral cae y hay tenientes con baja lealtad.
    ============================================================ */
 
 float Army_CalculateMutinyRisk(const Army* army);
 bool Army_CheckMutiny(Army* army, int* outRebelLieutenantIndex);
 
+typedef struct ModifierDef ModifierDef;
+
+typedef enum { EQUIP_OK, EQUIP_SLOTS_FULL, EQUIP_DUPLICATE, EQUIP_INVALID } EquipResult;
+
+EquipResult Army_EquipModifier(Army* army, const ModifierDef* def);
+bool        Army_ReplaceCard(Army* army, int slot, const ModifierDef* def);
+bool        Army_RemoveModifier(Army* army, const char* id);
+enum DurationType;
+void        Army_TickModifiers(Army* army, enum DurationType type);
+bool        Army_HasModifier(const Army* army, const char* id);
+
 #endif /* ARMY_H */
 
 
 int Army_GetVision(const Army* army);
+
 
 

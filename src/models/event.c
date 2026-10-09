@@ -1,4 +1,4 @@
-﻿#include "models/event.h"
+#include "models/event.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,17 +13,6 @@ static void TrimWhitespace(char* str) {
     memmove(str, p, l + 1);
 }
 
-static EffectType ParseEffectType(const char* str) {
-    if (strcmp(str, "gold") == 0) return EFFECT_GOLD;
-    if (strcmp(str, "infamy") == 0) return EFFECT_INFAMY;
-    if (strcmp(str, "moral") == 0) return EFFECT_MORAL;
-    if (strcmp(str, "food") == 0) return EFFECT_FOOD;
-    if (strcmp(str, "water") == 0) return EFFECT_WATER;
-    if (strcmp(str, "initiates") == 0) return EFFECT_INITIATES;
-    if (strcmp(str, "soldiers") == 0) return EFFECT_SOLDIERS;
-    if (strcmp(str, "sergeants") == 0) return EFFECT_SERGEANTS;
-    return (EffectType)-1; // Invalido
-}
 
 static void AddLegacyEffect(EventResult* res, EffectType type, float value) {
     if (value == 0.0f) return;
@@ -35,53 +24,18 @@ static void AddLegacyEffect(EventResult* res, EffectType type, float value) {
 }
 
 static void ParseEffectString(EventResult* res, const char* val, const char* filepath, int lineNum) {
-    char buffer[128] = {0};
-    strncpy(buffer, val, sizeof(buffer)-1);
-    char* colon = strchr(buffer, ':');
-    if (!colon) {
-        printf("WARNING [%s:%d]: Efecto mal formado '%s'\n", filepath, lineNum, val);
-        return;
-    }
-    *colon = '\0';
-    char* statStr = buffer;
-    char* deltaStr = colon + 1;
-    TrimWhitespace(statStr);
-    TrimWhitespace(deltaStr);
-    
-    EffectType type = ParseEffectType(statStr);
-    if ((int)type == -1) {
-        printf("WARNING [%s:%d]: Estadistica desconocida '%s'\n", filepath, lineNum, statStr);
-        return;
-    }
-    
     if (res->effectCount >= MAX_EFFECTS) {
         printf("WARNING [%s:%d]: Limite de efectos alcanzado (MAX=%d)\n", filepath, lineNum, MAX_EFFECTS);
         return;
     }
     
-    EffectDef* e = &res->effects[res->effectCount];
-    e->type = type;
-    
-    if (strcmp(deltaStr, "-ALL") == 0 || strcmp(deltaStr, "ALL") == 0) {
-        e->mode = EFFECT_MODE_ALL;
-        e->value = 0;
-        if (type < EFFECT_INITIATES) {
-            printf("WARNING [%s:%d]: ALL solo es valido para tropas. Ignorando efecto.\n", filepath, lineNum);
-            return;
-        }
-    } else if (strchr(deltaStr, '%')) {
-        e->mode = EFFECT_MODE_PERCENTAGE;
-        e->value = (float)atof(deltaStr);
-        if (type < EFFECT_INITIATES) {
-            printf("WARNING [%s:%d]: %% solo es valido para tropas. Ignorando efecto.\n", filepath, lineNum);
-            return;
-        }
+    EffectDef tempEffect;
+    if (Effect_ParseString(val, &tempEffect)) {
+        res->effects[res->effectCount] = tempEffect;
+        res->effectCount++;
     } else {
-        e->mode = EFFECT_MODE_ABSOLUTE;
-        e->value = (float)atof(deltaStr);
-        if (e->value == 0.0f) return; // Efectos de valor 0 se omiten
+        printf("WARNING [%s:%d]: Error al procesar efecto '%s'\n", filepath, lineNum, val);
     }
-    res->effectCount++;
 }
 
 static EventTrigger ParseTrigger(const char* str) {
@@ -416,6 +370,7 @@ void Event_ApplyResult(const EventResult* res, Army* army, float* gmInfamy) {
         }
     }
 }
+
 
 
 

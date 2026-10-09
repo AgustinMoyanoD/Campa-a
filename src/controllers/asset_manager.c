@@ -1,12 +1,12 @@
-﻿#include "asset_manager.h"
+#include "asset_manager.h"
 #include "raylib.h"
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
 
 /* ============================================================
-   CONSTANTES DE TAMAÑO DE TEXTURA
-   Podés escalar estos valores si querés más resolución.
+   CONSTANTES DE TAMA�O DE TEXTURA
+   Pod�s escalar estos valores si quer�s m�s resoluci�n.
    ============================================================ */
 
 #define TEX_W 192   /* Ancho de cada tile (puntos de un hex 2:1 iso) */
@@ -15,7 +15,7 @@
 #define STRUCT_W 96
 #define STRUCT_H 128
 
-#define WATER_FRAMES 4  /* Frames de animación del agua */
+#define WATER_FRAMES 4  /* Frames de animaci�n del agua */
 
 /* ============================================================
    ANIMATED SPRITE
@@ -43,14 +43,14 @@ Rectangle AnimSprite_GetFrame(const AnimatedSprite* spr)
 }
 
 /* ============================================================
-   GENERACIÓN PROCEDURAL DE TEXTURAS
-   Cada función dibuja sobre una Image, luego la sube a la GPU.
+   GENERACI�N PROCEDURAL DE TEXTURAS
+   Cada funci�n dibuja sobre una Image, luego la sube a la GPU.
    El artista puede poner un PNG externo con el mismo nombre
-   y la función lo carga directamente sin regenerar.
+   y la funci�n lo carga directamente sin regenerar.
    ============================================================ */
 
-/* Llena la imagen con el color base (ya no recortamos el hexágono aquí,
- * map_view.c se encarga de aplicarlo al polígono matemático perfecto usando UVs) */
+/* Llena la imagen con el color base (ya no recortamos el hex�gono aqu�,
+ * map_view.c se encarga de aplicarlo al pol�gono matem�tico perfecto usando UVs) */
 
 
 /* Dibuja un hexagono perfecto que toca los bordes exactos de la imagen */
@@ -84,7 +84,7 @@ static Texture2D GenTilePlains(void)
     Color base = (Color){ 140, 205, 90, 255 };
     FillHexOnImage(&img, base);
 
-    /* Manchas de hierba más oscura */
+    /* Manchas de hierba m�s oscura */
     for (int i = 0; i < 30; i++) {
         int x = GetRandomValue(TEX_W/4, 3*TEX_W/4);
         int y = GetRandomValue(TEX_H/4, 3*TEX_H/4);
@@ -97,14 +97,14 @@ static Texture2D GenTilePlains(void)
     return tex;
 }
 
-/* Bosque: verde oscuro con "copas" de árbol circulares */
+/* Bosque: verde oscuro con "copas" de �rbol circulares */
 static Texture2D GenTileForest(void)
 {
     Image img = GenImageColor(TEX_W, TEX_H, BLANK);
     Color base = (Color){ 35, 115, 50, 255 };
     FillHexOnImage(&img, base);
 
-    /* Círculos representando copas de árboles */
+    /* C�rculos representando copas de �rboles */
     Color canopy1 = (Color){ 25, 90, 40, 220 };
     Color canopy2 = (Color){ 45, 130, 60, 200 };
     for (int i = 0; i < 12; i++) {
@@ -119,7 +119,7 @@ static Texture2D GenTileForest(void)
     return tex;
 }
 
-/* Desierto: arena cálida con duna suave */
+/* Desierto: arena c�lida con duna suave */
 static Texture2D GenTileDesert(void)
 {
     Image img = GenImageColor(TEX_W, TEX_H, BLANK);
@@ -153,7 +153,7 @@ static Texture2D GenTileDesert(void)
     return tex;
 }
 
-/* Jungla: verde exótico con hojas grandes */
+/* Jungla: verde ex�tico con hojas grandes */
 static Texture2D GenTileJungle(void)
 {
     Image img = GenImageColor(TEX_W, TEX_H, BLANK);
@@ -173,17 +173,17 @@ static Texture2D GenTileJungle(void)
     return tex;
 }
 
-/* Montaña: gris con nieve en el pico */
+/* Monta�a: gris con nieve en el pico */
 static Texture2D GenTileMountain(void)
 {
     Image img = GenImageColor(TEX_W, TEX_H, BLANK);
     Color base = (Color){ 155, 145, 138, 255 };
     FillHexOnImage(&img, base);
 
-    /* Pico de montaña */
+    /* Pico de monta�a */
     int cx = TEX_W / 2;
     int cy = TEX_H / 2;
-    /* Triángulo de roca */
+    /* Tri�ngulo de roca */
     ImageDrawTriangle(&img,
         (Vector2){ (float)cx, (float)(cy - 40) },
         (Vector2){ (float)(cx - 35), (float)(cy + 10) },
@@ -209,7 +209,7 @@ static Image GenWaterFrame(int frame)
     Color base = (Color){ 95, 175, 235, 255 };
     FillHexOnImage(&img, base);
 
-    /* Líneas de ola desplazadas según el frame */
+    /* L�neas de ola desplazadas seg�n el frame */
     float offset = (float)frame * (TEX_W / (float)WATER_FRAMES);
     for (int i = 0; i < 5; i++) {
         float y = TEX_H * 0.2f + i * (TEX_H * 0.14f);
@@ -248,7 +248,7 @@ static AnimatedSprite GenWaterAnimated(void)
     return spr;
 }
 
-/* ── Estructuras ─────────────────────────────────────────── */
+/* -- Estructuras ------------------------------------------- */
 
 static Texture2D GenStructAltar(void)
 {
@@ -258,7 +258,7 @@ static Texture2D GenStructAltar(void)
     /* Columnas */
     ImageDrawRectangle(&img, 24, 50, 10, 35, (Color){ 120, 115, 130, 255 });
     ImageDrawRectangle(&img, 62, 50, 10, 35, (Color){ 120, 115, 130, 255 });
-    /* Llama mágica */
+    /* Llama m�gica */
     ImageDrawCircle(&img, 48, 45, 14, (Color){ 180, 80, 255, 240 });
     ImageDrawCircle(&img, 48, 38, 9,  (Color){ 220, 160, 255, 220 });
     ImageDrawCircle(&img, 48, 33, 5,  WHITE);
@@ -367,7 +367,17 @@ static Texture2D GenStructBridge(void)
     return tex;
 }
 
-/* Token del ejército */
+/* Token del ej�rcito */
+static Texture2D GenEnemyToken(void)
+{
+    Image img = GenImageColor(64, 64, BLANK);
+    ImageDrawCircle(&img, 32, 32, 28, MAROON);
+    ImageDrawCircleLines(&img, 32, 32, 28, BLACK);
+    Texture2D tex = LoadTextureFromImage(img);
+    UnloadImage(img);
+    return tex;
+}
+
 static Texture2D GenArmyToken(void)
 {
     Image img = GenImageColor(64, 64, BLANK);
@@ -386,7 +396,7 @@ static Texture2D GenArmyToken(void)
 }
 
 /* ============================================================
-   CARGA/GENERACIÓN CON FALLBACK A PNG EXTERNO
+   CARGA/GENERACI�N CON FALLBACK A PNG EXTERNO
    Si assets/tiles/<nombre>.png existe, lo carga.
    Si no, genera la textura procedural y la exporta.
    ============================================================ */
@@ -406,7 +416,7 @@ static Texture2D LoadOrGen(const char* path, Texture2D (*genFn)(void))
 }
 
 /* ============================================================
-   INTERFAZ PÚBLICA
+   INTERFAZ P�BLICA
    ============================================================ */
 
 void Assets_Init(GameAssets* assets)
@@ -436,7 +446,7 @@ void Assets_Init(GameAssets* assets)
         ExportImage(sheet, "assets/tiles/water_sheet.png");
         UnloadImage(sheet);
     }
-    assets->tileWater = assets->waterAnim.sheet; /* alias estático */
+    assets->tileWater = assets->waterAnim.sheet; /* alias est�tico */
 
     /* Estructuras */
     assets->structAltar      = LoadOrGen("assets/structures/altar.png",      GenStructAltar);
@@ -447,8 +457,9 @@ void Assets_Init(GameAssets* assets)
     assets->structWatchtower = LoadOrGen("assets/structures/watchtower.png", GenStructWatchtower);
     assets->structBridge     = LoadOrGen("assets/structures/bridge.png",     GenStructBridge);
 
-    /* Token del ejército */
+    /* Token del ej�rcito */
     assets->armyToken = LoadOrGen("assets/units/army_token.png", GenArmyToken);
+    assets->enemyToken = LoadOrGen("assets/units/enemy_token.png", GenEnemyToken);
 
     assets->loaded = true;
 }
@@ -468,7 +479,7 @@ void Assets_Unload(GameAssets* assets)
     UnloadTexture(assets->tileDesert);
     UnloadTexture(assets->tileJungle);
     UnloadTexture(assets->tileMountain);
-    /* El agua animada tiene su propia hoja — tileWater es alias, no duplicar */
+    /* El agua animada tiene su propia hoja � tileWater es alias, no duplicar */
     UnloadTexture(assets->waterAnim.sheet);
 
     UnloadTexture(assets->structAltar);
@@ -480,6 +491,7 @@ void Assets_Unload(GameAssets* assets)
     UnloadTexture(assets->structBridge);
 
     UnloadTexture(assets->armyToken);
+    UnloadTexture(assets->enemyToken);
 
     assets->loaded = false;
 }

@@ -2,10 +2,11 @@
 #define EVENT_H
 
 #include <stdbool.h>
+#include "models/effect.h"
 
 #define MAX_OPTIONS 5
 #define MAX_TEXT_LEN 256
-#define MAX_EFFECTS 16
+
 
 typedef enum {
     TRIGGER_NONE,
@@ -21,28 +22,7 @@ typedef enum {
     TRIGGER_NIGHT
 } EventTrigger;
 
-typedef enum {
-    EFFECT_GOLD = 0,
-    EFFECT_INFAMY,
-    EFFECT_MORAL,
-    EFFECT_FOOD,
-    EFFECT_WATER,
-    EFFECT_INITIATES,
-    EFFECT_SOLDIERS,
-    EFFECT_SERGEANTS
-} EffectType;
 
-typedef enum {
-    EFFECT_MODE_ABSOLUTE = 0,
-    EFFECT_MODE_PERCENTAGE,
-    EFFECT_MODE_ALL
-} EffectMode;
-
-typedef struct {
-    EffectType type;
-    EffectMode mode;
-    float value; // Para ABSOLUTE y PERCENTAGE
-} EffectDef;
 
 typedef struct {
     char id[32];
@@ -99,4 +79,5 @@ int Result_LoadAll(const char* directory, EventResult* outResults, int maxResult
 void Event_ApplyResult(const EventResult* res, Army* army, float* gmInfamy);
 
 #endif /* EVENT_H */
+
 
