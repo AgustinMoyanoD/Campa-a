@@ -1,4 +1,4 @@
-#ifndef DRAFT_VIEW_H
+﻿#ifndef DRAFT_VIEW_H
 #define DRAFT_VIEW_H
 
 #include "raylib.h"
@@ -6,11 +6,16 @@
 #include "army.h"
 #include "presentation/audio_manager.h"
 
+typedef enum {
+    ALTAR_STATE_OFFER,
+    ALTAR_STATE_REVEAL,
+    ALTAR_STATE_REPLACE
+} AltarState;
+
 typedef struct {
-    ModifierDef* choices[3];
-    int selectedChoice; // -1 if none
-    bool wantsToReplace;
-    int replaceIndex; // -1 if none
+    AltarState state;
+    ModifierDef* pulledCard;
+    ModifierDef* hiddenCurse;
     const ModifierRegistry* registry;
 } DraftContext;
 

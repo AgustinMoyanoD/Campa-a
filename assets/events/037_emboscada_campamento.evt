@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_emboscada_campamento
+Name=¡Emboscada al Campamento!
+Description=¡Gritos en el perimetro! El enemigo ha roto la linea de centinelas aprovechando la oscuridad de la noche.
+Trigger=CAMP_AMBUSH
+Time=NIGHT
+Biome=PLAINS,FOREST,MOUNTAIN,DESERT,JUNGLE
+Probability=100
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=¡A las armas! Formar filas de inmediato
+Result_pool=res_camp_luchar
+
+[OPTION_2]
+Text=Arrojar un cofre con tributo para cubrir la retirada
+Requires=gold>=25
+Result_pool=res_camp_sobornar

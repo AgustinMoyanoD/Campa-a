@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_luces_bosque
+Name=Fuegos Fatuos
+Description=Extrañas luminiscencias titilan en la espesura del bosque. Los soldados murmuran sobre espiritus antiguos.
+Trigger=NIGHT
+Time=NIGHT
+Biome=FOREST,JUNGLE
+Probability=20
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Enviar partida cautelosa a evaluar el origen
+Requires=eval>=2
+Result_pool=res_luces_investigar
+
+[OPTION_2]
+Text=Apremiar el paso y evitar las luces
+Result_pool=res_luces_ignorar

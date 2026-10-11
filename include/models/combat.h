@@ -5,25 +5,25 @@
 #include "models/enemy.h"
 #include "models/modifier.h"
 #include "models/combat_log.h"
+#include "models/rng.h"
 
-// Fases de la maquina de estados de combate
 typedef enum {
-    COMBAT_STATE_INIT = 0,
+    COMBAT_STATE_DEPLOY = 0,
     COMBAT_STATE_EVALUATION,
     COMBAT_STATE_PLANNING,
-    COMBAT_STATE_SELECT_PLAN,
     COMBAT_STATE_EXECUTION,
-    COMBAT_STATE_RESOLUTION,
-    COMBAT_STATE_FINISHED
+    COMBAT_STATE_ROUND_CLOSE,
+    COMBAT_STATE_END,
+    COMBAT_STATE_RECOUNT,
+    COMBAT_STATE_DONE
 } CombatState;
 
 typedef enum {
     COMBAT_END_NONE = 0,
-    COMBAT_END_VICTORY_BREAK,
-    COMBAT_END_PLAYER_ROUT,
+    COMBAT_END_VICTORY,
+    COMBAT_END_DEFEAT,
     COMBAT_END_STALEMATE,
-    COMBAT_END_FLEE,
-    COMBAT_END_ANNIHILATION
+    COMBAT_END_FLEE
 } CombatEndReason;
 
 typedef enum {
@@ -35,21 +35,48 @@ typedef enum {
     PLAN_NONE
 } CombatPlan;
 
-// Forward decl
 struct GameMaster;
 
 typedef struct CombatContext {
     CombatState state;
     CombatEndReason endReason;
     int round;
+    
+    // Variables temporales (D1, D5)
+    float playerHealth;
+    float playerInitialHealth;
     int playerInitialWeight;
-    float playerInitialMorale;
+    
+    float enemyHealth;
+    float enemyInitialHealth;
+    
+    // Bajas acumuladas durante el combate (fuera de accion)
+    int outOfActionInitiates;
+    int outOfActionSoldiers;
+    int outOfActionSergeants;
+    
+    int enemyOutOfAction;
+    
+    // Muertos calculados en el Recuento
+    int deadInitiates;
+    int deadSoldiers;
+    int deadSergeants;
+    
+    // Costos de huida
+    int fleeCostCattle;
+    int fleeCostFood;
+    int fleeCostMorale;
+    
+    // Botin (solo si victoria)
+    int lootGold;
+    int lootFood;
+    
     CombatLog log;
     struct GameMaster* gm;
-    Army* playerArmy;
+    Army* playerArmy; // Referencia al real (NO TOCAR HASTA COMMIT)
     EnemySquad* enemy;
     
-    // Resultados de los dados (2d6)
+    // Dados y planes
     int evalRoll;
     int evalMargin;
     int planRoll;
@@ -59,40 +86,35 @@ typedef struct CombatContext {
     bool canSkirmish;
     bool canFlank;
     bool canPikes;
+    
+    CombatPlan selectedPlan;
+    CombatPlan previousPlan;
+    int enemyIntent; /* 0=CHARGE, 1=HOLD, 2=MANEUVER */
+    bool intentRevealed;
+    
     int playerScore;
     int enemyScore;
     int margin;
+    bool criticalHit;
+    bool criticalFumble;
     ModBreakdown breakdown;
 
-    // Decision del jugador
-    CombatPlan selectedPlan;
-    CombatPlan enemyPlan;
-    
-    // Costo de huir (calculado en fase de evaluacion/planificacion)
-    int fleeCostCattle;
-    int fleeCostFood;
-    int fleeCostMorale;
-    
-    // Bajas calculadas en ejecucion
-    int totalCasualtyWeight;
-    int casualtiesInitiates;
-    int casualtiesSoldiers;
-    int casualtiesSergeants;
-    
-    // Recompensas
-    int lootGold;
-    int lootFood;
-    
+    /* Puntos de contacto (Sección 11) */
+    bool ambushed;
+    int initiator;  /* 0 = PLAYER, 1 = ENEMY */
+    int maxRounds;
 } CombatContext;
 
 void Combat_Init(CombatContext* ctx, struct GameMaster* gm, Army* army, EnemySquad* enemy);
+void Combat_ComputeLoot(CombatContext* ctx, Rng* rng);
 void Combat_RollEvaluation(CombatContext* ctx, int dice1, int dice2);
 void Combat_RollPlanning(CombatContext* ctx, int dice1, int dice2);
+void Combat_UseCommandToken_Add(CombatContext* ctx);
+void Combat_UseCommandToken_Reroll(CombatContext* ctx, int dice1, int dice2);
 void Combat_SelectPlan(CombatContext* ctx, CombatPlan plan);
 void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2);
-void Combat_ApplyResolution(CombatContext* ctx);
-void Combat_DistributeCasualties(CombatContext* ctx);
+void Combat_RoundClose(CombatContext* ctx);
+void Combat_Recount(CombatContext* ctx);
+void Combat_Commit(CombatContext* ctx);
 
 #endif
-
-

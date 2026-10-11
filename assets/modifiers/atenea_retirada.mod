@@ -1,4 +1,4 @@
-﻿[MODIFIER]
+[MODIFIER]
 Id=atenea_retirada
 Name=Retirada Estudiada
 Kind=CARD

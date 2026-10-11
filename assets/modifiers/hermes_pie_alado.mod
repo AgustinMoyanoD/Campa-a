@@ -1,4 +1,4 @@
-﻿[MODIFIER]
+[MODIFIER]
 Id=hermes_pie_alado
 Name=Pie Alado de Hermes
 Kind=CARD

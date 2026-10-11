@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_pacto_hambre
+Name=La Visión de Tántalo
+Description=Una figura espectral surge entre la niebla del sendero.\nOfrece saciar el hambre de tus hombres, pero advierte que el favor de los muertos exige un tributo amargo.
+Trigger=RANDOM
+Time=MORNING,MIDDAY,AFTERNOON,NIGHT
+Biome=PLAINS,FOREST,DESERT,JUNGLE,MOUNTAIN
+Probability=20
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+DaysWithoutFood=2
+
+[OPTION_1]
+Text=Aceptar el festín espectral (+50 Comida, Maldición)
+Result_pool=res_pacto_hambre_aceptar
+
+[OPTION_2]
+Text=Rechazar la ofrenda impía y confiar en los hombres
+Result_pool=res_pacto_rechazar

@@ -127,7 +127,7 @@ static HexTile* Map_FindTile(
 
 
 /*
-    Distancia entre dos hex·gonos en coordenadas axiales.
+    Distancia entre dos hex√°gonos en coordenadas axiales.
 */
 static int HexDistance(
     HexCoord a,
@@ -158,8 +158,8 @@ static int HexDistance(
 /*
     Genera el valor aleatorio inicial de un tile.
 
-    Este valor todavÌa no determina si el tile es tierra
-    o agua. Primero ser· suavizado.
+    Este valor todav√≠a no determina si el tile es tierra
+    o agua. Primero ser√° suavizado.
 */
 static float RandomTerrainValue(void)
 {
@@ -174,9 +174,9 @@ static float RandomTerrainValue(void)
     Cada vecino tiene peso 1.
 
     Esto hace que los valores de tiles cercanos tiendan
-    a parecerse entre sÌ.
+    a parecerse entre s√≠.
 
-    M·s iteraciones = regiones m·s grandes y suaves.
+    M√°s iteraciones = regiones m√°s grandes y suaves.
 */
 static void SmoothTerrain(
     Map* map,
@@ -206,8 +206,8 @@ static void SmoothTerrain(
     {
         /*
             Calculamos TODOS los valores nuevos
-            utilizando ˙nicamente los valores
-            de la iteraciÛn anterior.
+            utilizando √∫nicamente los valores
+            de la iteraci√≥n anterior.
         */
         for (int i = 0;
              i < map->tileCount;
@@ -276,7 +276,7 @@ static void SmoothTerrain(
    BORDE
    ============================================================ */
 /*
-    Determina si el tile est· en el borde del mapa.
+    Determina si el tile est√° en el borde del mapa.
 */
 static bool IsBoundaryTile(
     const Map* map,
@@ -436,7 +436,7 @@ static HexTile* Map_GetRandomEndTile(
 
 
     /*
-        Primera b˙squeda:
+        Primera b√∫squeda:
         aplicamos todas las restricciones.
     */
     for (int i = 0;
@@ -480,7 +480,7 @@ static HexTile* Map_GetRandomEndTile(
 
     /*
         Si no encontramos suficientes candidatos,
-        relajamos la condiciÛn de la cara.
+        relajamos la condici√≥n de la cara.
     */
     if (count == 0)
     {
@@ -539,11 +539,11 @@ static HexTile* Map_GetRandomEndTile(
     return result;
 }
 /* ============================================================
-   RÕOS
+   R√çOS
    ============================================================ */
 
 /*
-    Genera un rÌo desde un tile de borde
+    Genera un r√≠o desde un tile de borde
     hacia el centro del mapa.
 */
 static void Map_CreateRiver(
@@ -603,7 +603,7 @@ static void Map_CreateRiver(
 
             /*
                 No queremos volver a recorrer
-                el rÌo que acabamos de crear.
+                el r√≠o que acabamos de crear.
             */
             if (neighbor->river ==
                 RIVER_PRESENT)
@@ -639,7 +639,7 @@ static void Map_CreateRiver(
 
 
         /*
-            El rÌo termina cerca del centro.
+            El r√≠o termina cerca del centro.
         */
         if (HexDistance(
                 current->coord,
@@ -656,7 +656,7 @@ static void Map_CreateRiver(
 
 
 /*
-    Genera los rÌos del mapa.
+    Genera los r√≠os del mapa.
 */
 static void Map_GenerateRivers(
     Map* map
@@ -668,9 +668,9 @@ static void Map_GenerateRivers(
         return;
     }
     /*
-        Por ahora tenemos un rÌo.
-        Este n˙mero puede convertirse posteriormente
-        en un par·metro de generaciÛn.
+        Por ahora tenemos un r√≠o.
+        Este n√∫mero puede convertirse posteriormente
+        en un par√°metro de generaci√≥n.
     */
     int riverCount = 3;
 
@@ -734,7 +734,7 @@ static void Map_GenerateRivers(
 
     El agua no permite caminos.
 
-    El rÌo SÕ permite caminos porque posteriormente
+    El r√≠o S√ç permite caminos porque posteriormente
     ese cruce se convierte en puente.
 */
 static bool CanRoadPass(
@@ -928,7 +928,7 @@ static bool Map_CreateRoad(
 
 
 /*
-    Conecta 'origin' al camino m·s cercano mediante BFS.
+    Conecta 'origin' al camino m√°s cercano mediante BFS.
     Si 'connectToMainOnly' es true, busca conectarse a un ROAD_MAIN.
     De lo contrario, conecta a cualquier camino existente.
 */
@@ -1086,7 +1086,7 @@ static void Map_CreateAlternativeRoads(
 
         /*
             Elegimos un punto que ya pertenezca
-            a alg˙n camino.
+            a alg√∫n camino.
         */
         for (int attempts = 0;
              attempts < 100;
@@ -1172,7 +1172,7 @@ static void Map_CreateAlternativeRoads(
 
 
 /* ============================================================
-   GENERACI”N DE BIOMAS Y ESTRUCTURAS
+   GENERACI√ìN DE BIOMAS Y ESTRUCTURAS
    ============================================================ */
 
 static void Map_GenerateBiomes(
@@ -1211,7 +1211,7 @@ static void Map_GenerateBiomes(
         switch (provinceLevel)
         {
             case 2:
-                /* Nivel 2: ¡rido / Desiertos y CaÒones */
+                /* Nivel 2: √Årido / Desiertos y Ca√±ones */
                 if (v < 55.0f)
                     tile->biome = BIOME_DESERT;
                 else if (v < 80.0f)
@@ -1233,7 +1233,7 @@ static void Map_GenerateBiomes(
                 break;
 
             case 4:
-                /* Nivel 4: MetrÛpolis / Tierras fortificadas */
+                /* Nivel 4: Metr√≥polis / Tierras fortificadas */
                 if (v < 40.0f)
                     tile->biome = BIOME_PLAINS;
                 else if (v < 65.0f)
@@ -1275,11 +1275,13 @@ static void Map_GenerateSettlement(
     center->structure.type = STRUCT_TOWN_CASTLE;
     center->structure.settlementId = settlementId;
     center->structure.settlementType = settlementType;
+    center->structure.factionId = (settlementId > 0) ? (settlementId - 1) % 3 : 0;
+    center->structure.isBesieged = false;
 
     if (settlementType == SETTLEMENT_PRIMARY)
     {
         center->structure.isGuarded = ((rand() % 100) < (35 + provinceLevel * 15));
-        /* Tasa porcentual de spawn para escuadrÛn enemigo si est· ocupado */
+        /* Tasa porcentual de spawn para escuadr√≥n enemigo si est√° ocupado */
         center->structure.enemySpawnRate = center->structure.isGuarded ? 0.04f : 0.0f;
     }
     else
@@ -1313,9 +1315,14 @@ static void Map_GenerateSettlement(
         available[j] = tmp;
     }
 
+    for (int i = 0; i < count; i++) {
+        available[i]->structure.factionId = center->structure.factionId;
+        available[i]->structure.isBesieged = false;
+    }
+
     if (settlementType == SETTLEMENT_PRIMARY)
     {
-        /* Ciudad Principal: centro urbano + mercado + armerÌa + viviendas */
+        /* Ciudad Principal: centro urbano + mercado + armer√≠a + viviendas */
         if (count >= 1)
         {
             available[0]->structure.type = STRUCT_TOWN_MARKET;
@@ -1518,7 +1525,7 @@ static void Map_GenerateStructures(
 
 
 /* ============================================================
-   GENERACI”N DEL MAPA
+   GENERACI√ìN DEL MAPA
    ============================================================ */
 
 Map Map_GenerateProcedural(
@@ -1535,7 +1542,7 @@ Map Map_GenerateProcedural(
 
 
     /*
-        Cantidad m·xima de hex·gonos:
+        Cantidad m√°xima de hex√°gonos:
 
             1 + 3R(R+1)
     */
@@ -1567,14 +1574,14 @@ Map Map_GenerateProcedural(
 
 
     /*
-        Como mÌnimo un final.
+        Como m√≠nimo un final.
     */
     if (endCount < 1)
         endCount = 1;
 
 
     /* ========================================================
-       1. GENERAR TILES CON FORMA ORG¡NICA
+       1. GENERAR TILES CON FORMA ORG√ÅNICA
        ======================================================== */
 
     float* terrainValues =
@@ -1591,15 +1598,15 @@ Map Map_GenerateProcedural(
 
 
     /*
-        Par·metros para silueta org·nica:
-        DeformaciÛn armÛnica basada en ·ngulo polar desde el centro del mapa.
+        Par√°metros para silueta org√°nica:
+        Deformaci√≥n arm√≥nica basada en √°ngulo polar desde el centro del mapa.
     */
     float phase1 = ((float)(rand() % 628)) / 100.0f;
     float phase2 = ((float)(rand() % 628)) / 100.0f;
     float phase3 = ((float)(rand() % 628)) / 100.0f;
     float phase4 = ((float)(rand() % 628)) / 100.0f;
 
-    /* Tabla de b˙squeda espacial 2D r·pida para conectar vecinos en O(1) */
+    /* Tabla de b√∫squeda espacial 2D r√°pida para conectar vecinos en O(1) */
     int gridWidth = 2 * mapRadius + 1;
     HexTile** gridLookup =
         calloc(
@@ -1643,7 +1650,7 @@ Map Map_GenerateProcedural(
             float angle =
                 atan2f(py, px);
 
-            /* LÌmite org·nico con armÛnicos naturales */
+            /* L√≠mite org√°nico con arm√≥nicos naturales */
             float maxR =
                 (float)mapRadius * 1.55f * (
                     0.74f
@@ -1655,7 +1662,7 @@ Map Map_GenerateProcedural(
 
             if (dist > maxR)
             {
-                /* Fuera de la frontera org·nica de la provincia */
+                /* Fuera de la frontera org√°nica de la provincia */
                 continue;
             }
 
@@ -1837,7 +1844,7 @@ Map Map_GenerateProcedural(
 
 
     /* ========================================================
-       7. RÕOS
+       7. R√çOS
        ======================================================== */
 
     Map_GenerateRivers(&map);
@@ -1973,8 +1980,8 @@ Map Map_GenerateProcedural(
        ======================================================== */
 
     /*
-        Si un camino atraviesa un rÌo,
-        marcamos ese tile como puente y fijamos peaje seg˙n tipo de camino.
+        Si un camino atraviesa un r√≠o,
+        marcamos ese tile como puente y fijamos peaje seg√∫n tipo de camino.
     */
     for (int i = 0;
          i < map.tileCount;
@@ -2064,8 +2071,8 @@ typedef struct AStarNode_s {
     bool open;
 } AStarNode;
 
-// Retorna el tamaÒo del camino (0 si no hay camino). pathOut debe tener al menos MAX_PATH_LENGTH
-int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut) {
+// Retorna el tama√±o del camino (0 si no hay camino). pathOut debe tener al menos MAX_PATH_LENGTH
+int Map_FindPathEx(Map* map, HexTile* start, HexTile* end, bool ignoreFog, int* outTotalCost, HexTile** pathOut) {
     if (!map || !start || !end) return 0;
     if (start == end) return 0;
 
@@ -2149,8 +2156,16 @@ int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexT
         for (int i = 0; i < 6; i++) {
             HexTile* neighbor = nodes[currentIdx].tile->neighbors[i];
             if (!neighbor) continue;
-            // Solo atravesar casillas conocidas para no filtrar info de la niebla
-            if (!neighbor->visited && !neighbor->visible && neighbor != end) continue;
+
+            // Intransitable: agua (a menos que haya un puente)
+            if ((neighbor->terrain == TERRAIN_WATER || neighbor->biome == BIOME_WATER) && neighbor->bridge == BRIDGE_NONE) {
+                continue;
+            }
+
+            // Solo atravesar casillas conocidas para el jugador
+            if (!ignoreFog) {
+                if (!neighbor->visited && !neighbor->visible && neighbor != end) continue;
+            }
             
             // Coste de entrar al vecino
             int cost = Biome_GetProperties(neighbor->biome).actionPointCost;
@@ -2179,5 +2194,13 @@ int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexT
 
     free(nodes);
     return 0; // No path
+}
+
+int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut) {
+    return Map_FindPathEx(map, start, end, false, outTotalCost, pathOut);
+}
+
+int Map_FindPathEnemy(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut) {
+    return Map_FindPathEx(map, start, end, true, outTotalCost, pathOut);
 }
 

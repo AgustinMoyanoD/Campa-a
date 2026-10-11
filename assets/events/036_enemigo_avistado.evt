@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_enemigo_avistado
+Name=Antorchas en la Lejania
+Description=Una patrulla enemiga avanza con antorchas a lo largo de la cresta contigua sin advertir nuestra presencia.
+Trigger=NIGHT
+Time=NIGHT
+Biome=PLAINS,FOREST,MOUNTAIN,DESERT,JUNGLE
+Probability=30
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Preparar un flanqueo nocturno sigiloso
+Requires=plan>=2
+Result_pool=res_patrulla_emboscada
+
+[OPTION_2]
+Text=Ocultar teas y dejar que pasen de largo
+Result_pool=res_patrulla_evadir

@@ -1,0 +1,17 @@
+﻿[EVENT]
+Id=027_oasis_mirage
+Name=Espejismo en las Dunas
+Description=Buscando agua desesperadamente,\nel ejercito persigue un espejismo y colapsa.
+Trigger=RANDOM
+Biome=DESERT
+Probability=4
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Sufrir
+Result_pool=res_mirage_1

@@ -1,4 +1,4 @@
-﻿[MODIFIER]
+[MODIFIER]
 Id=zeus_rayo
 Name=Rayo de Zeus
 Kind=CARD

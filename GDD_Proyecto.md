@@ -95,10 +95,54 @@ El diseño busca un ciclo de recompensa basado en riesgo y supervivencia:
 
 ***
 
-## 5. Próximos Pasos (Roadmap del Alpha)
+### 3.7. Reloj, Supervivencia e Inanición (DayClock & Survival)
+* **Reloj Canónico (`DayClock`):** Cuatro franjas horarias por jornada (Mañana, Mediodía, Tarde, Noche). Controla unívocamente los eventos de cambio de fase y cierre del día.
+* **Escalera de Inanición y Deshidratación:** Si al cerrar el día la comida o el agua están en 0, se incrementa el contador de días sin suministro. Al día 1 hay gracia; al día 2 cae la moral; al día 3 y posteriores hay pérdida severa de salud y bajas/deserciones escalonadas por rango (Iniciados primero).
+* **Forrajeo de Emergencia:** Acción disponible por la tarde que consume el turno y recolecta suministros según el bioma transitado.
+* **Sacrificio de Ganado y Pactos Divinos:** Opciones de emergencia para obtener raciones o agua a cambio de ganado o contrayendo maldiciones con deidades.
 
-* [ ] **Drafting UI (Fase E):** Sistema interactivo Visual para que el jugador elija Cartas Divinas y Maldiciones en Altares del mapa (Draft de 3 opciones y reemplazo de slots).
+### 3.8. Campamento y Ciclo Nocturno
+* **Elección al Atardecer:** Al finalizar la tarde es obligatorio decidir entre acampar o realizar marcha nocturna.
+* **Acampar:** Detiene el avance, recupera moral y salud (salvo inanición severa) y realiza tirada de emboscada ($2d6 + \text{Evaluación} + \text{Cobertura Terrestre}$).
+* **Marcha Nocturna:** Permite seguir avanzando con coste de movimiento multiplicado ($\times 1.5$) y penalidades acumulativas de salud y moral por noches consecutivas sin descanso.
 
-* [ ] **Estructuras Interactivas y Reclutamiento:** Que hacer clic sobre una ciudad abra un "Mercado" guiado por el oro y las tropas.
+### 3.9. IA Enemiga y Zona de Control (EnemySquad AI)
+* **Máquina de Estados de Comportamiento:** Patrulla, Guardia, Cazador, Emboscador y Bestia. Estados de alerta, persecución mediante pathfinding hexagonal y retorno a base.
+* **Zona de Control (ZOC):** Salir de un hexágono adyacente a un enemigo cuesta $+1$ PA adicional.
+* **Ventaja de Huida (`skipNextPhase`):** Tras huir o ser derrotado, el enemigo entra en persecución pero salta su siguiente turno, evitando bloqueos injustos.
+* **Cazador Periódico:** Un escuadrón rastreador aparece cada $N$ días en la retaguardia para presionar al ejército si demora demasiado.
 
-* [ ] **Patrullaje Automático de Enemigos:** Sistema de IA que permita a las escuadras enemigas gastar PA y moverse por los caminos asediando aldeas.
+### 3.10. Asentamientos, Mercado y Servicios
+* **Interacción No Modal:** Al pasar cerca de un asentamiento se muestra un aviso interactivo (`[E]`), sin interrumpir la marcha salvo que el jugador lo elija.
+* **Mercado Real:** Tienda con stock finito por visita generado determinísticamente. Precios de venta estrictamente menores que los de compra ($40\%$).
+* **Armería y Ascensos:** Promoción de Iniciados a Soldados y Soldados a Sargentos con estricta conservación de tropas y ratio máximo ($\text{Sargentos} \le \text{Soldados}/15$).
+* **Servicios Civiles:** Hospital para curar salud persistente por oro, Templo para purificar maldiciones (costo progresivo) y Posada para restaurar moral consumiendo el día.
+
+### 3.11. Sistema de Facciones y Asedio
+* **Tres Facciones por Nivel:** Asignadas por cluster urbano con temperamentos $(-1, 0, +1)$ que reaccionan a la Infamia del jugador.
+* **Niveles de Opinión:** Hostil ($\le -50$, puertas cerradas), Desconfiado ($-49..-20$, precios $\times 1.5$), Neutral, Amistoso ($+21..+50$, precios $\times 0.85$) y Aliado ($> +50$, precios $\times 0.70$ y posada gratis).
+* **Asedio a Guarniciones Fortificadas:** Opción en Castillos y Centros Urbanos. Dispara alerta de guardia, combate especial contra guarnición fortificada (`TAG_FORTIFIED`, 150 Salud, 6 rondas) y otorga botín triplicado ($\times 3.0$), infamia ($+15$) y caída de reputación ($-40$).
+
+***
+
+## 4. Finalidad y Bucle Jugable (Core Loop)
+
+El diseño busca un ciclo de recompensa basado en riesgo y supervivencia:
+
+1. **Evaluar Terreno y Recursos:** Tirar los dados para saber cuántos PA posees, vigilar las raciones de comida y agua para no caer en la escalera de inanición.
+2. **Explorar y Descubrir:** Empujar el FoW, calcular rutas sorteando o emboscando a patrullas enemigas con IA activa.
+3. **Decisión al Atardecer:** Elegir entre la seguridad de acampar o la urgencia de marchar de noche.
+4. **Comercio y Logística:** Visitar asentamientos para comerciar, promover soldados, curar el ejército o asediar plazas hostiles.
+5. **Combate Táctico:** Destruir batallones con el sistema de Evaluación, Planificación y Ejecución asimétrica.
+
+***
+
+## 5. Estado de Implementación (Roadmap)
+
+* [x] **Drafting UI (Fase E):** Sistema interactivo visual para que el jugador elija Cartas Divinas y Maldiciones en Altares.
+* [x] **Supervivencia y Reloj (Fase 1):** `DayClock`, contadores de inanición/sed, `DayReport`, forrajeo y sacrificio de ganado.
+* [x] **Campamento y Marcha Nocturna (Fase 2):** Decisión obligatoria vespertina, eventos nocturnos y combate con emboscada.
+* [x] **IA Enemiga y Movimiento (Fase 3):** Estados de IA, persecución, ZOC (+1 PA), salto de fase post-huida y Cazador de retaguardia.
+* [x] **Ciudades y Mercados (Fase 4):** Menú no modal, tienda con stock determinista, armería con ascensos $1:15$, hospital, templo y posada.
+* [x] **Facciones y Asedio (Fase 5):** 3 facciones, modificadores de precios, niveles de alerta y combate de asedio fortificado con botín $\times 3$.
+* [ ] **Equilibrio Final y Contenido (Fase 6):** Pasada completa de datos y calibración de curvas.

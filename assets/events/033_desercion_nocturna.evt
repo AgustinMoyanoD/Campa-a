@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_desercion_nocturna
+Name=Fuga en las Sombras
+Description=Varios reclutas intentan deslizarse entre los matorrales para escapar de las penurias de la marcha.
+Trigger=NIGHT
+Time=NIGHT
+Biome=PLAINS,FOREST,DESERT,MOUNTAIN,JUNGLE
+Probability=25
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=5
+
+[OPTION_1]
+Text=Rastrear huellas en la oscuridad
+Requires=vision>=2
+Result_pool=res_desercion_perseguir
+
+[OPTION_2]
+Text=Acelerar el paso y dejarlos atras
+Result_pool=res_desercion_dejar

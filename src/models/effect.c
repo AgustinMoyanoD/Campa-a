@@ -28,6 +28,7 @@ static EffectType ParseEffectType(const char* statStr) {
     if (strcmp(statStr, "soldiers") == 0) return EFFECT_SOLDIERS;
     if (strcmp(statStr, "sergeants") == 0) return EFFECT_SERGEANTS;
     if (strcmp(statStr, "cattle") == 0) return EFFECT_CATTLE;
+    if (strcmp(statStr, "salud") == 0) return EFFECT_SALUD;
     
     // Nuevos
     if (strcmp(statStr, "addmod") == 0) return EFFECT_ADD_MOD;

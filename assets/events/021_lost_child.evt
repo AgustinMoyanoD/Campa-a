@@ -1,0 +1,21 @@
+﻿[EVENT]
+Id=021_lost_child
+Name=Nino Perdido
+Description=Un huerfano te pide ayuda.
+Trigger=RANDOM
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Ayudarlo
+Result_pool=res_021_lost_child_1
+
+[OPTION_2]
+Text=Dejarlo a su suerte
+Result_pool=res_child_002
+

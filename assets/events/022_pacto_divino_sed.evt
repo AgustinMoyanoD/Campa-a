@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_pacto_sed
+Name=La Fuente de la Estigia
+Description=Bajo las raíces de un sauce marchito brota un manantial negro.\nUna voz subterránea promete calmar la sed abrasadora de tu división a cambio de tu fuerza combativa.
+Trigger=RANDOM
+Time=MORNING,MIDDAY,AFTERNOON,NIGHT
+Biome=PLAINS,FOREST,DESERT,JUNGLE,MOUNTAIN
+Probability=20
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+DaysWithoutWater=2
+
+[OPTION_1]
+Text=Llenar los odres con el agua oscura (+60 Agua, Maldición)
+Result_pool=res_pacto_sed_aceptar
+
+[OPTION_2]
+Text=Seguir marchando sin probar la ponzoña
+Result_pool=res_pacto_rechazar

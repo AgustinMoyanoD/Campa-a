@@ -1,92 +1,212 @@
-﻿# Referencia de la API (Arquitectura MVC)
+# Referencia de API del Proyecto (DOC_API_Reference.md)
 
-Este documento sirve como un índice rápido de los archivos de cabecera (.h) del proyecto, explicando brevemente su propósito dentro de la arquitectura MVC. (Se omiten las librerías externas de Raylib).
-
----
-
-## 📂 Controladores (include/controllers/)
-Actúan como el puente de reglas entre la visualización en pantalla y el procesamiento lógico.
-
-### Asset_manager.h
-- **Propósito:** Gestión de memoria de texturas e imágenes.
-- **Estructuras:** GameAssets (Contiene las texturas de estructuras, unidades y enemigos).
-- **Funciones clave:** AssetManager_LoadAll, AssetManager_UnloadAll. Evita cargar la misma textura múltiples veces en VRAM.
-
-### camera_controller.h
-- **Propósito:** Controla la cámara 2D de Raylib para navegar el mapa.
-- **Funciones clave:** CameraController_Update (Zoom y paneo con WASD/Mouse), CameraController_FocusOn (Centra la vista en un hexágono específico, útil post-combate o en el inicio).
-
-### game_master.h
-- **Propósito:** El orquestador principal del estado del juego (la "Mesa de Rol").
-- **Estructuras:** GameMaster (Contiene los PA, hora del día, infamia, estado del turno, el registro de modificadores y la lista de enemigos activos).
-- **Funciones clave:** GameMaster_AttemptMove (Valida si un movimiento es legal), GameMaster_ApplyDiceRoll, GameMaster_GetVisionModifier (Evalúa el entorno y los hooks para dar visión extra o penalizarla).
+Este documento describe las interfaces y contratos públicos de los módulos añadidos y ampliados durante la reestructuración del ciclo de exploración, supervivencia, IA enemiga, asentamientos, facciones y asedio.
 
 ---
 
-## 📂 Modelos (include/models/)
-Contienen las matemáticas puras, estructuras de datos y lógica dura. No tienen dependencias visuales de Raylib.
+## 1. Módulo de Reloj y Ciclo de Tiempo (`models/day_clock.h`)
 
-### Army.h
-- **Propósito:** Simulación logística y militar del ejército del jugador.
-- **Estructuras:** Army (Recursos, posición, tropas), ArmyStats (Evaluación, Planificación, Ejecución).
-- **Funciones clave:** Army_GetStats (Calcula el poder duro de choque basándose en los generales y tropas), Army_EquipModifier / Army_RemoveModifier (Agrega o elimina cartas al comandante en jefe).
+Controlador unívoco del avance temporal canónico (Invariante I4).
 
-### combat.h
-- **Propósito:** La máquina de estados asimétrica de combate.
-- **Estructuras:** CombatContext (Guarda los dados, ventajas matemáticas, daño y planes seleccionados de la batalla activa).
-- **Funciones clave:** Combat_RollEvaluation, Combat_RollPlanning, Combat_RollExecution, Combat_ApplyResolution. Controlan matemáticamente el daño logarítmico.
+```c
+typedef enum {
+    TIME_MORNING = 0,
+    TIME_MIDDAY,
+    TIME_AFTERNOON,
+    TIME_NIGHT
+} TimeOfDay;
 
-### effect.h
-- **Propósito:** Parseador universal de comandos de efectos.
-- **Estructuras:** EffectDef (Modo Absoluto o Porcentaje, tipo de stat afectado).
-- **Funciones clave:** Effect_ParseString (Traduce strings como enemy.casualties:-50% a una estructura usable).
+typedef struct {
+    int currentDay;             /* Día actual (inicia en 1) */
+    TimeOfDay timeOfDay;        /* Franja horaria actual */
+    int totalTurnsElapsed;      /* Turnos/bloques de PA totales transcurridos */
+    bool dayEndedThisSlot;      /* Flag de cierre de jornada diario */
+} DayClock;
+```
 
-### enemy.h
-- **Propósito:** Representación y lógica de patrullas y bandidos.
-- **Estructuras:** EnemySquad (Fuerza base, movilidad, etiquetas TAGS y modificadores activos).
-- **Funciones clave:** Enemy_RevealTags, Enemy_IsTagKnown (Controlan la visibilidad de información asimétrica en combate).
-
-### event.h
-- **Propósito:** El motor narrativo *Data-Driven*.
-- **Estructuras:** EventDef (Evento cargado), EventContext (El contexto situacional al pisar una casilla).
-- **Funciones clave:** Event_LoadAll, Event_CheckConditions, Event_ApplyResult (Distribuye botín, daño narrativo y cambios de infamia al elegir opciones en los textos).
-
-### general.h
-- **Propósito:** Estructuras de oficiales y polimorfismo.
-- **Estructuras:** General (El avatar principal con sus cartas divinas), Lieutenant (Oficiales con lealtad y riesgo de motín), CommanderRef (Referencia polimórfica).
-- **Funciones clave:** Commander_GetActiveModifier (Obtiene dinámicamente los efectos activos de un oficial sin importar su rango).
-
-### hex_tile.h
-- **Propósito:** Geometría axial base.
-- **Estructuras:** HexCoord (Ejes Q, R), HexTile (Un bloque de terreno con su bioma e info especial).
-- **Funciones clave:** HexCoord_Distance, HexCoord_GetNeighbors.
-
-### map_generator.h
-- **Propósito:** Generación procedural de mundos.
-- **Estructuras:** Map (Arreglo de celdas).
-- **Funciones clave:** Map_Generate, Map_UpdateVision (Calcula dinámicamente el Fog of War explorado basándose en la visión del ejército).
-
-### modifier.h
-- **Propósito:** El corazón técnico del sistema de Cartas y Buffs.
-- **Estructuras:** ModifierRegistry (Catálogo en RAM de los .mod), ModifierDef, ModBreakdown (Desglose de matemáticas).
-- **Funciones clave:** Modifier_Query (Interroga todos los efectos aplicables sobre un Hook, ej: HOOK_MAP_VISION y devuelve el número acumulado total).
+### Funciones
+* `void DayClock_Init(DayClock* clock);`
+  Inicializa el reloj en el Día 1, Mañana.
+* `void DayClock_AdvanceSlot(DayClock* clock);`
+  Avanza una franja horaria. Si se completa la Noche, incrementa el día y activa `dayEndedThisSlot`.
+* `bool DayClock_HasDayEnded(DayClock* clock);`
+  Consulta si acaba de finalizar un ciclo completo de 4 franjas horarias y limpia el flag para que el evento se procese una sola vez.
 
 ---
 
-## 📂 Vistas (include/views/)
-Módulos encargados puramente de la interfaz de usuario (UI), renderizado en pantalla e interacciones de teclado/mouse.
+## 2. Configuración de Balance (`models/balance_config.h`)
 
-### combat_view.h
-- **Propósito:** Renderiza las 4 fases de combate. Interfaz gráfica de selección de planes, muestra de dados base y el renderizado complejo de los Tooltips de Desglose Matemático (ModBreakdown).
+Carga centralizada de parámetros desde `assets/balance.cfg` (Invariante I2).
 
-### enemy_view.h
-- **Propósito:** Inyecta en el mapa isométrico 3D los avatares (tokens) de las patrullas enemigas ocultándolos inteligentemente tras el Fog of War.
+### Funciones
+* `void Balance_InitDefaults(BalanceConfig* cfg);`
+  Carga los valores de balance de fábrica en la estructura.
+* `bool Balance_LoadFromFile(BalanceConfig* cfg, const char* filepath);`
+  Parsea el archivo INI de balance especificado.
+* `const BalanceConfig* Balance_GetGlobal(void);`
+  Retorna la instancia global singleton cargada en memoria.
+* `int Balance_GetTerrainCover(const BalanceConfig* cfg, int biome, int structType);`
+  Calcula el bono de cobertura para tiradas de campamento según el terreno y estructura.
 
-### event_view.h
-- **Propósito:** Dibuja el gran pergamino de texto centrado cuando un evento narrativo se dispara. Calcula las áreas de colisión (clics) para las opciones del jugador y provee un pequeño tiempo de "Cooldown" para evitar clics accidentales.
+---
 
-### hud.h
-- **Propósito:** Interfaz "siempre encima". Dibuja los recursos logísticos, el botón para tirar dados de PA, y las cartas divinas/maldiciones activas en la esquina derecha del General.
+## 3. Supervivencia y Ejército (`models/army.h`)
 
-### map_view.h
-- **Propósito:** Motor gráfico del tablero principal. Dibuja cada hexágono en perspectiva *Y * 0.5*, oscurece con shaders/colores el Fog of War inexplorado, coloca sprites decorativos (estructuras), y levanta un mini-mapa localizador.
+Contabilidad de raciones y escalera de consecuencias por inanición/sed (Decisión E1).
+
+```c
+typedef struct {
+    int daysWithoutFood;
+    int daysWithoutWater;
+    int consecutiveNightMarches;
+    ...
+} Army;
+
+typedef struct {
+    int day;
+    bool foodShortage;
+    bool waterShortage;
+    int daysWithoutFood;
+    int daysWithoutWater;
+    float moralDelta;
+    float saludDelta;
+    int deadInitiates, deadSoldiers, deadSergeants;
+    int desertedInitiates, desertedSoldiers, desertedSergeants;
+} DayReport;
+```
+
+### Funciones
+* `void Army_EndDay(Army* army, DayReport* report, Rng* rng);`
+  Aplica la escalera de inanición y deshidratación al cerrar el día. Genera el informe `DayReport`.
+* `float Army_DaysOfSupply(const Army* army);`
+  Calcula el remanente mínimo de días de consumo sostenible ($\min(\text{comida}, \text{agua}) / \text{consumo diario}$).
+
+---
+
+## 4. Inteligencia Artificial Enemiga (`models/enemy.h`)
+
+Comportamientos tácticos y zona de control (Sección 8).
+
+```c
+typedef enum {
+    AI_PATROL = 0,
+    AI_GUARD,
+    AI_HUNTER,
+    AI_AMBUSH,
+    AI_BEAST
+} EnemyBehavior;
+
+typedef enum {
+    AIS_IDLE = 0,
+    AIS_PATROLLING,
+    AIS_ALERT,
+    AIS_CHASING,
+    AIS_SEARCHING,
+    AIS_RETURNING,
+    AIS_RESTING
+} EnemyAIState;
+```
+
+### Campos clave en `EnemySquad`:
+* `behavior`: Estrategia asignada al escuadrón.
+* `aiState`: Estado actual de la máquina de estados.
+* `mobility`: Puntos de movimiento/PA disponibles por turno.
+* `chaseTurnsLeft`: Turnos restantes antes de desistir de la persecución.
+* `skipNextPhase`: Turnos que el enemigo debe saltar tras huida o combate.
+* `initiator`: `0 = JUGADOR`, `1 = ENEMIGO`.
+
+---
+
+## 5. Ciudades, Mercado, Armería y Servicios (`models/city.h`)
+
+Gestión de tiendas deterministas, promociones de tropas y servicios de salud/moral (Sección 9).
+
+```c
+typedef enum {
+    CITY_TAB_MAIN = 0,
+    CITY_TAB_MARKET,
+    CITY_TAB_ARMORY,
+    CITY_TAB_HOSPITAL,
+    CITY_TAB_TEMPLE,
+    CITY_TAB_INN
+} CityTab;
+
+typedef struct {
+    HexCoord tileCoord;
+    StructureType structType;
+    SettlementType settlementType;
+    int settlementId;
+    int factionId;
+    char factionName[32];
+    int factionOpinion;
+    float factionPriceMult;
+    int factionAlertLevel;
+    bool isBesieged;
+    bool requestSiege;
+    ...
+} CityContext;
+```
+
+### Funciones del Mercado:
+* `void City_InitVisit(CityContext* ctx, HexCoord coord, StructureType structType, SettlementType settlementType, int settlementId, int currentDay);`
+  Genera el stock determinista para la visita basado en la coordenada, ID de asentamiento y día.
+* `int City_GetBuyPriceFood(const CityContext* ctx);` (y equivalentes para agua, ganado, iniciados).
+* `int City_GetSellPriceFood(const CityContext* ctx);` (precios con ratio de venta del $40\%$).
+* `bool City_BuyFood(CityContext* ctx, Army* army, int amount);`
+* `bool City_SellFood(CityContext* ctx, Army* army, int amount);`
+* `bool City_RecruitInitiates(CityContext* ctx, Army* army, int amount);`
+
+### Funciones de la Armería:
+* `int City_GetMaxPromoteInitiates(const CityContext* ctx, const Army* army);`
+* `int City_GetMaxPromoteSoldiers(const CityContext* ctx, const Army* army);`
+  Verifica fondos, tropas disponibles, tope de 2 por visita y ratio estricto $\text{Sargentos} \le \text{Soldados}/15$.
+* `bool City_PromoteInitiates(CityContext* ctx, Army* army, int amount);`
+* `bool City_PromoteSoldiers(CityContext* ctx, Army* army, int amount);`
+
+### Funciones de Servicios:
+* `int City_GetHospitalCost(const CityContext* ctx, const Army* army, int pointsToHeal);`
+* `bool City_HealArmy(CityContext* ctx, Army* army, int pointsToHeal);`
+* `int City_GetTempleCurseRemoveCost(const CityContext* ctx);`
+* `bool City_RemoveCurse(CityContext* ctx, Army* army);`
+* `int City_GetInnCost(const CityContext* ctx);`
+* `bool City_RestAtInn(CityContext* ctx, Army* army);`
+
+---
+
+## 6. Facciones y Asedio (`models/city.h`, `controllers/game_master.h`)
+
+Sistema sociopolítico y confrontación táctica de asedio (Secciones 9.4 y 9.5).
+
+```c
+typedef enum {
+    FACTION_HOSTILE = 0,
+    FACTION_SUSPICIOUS,
+    FACTION_NEUTRAL,
+    FACTION_FRIENDLY,
+    FACTION_ALLIED
+} FactionOpinionLevel;
+
+typedef struct {
+    int id;
+    char name[32];
+    int temperament; /* -1 odia infamia, +1 la respeta, 0 neutral */
+    int opinion;     /* -100..100 */
+    int alertLevel;  /* 0: calma, 1: alerta, 2: asedio */
+    int alertDays;   /* días restantes de alerta */
+} Faction;
+```
+
+### Funciones de Facciones:
+* `void Faction_Init(Faction* f, int id, const char* name, int temperament, float currentInfamy, const BalanceConfig* cfg);`
+  Calcula la opinión inicial: $\text{baseline} + \text{temperament} \times (\text{infamia} - 50) \times k$.
+* `FactionOpinionLevel Faction_GetLevel(int opinion, const BalanceConfig* cfg);`
+* `float Faction_GetPriceMultiplier(int opinion, const BalanceConfig* cfg);`
+* `void Faction_ModifyOpinion(Faction* f, int delta);`
+* `void Faction_SetAlert(Faction* f, int alertLevel, int days);`
+* `void Faction_TickDay(Faction* f);`
+
+### Funciones de Asedio (`GameMaster`):
+* `void GameMaster_StartSiege(GameMaster* gm, Map* map, Army* playerArmy, HexCoord targetCoord);`
+  Eleva la alerta a Asedio, inicializa el combate contra una guarnición con `TAG_FORTIFIED` (150 salud, 6 rondas).
+* `void GameMaster_ResolveSiegeVictory(GameMaster* gm, Map* map, Army* playerArmy, HexCoord targetCoord);`
+  Acredita botín triplicado ($\times 3.0$), incrementa infamia ($+15$), descuenta opinión ($-40$), marca `isBesieged = true` y pone en alerta a todos los centros de la facción durante 5 días.

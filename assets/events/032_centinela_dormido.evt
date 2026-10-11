@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_centinela_dormido
+Name=Guardia en Penumbra
+Description=Un centinela novato es hallado dormido sobre su lanza en plena marcha nocturna.
+Trigger=NIGHT
+Time=NIGHT
+Biome=PLAINS,FOREST,DESERT,MOUNTAIN,JUNGLE
+Probability=25
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aplicar castigo marcial severo
+Requires=exec>=2
+Result_pool=res_centinela_disciplinar
+
+[OPTION_2]
+Text=Doblar centinelas y relevarlo
+Result_pool=res_centinela_perdonar

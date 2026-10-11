@@ -1,0 +1,21 @@
+﻿[EVENT]
+Id=007_merchant
+Name=Mercader Errante
+Description=Un mercader ofrece suministros a cambio de oro.
+Trigger=RANDOM
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Comprar suministros
+Result_pool=res_007_merchant_1
+
+[OPTION_2]
+Text=Robarle todo
+Result_pool=res_merch_002
+

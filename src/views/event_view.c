@@ -1,6 +1,7 @@
-﻿#include "views/event_view.h"
+#include "views/event_view.h"
 #include "raylib.h"
 #include <string.h>
+#include <stdio.h>
 
 static Rectangle GetOptionRect(int index, int screenWidth, int screenHeight, int totalOptions) {
     int w = 500;
@@ -39,15 +40,31 @@ void EventView_Draw(const EventDef* event, int screenWidth, int screenHeight) {
     // Opciones
     for (int i = 0; i < event->optionCount; i++) {
         Rectangle rect = GetOptionRect(i, screenWidth, screenHeight, event->optionCount);
+        const EventOption* opt = &event->options[i];
         
         bool hover = CheckCollisionPointRec(GetMousePosition(), rect);
-        Color btnColor = hover ? (Color){ 200, 180, 150, 255 } : (Color){ 220, 200, 170, 255 };
+        Color btnColor;
+        Color textColor;
+        if (!opt->enabled) {
+            btnColor = (Color){ 180, 180, 180, 200 };
+            textColor = (Color){ 100, 100, 100, 255 };
+        } else {
+            btnColor = hover ? (Color){ 200, 180, 150, 255 } : (Color){ 220, 200, 170, 255 };
+            textColor = BLACK;
+        }
         
         DrawRectangleRec(rect, btnColor);
         DrawRectangleLinesEx(rect, 1, (Color){ 120, 100, 60, 255 });
 
-        int textW = MeasureText(event->options[i].text, 16);
-        DrawText(event->options[i].text, rect.x + rect.width / 2 - textW / 2, rect.y + 12, 16, BLACK);
+        char label[256];
+        if (!opt->enabled && opt->disabledReason[0] != '\0') {
+            snprintf(label, sizeof(label), "%s [%s]", opt->text, opt->disabledReason);
+        } else {
+            snprintf(label, sizeof(label), "%s", opt->text);
+        }
+
+        int textW = MeasureText(label, 15);
+        DrawText(label, rect.x + rect.width / 2 - textW / 2, rect.y + 12, 15, textColor);
     }
 }
 
@@ -57,6 +74,7 @@ int EventView_HandleInput(const EventDef* event, int screenWidth, int screenHeig
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Vector2 mousePos = GetMousePosition();
         for (int i = 0; i < event->optionCount; i++) {
+            if (!event->options[i].enabled) continue;
             Rectangle rect = GetOptionRect(i, screenWidth, screenHeight, event->optionCount);
             if (CheckCollisionPointRec(mousePos, rect)) {
                 return i;

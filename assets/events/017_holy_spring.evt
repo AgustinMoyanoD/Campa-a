@@ -1,0 +1,22 @@
+﻿[EVENT]
+Id=017_holy_spring
+Name=Manantial Sagrado
+Description=Agua cristalina que emana luz.
+Trigger=RANDOM
+Biome=MOUNTAIN
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Beber
+Result_pool=res_017_holy_spring_1
+
+[OPTION_2]
+Text=Llenar cantimploras
+Result_pool=res_spring_002
+

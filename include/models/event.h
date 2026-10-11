@@ -1,4 +1,4 @@
-﻿#ifndef EVENT_H
+#ifndef EVENT_H
 #define EVENT_H
 
 #include <stdbool.h>
@@ -19,7 +19,8 @@ typedef enum {
     TRIGGER_HOUSE,
     TRIGGER_CASTLE,
     TRIGGER_ARMORY,
-    TRIGGER_NIGHT
+    TRIGGER_NIGHT,
+    TRIGGER_CAMP_AMBUSH
 } EventTrigger;
 
 
@@ -42,6 +43,10 @@ typedef struct {
     
     int resultPoolCount;
     char resultPool[5][32]; // IDs de los posibles resultados
+
+    char requiresCondition[64];
+    bool enabled;
+    char disabledReason[64];
 } EventOption;
 
 typedef struct {
@@ -65,6 +70,10 @@ typedef struct {
     int minFood;
     int minWater;
     int minArmySize;
+    int minCattle;
+    int daysWithoutFoodMin;
+    int daysWithoutWaterMin;
+
     int optionCount;
     EventOption options[MAX_OPTIONS];
 } EventDef;
@@ -73,6 +82,7 @@ typedef struct {
 
 // Carga todos los archivos .evt de un directorio
 int Event_LoadAll(const char* directory, EventDef* outEvents, int maxEvents);
+void Event_EvaluateOptions(EventDef* event, const Army* army);
 
 int Result_LoadAll(const char* directory, EventResult* outResults, int maxResults);
 

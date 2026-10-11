@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_ataque_lobos
+Name=Aullidos en la Penumbra
+Description=Una manada de bestias hambrientas rodea la columna en la oscuridad de la noche.\nSus ojos brillan entre la maleza.
+Trigger=NIGHT
+Time=NIGHT
+Biome=PLAINS,FOREST,MOUNTAIN,JUNGLE
+Probability=35
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Organizar un muro defensivo firme
+Requires=lead>=2
+Result_pool=res_lobos_repeler
+
+[OPTION_2]
+Text=Dispersar a las bestias con fuego desordenado
+Result_pool=res_lobos_huir

@@ -15,6 +15,7 @@ typedef enum {
     EFFECT_SOLDIERS,
     EFFECT_SERGEANTS,
     EFFECT_CATTLE,
+    EFFECT_SALUD,
     
     // Novedades Roguelike (a implementar luego)
     EFFECT_ADD_MOD,

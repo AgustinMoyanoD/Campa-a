@@ -1,4 +1,4 @@
-﻿[MODIFIER]
+[MODIFIER]
 Id=curse_cyclops
 Name=Maldicion del Ciclope
 Kind=CURSE

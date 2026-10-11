@@ -1,11 +1,13 @@
 #include "army.h"
 #include "models/modifier.h"
+#include "models/balance_config.h"
+#include "models/rng.h"
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
 
 /* ============================================================
-   CREACI”N DE LA ARMY
+   CREACI√ìN DE LA ARMY
    ============================================================ */
 
 Army Army_Create(
@@ -27,7 +29,7 @@ Army Army_Create(
     army.general = general;
     army.lieutenantCount = 0;
 
-    /* Por defecto, el General est· al mando inicial de la Army */
+    /* Por defecto, el General est√° al mando inicial de la Army */
     army.commander = Commander_FromGeneral(&army.general);
 
     army.sargentos = (sargentos >= 0) ? sargentos : 0;
@@ -38,8 +40,9 @@ Army Army_Create(
     army.comida_disponible = (comida >= 0.0f) ? comida : 0.0f;
     army.monedas = (monedas >= 0) ? monedas : 0;
     army.ganado = (ganado >= 0) ? ganado : 0;
+    army.commandTokens = 3; /* Comenzar con 3 fichas de mando */
 
-    army.moral = 80.0f;  /* Moral inicial sÛlida */
+    army.moral = 80.0f;  /* Moral inicial s√≥lida */
     army.salud = 100.0f; /* Salud plena */
     army.infamia = 0;
 
@@ -59,7 +62,7 @@ int Army_GetTotalWeight(const Army* army) {
 
 
 /* ============================================================
-   GESTI”N DE OFICIALES
+   GESTI√ìN DE OFICIALES
    ============================================================ */
 
 bool Army_AddLieutenant(Army* army, Lieutenant lt)
@@ -89,7 +92,7 @@ bool Army_SetCommanderLieutenant(Army* army, int lieutenantIndex)
 
 
 /* ============================================================
-   CONSUMO LOGÕSTICO DE RECURSOS
+   CONSUMO LOG√çSTICO DE RECURSOS
    ============================================================ */
 
 float Army_CalculateWaterUsage(int cantSoldados, int cantGanado)
@@ -101,7 +104,7 @@ float Army_CalculateWaterUsage(int cantSoldados, int cantGanado)
 
 float Army_CalculateFoodUsage(int cantSoldados, int cantGanado)
 {
-    /* Cada soldado consume 1.0 raciÛn de comida.
+    /* Cada soldado consume 1.0 raci√≥n de comida.
        El ganado consume 0.2 raciones adicionales de mantenimiento. */
     return ((float)cantSoldados * 1.0f) + ((float)cantGanado * 0.2f);
 }
@@ -121,7 +124,7 @@ void Army_ConsumeTurnResources(Army* army)
     }
     else
     {
-        /* Escasez de agua: deshidrataciÛn y caÌda de moral */
+        /* Escasez de agua: deshidrataci√≥n y ca√≠da de moral */
         army->agua_disponible = 0.0f;
         army->moral -= 8.0f;
         army->salud -= 4.0f;
@@ -134,7 +137,7 @@ void Army_ConsumeTurnResources(Army* army)
     }
     else
     {
-        /* Hambruna: se puede sacrificar ganado autom·ticamente o mermar salud */
+        /* Hambruna: se puede sacrificar ganado autom√°ticamente o mermar salud */
         if (army->ganado > 0)
         {
             /* Sacrificio de emergencia: 1 cabeza de ganado aporta 15 de comida */
@@ -165,19 +168,136 @@ void Army_ConsumeTurnResources(Army* army)
     if (army->salud > 100.0f) army->salud = 100.0f;
 }
 
+float Army_DaysOfSupply(const Army* army) {
+    if (!army) return 0.0f;
+    int total = Army_GetTotalSoldiers(army);
+    if (total <= 0) return 99.0f;
+
+    float dailyFood = Army_CalculateFoodUsage(total, army->ganado);
+    float dailyWater = Army_CalculateWaterUsage(total, army->ganado);
+
+    float foodDays = (dailyFood > 0.0f) ? (army->comida_disponible / dailyFood) : 99.0f;
+    float waterDays = (dailyWater > 0.0f) ? (army->agua_disponible / dailyWater) : 99.0f;
+
+    return (foodDays < waterDays) ? foodDays : waterDays;
+}
+
+static void CalculateRankCasualties(int* count, float desertPct, float deathPct, float rankMult, int* outDesert, int* outDead, Rng* rng) {
+    *outDesert = 0;
+    *outDead = 0;
+    if (*count <= 0) return;
+
+    float effDesert = (desertPct * rankMult) / 100.0f;
+    float effDeath  = (deathPct  * rankMult) / 100.0f;
+
+    float expDesert = (float)(*count) * effDesert;
+    int deserters = (int)expDesert;
+    float fracD = expDesert - (float)deserters;
+    if (rng && Rng_Float(rng) < fracD) deserters++;
+    if (deserters > *count) deserters = *count;
+
+    *count -= deserters;
+    *outDesert = deserters;
+
+    float expDeath = (float)(*count) * effDeath;
+    int dead = (int)expDeath;
+    float fracDead = expDeath - (float)dead;
+    if (rng && Rng_Float(rng) < fracDead) dead++;
+    if (dead > *count) dead = *count;
+
+    *count -= dead;
+    *outDead = dead;
+}
+
+void Army_EndDay(Army* army, DayReport* report, Rng* rng) {
+    if (!army) return;
+    DayReport localReport;
+    if (!report) report = &localReport;
+    memset(report, 0, sizeof(DayReport));
+
+    const BalanceConfig* cfg = Balance_GetGlobal();
+
+    /* 1. Actualizar contadores de d√≠as sin suministro (recuperaci√≥n gradual, I7, E1) */
+    if (army->comida_disponible <= 0.0f) {
+        army->daysWithoutFood++;
+        report->foodShortage = true;
+    } else {
+        if (army->daysWithoutFood > 0) army->daysWithoutFood--;
+        report->foodShortage = false;
+    }
+
+    if (army->agua_disponible <= 0.0f) {
+        army->daysWithoutWater++;
+        report->waterShortage = true;
+    } else {
+        if (army->daysWithoutWater > 0) army->daysWithoutWater--;
+        report->waterShortage = false;
+    }
+
+    report->daysWithoutFood = army->daysWithoutFood;
+    report->daysWithoutWater = army->daysWithoutWater;
+
+    float totalMoralDelta = 0.0f;
+    float totalSaludDelta = 0.0f;
+    float totalDesertPct  = 0.0f;
+    float totalDeathPct   = 0.0f;
+
+    /* 2. Aplicar escalera de Comida */
+    if (army->daysWithoutFood > 0) {
+        int idx = army->daysWithoutFood - 1;
+        if (idx > 2) idx = 2; /* D√≠a 3 en adelante */
+        const StarvationRow* row = &cfg->starvationFood[idx];
+        totalMoralDelta += row->moral;
+        totalSaludDelta += row->salud;
+        totalDesertPct  += row->desertPct;
+        totalDeathPct   += row->deathPct;
+    }
+
+    /* 3. Aplicar escalera de Agua (m√°s severa) */
+    if (army->daysWithoutWater > 0) {
+        int idx = army->daysWithoutWater - 1;
+        if (idx > 2) idx = 2;
+        const StarvationRow* row = &cfg->starvationWater[idx];
+        totalMoralDelta += row->moral;
+        totalSaludDelta += row->salud;
+        totalDesertPct  += row->desertPct;
+        totalDeathPct   += row->deathPct;
+    }
+
+    /* 4. Aplicar desgastes de moral y salud */
+    report->moralDelta = totalMoralDelta;
+    report->saludDelta = totalSaludDelta;
+    army->moral += totalMoralDelta;
+    army->salud += totalSaludDelta;
+    if (army->moral < 0.0f) army->moral = 0.0f;
+    if (army->moral > 100.0f) army->moral = 100.0f;
+    if (army->salud < 0.0f) army->salud = 0.0f;
+    if (army->salud > 100.0f) army->salud = 100.0f;
+
+    /* 5. Desertores y muertos por rango (Iniciados primero, con multiplicadores) */
+    CalculateRankCasualties(&army->iniciados, totalDesertPct, totalDeathPct, cfg->rankMultInitiates,
+                            &report->desertedInitiates, &report->deadInitiates, rng);
+
+    CalculateRankCasualties(&army->soldados, totalDesertPct, totalDeathPct, cfg->rankMultSoldiers,
+                            &report->desertedSoldiers, &report->deadSoldiers, rng);
+
+    CalculateRankCasualties(&army->sargentos, totalDesertPct, totalDeathPct, cfg->rankMultSergeants,
+                            &report->desertedSergeants, &report->deadSergeants, rng);
+}
+
 
 /* ============================================================
-   F”RMULAS DE ESTADÕSTICAS GLOBALES DE LA ARMY
+   F√ìRMULAS DE ESTAD√çSTICAS GLOBALES DE LA ARMY
    ============================================================ */
 
 /*
-    FÛrmula de EjecuciÛn:
-    f_ejecuciÛn = EjecuciÛn_comandante + sargentos + (soldados / B) + f(iniciados)
+    F√≥rmula de Ejecuci√≥n:
+    f_ejecuci√≥n = Ejecuci√≥n_comandante + sargentos + (soldados / B) + f(iniciados)
 
     Para los iniciados:
-    - Tener pocos iniciados aporta una bonificaciÛn positiva (refuerzos frescos).
-    - Conforme el n˙mero de iniciados crece demasiado sin suficiente disciplina,
-      el tÈrmino decae y se convierte en una penalizaciÛn neta (caos, estorbo, desorden).
+    - Tener pocos iniciados aporta una bonificaci√≥n positiva (refuerzos frescos).
+    - Conforme el n√∫mero de iniciados crece demasiado sin suficiente disciplina,
+      el t√©rmino decae y se convierte en una penalizaci√≥n neta (caos, estorbo, desorden).
 */
 float Army_CalculateExecution(const Army* army, float B)
 {
@@ -186,13 +306,13 @@ float Army_CalculateExecution(const Army* army, float B)
     if (B <= 0.05f) B = DEFAULT_EXECUTION_B;
 
     float execCommander = (float)Commander_GetExecution(army->commander);
-    float valSargentos = (float)army->sargentos * 1.5f; /* Sargentos aportan liderazgo t·ctico */
+    float valSargentos = (float)army->sargentos * 1.5f; /* Sargentos aportan liderazgo t√°ctico */
     float valSoldados = (float)army->soldados / B;
 
     /*
         Efecto de los iniciados:
         Aporte positivo inicial modulado por e^(-iniciados / K).
-        Si supera los 20 iniciados, el desborde aplica penalizaciÛn progresiva.
+        Si supera los 20 iniciados, el desborde aplica penalizaci√≥n progresiva.
     */
     float nIniciados = (float)army->iniciados;
     float aporteIniciados = (nIniciados * 0.6f) * expf(-nIniciados / 18.0f);
@@ -230,7 +350,7 @@ float Army_CalculateVision(const Army* army)
     float vis = (float)Commander_GetVision(army->commander);
     if (army->sargentos > 0)
     {
-        vis += 1.0f; /* Sargentos act˙an como batidores */
+        vis += 1.0f; /* Sargentos act√∫an como batidores */
     }
 
     return (vis > 1.0f) ? vis : 1.0f;
@@ -267,7 +387,7 @@ ArmyStats Army_GetStats(const Army* army, float B)
 
 
 /* ============================================================
-   SISTEMA DE MOTÕN Y TRAICI”N
+   SISTEMA DE MOT√çN Y TRAICI√ìN
    ============================================================ */
 
 float Army_CalculateMutinyRisk(const Army* army)
@@ -295,14 +415,14 @@ float Army_CalculateMutinyRisk(const Army* army)
         }
     }
 
-    /* Si ning˙n teniente es desleal, el riesgo es nulo */
+    /* Si ning√∫n teniente es desleal, el riesgo es nulo */
     if (maxLieutenantDisloyalty <= 0.0f)
         return 0.0f;
 
-    /* El riesgo porcentual escala con el dÈficit de moral y la deslealtad */
+    /* El riesgo porcentual escala con el d√©ficit de moral y la deslealtad */
     float risk = moralDeficit * maxLieutenantDisloyalty * 100.0f;
 
-    /* A mayor infamia, mayor es la fricciÛn interna si la moral es pÈsima */
+    /* A mayor infamia, mayor es la fricci√≥n interna si la moral es p√©sima */
     if (army->infamia > 20)
     {
         risk += (float)army->infamia * 0.15f;
@@ -326,7 +446,7 @@ bool Army_CheckMutiny(Army* army, int* outRebelLieutenantIndex)
 
     if (roll < risk)
     {
-        /* Encuentra al teniente con menor lealtad que lidera el motÌn */
+        /* Encuentra al teniente con menor lealtad que lidera el mot√≠n */
         int worstIdx = 0;
         int lowestLoyalty = 100;
         for (int i = 0; i < army->lieutenantCount; i++)

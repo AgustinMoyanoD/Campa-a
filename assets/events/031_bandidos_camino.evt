@@ -1,0 +1,24 @@
+[EVENT]
+Id=event_bandidos_camino
+Name=Salteadores de Caminos
+Description=Sombras armadas emergen de las cunetas exigiendo tributo para franquear el paso.
+Trigger=NIGHT
+Time=NIGHT
+Biome=PLAINS,FOREST,MOUNTAIN,DESERT
+Probability=30
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Anticipar su emboscada y contraatacar
+Requires=eval>=2
+Result_pool=res_bandidos_emboscar
+
+[OPTION_2]
+Text=Pagar el peaje nocturno de paso
+Requires=gold>=15
+Result_pool=res_bandidos_pagar

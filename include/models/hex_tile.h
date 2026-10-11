@@ -1,4 +1,4 @@
-﻿#ifndef HEX_TILE_H
+#ifndef HEX_TILE_H
 #define HEX_TILE_H
 
 #include <stdbool.h>
@@ -88,6 +88,8 @@ typedef struct {
     SettlementType settlementType; /* Primario o Secundario */
     int divineCardId;       /* Para STRUCT_ALTAR: carta que contiene */
     int tollCost;           /* Para STRUCT_BRIDGE: coste del peaje en monedas */
+    int factionId;          /* ID de la faccion propietaria (0..2) */
+    bool isBesieged;        /* true = asediada / ocupada */
     float enemySpawnRate;   /* Probabilidad por turno de spawnear un escuadrón enemigo (ej: 0.04f) */
 } TileStructure;
 

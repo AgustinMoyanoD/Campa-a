@@ -1,0 +1,25 @@
+[EVENT]
+Id=event_sacrificar_ganado
+Name=El Dilema del Rebaño
+Description=Las reservas de grano escasean y el hambre aprieta en las filas.\nLos soldados miran al ganado con desesperación en sus ojos.
+Trigger=RANDOM
+Time=MORNING,MIDDAY,AFTERNOON,NIGHT
+Biome=PLAINS,FOREST,DESERT,JUNGLE,MOUNTAIN
+Probability=15
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+MinCattle=1
+DaysWithoutFood=1
+
+[OPTION_1]
+Text=Sacrificar dos cabezas de ganado
+Requires=cattle>=2
+Result_pool=res_sacrificio_ganado
+
+[OPTION_2]
+Text=Preservar el ganado y racionar
+Result_pool=res_negar_sacrificio

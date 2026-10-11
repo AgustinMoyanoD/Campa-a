@@ -38,13 +38,18 @@ static ModifierHook ParseHook(const char* str) {
     if (strcmp(str, "FLEE_COST") == 0) return HOOK_FLEE_COST;
     if (strcmp(str, "EXEC_ROLL") == 0) return HOOK_EXEC_ROLL;
     if (strcmp(str, "EXEC_DAMAGE") == 0) return HOOK_EXEC_DAMAGE;
-    if (strcmp(str, "CASUALTIES") == 0) return HOOK_CASUALTIES;
+    if (strcmp(str, "CASUALTIES") == 0) return HOOK_HEALTH_DAMAGE_RECEIVED;
+    if (strcmp(str, "HEALTH_DAMAGE_RECEIVED") == 0) return HOOK_HEALTH_DAMAGE_RECEIVED;
+    if (strcmp(str, "RECOUNT_DEATH") == 0) return HOOK_RECOUNT_DEATH;
     if (strcmp(str, "COMBAT_END") == 0) return HOOK_COMBAT_END;
     if (strcmp(str, "MAP_BASE_PA") == 0) return HOOK_MAP_BASE_PA;
     if (strcmp(str, "MAP_MOVE_COST") == 0) return HOOK_MAP_MOVE_COST;
     if (strcmp(str, "MAP_VISION") == 0) return HOOK_MAP_VISION;
     if (strcmp(str, "DAILY_CONSUMPTION") == 0) return HOOK_DAILY_CONSUMPTION;
     if (strcmp(str, "NIGHT_FALL") == 0) return HOOK_NIGHT_FALL;
+    if (strcmp(str, "NIGHT_PENALTY") == 0) return HOOK_NIGHT_PENALTY;
+    if (strcmp(str, "AMBUSH_ROLL") == 0) return HOOK_AMBUSH_ROLL;
+    if (strcmp(str, "NIGHT_ENCOUNTER_CHANCE") == 0) return HOOK_NIGHT_ENCOUNTER_CHANCE;
     if (strcmp(str, "EVENT_FILTER") == 0) return HOOK_EVENT_FILTER;
     if (strcmp(str, "EVENT_RESULT") == 0) return HOOK_EVENT_RESULT;
     return HOOK_PASSIVE;
@@ -141,7 +146,7 @@ static int LoadModifiersFromFile(const char* filepath, ModifierDef* outMods, int
             currentRule = NULL;
             continue;
         }
-        else if (strcmp(buffer, "[RULE]") == 0) {
+        else if (strcmp(buffer, "[RULE]") == 0 || strncmp(buffer, "[HOOK", 5) == 0) {
             if (currentMod && currentMod->ruleCount < MAX_RULES_PER_MODIFIER) {
                 currentRule = &currentMod->rules[currentMod->ruleCount];
                 currentMod->ruleCount++;

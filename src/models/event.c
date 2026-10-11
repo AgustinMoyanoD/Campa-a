@@ -49,6 +49,7 @@ static EventTrigger ParseTrigger(const char* str) {
     if (strcmp(str, "CASTLE") == 0) return TRIGGER_CASTLE;
     if (strcmp(str, "ARMORY") == 0) return TRIGGER_ARMORY;
     if (strcmp(str, "NIGHT") == 0) return TRIGGER_NIGHT;
+    if (strcmp(str, "CAMP_AMBUSH") == 0) return TRIGGER_CAMP_AMBUSH;
     return TRIGGER_NONE;
 }
 
@@ -155,9 +156,13 @@ static bool LoadEventFromFile(const char* filepath, EventDef* ev) {
                 else if (strcmp(key, "MinFood") == 0) ev->minFood = atoi(val);
                 else if (strcmp(key, "MinWater") == 0) ev->minWater = atoi(val);
                 else if (strcmp(key, "MinArmySize") == 0) ev->minArmySize = atoi(val);
+                else if (strcmp(key, "MinCattle") == 0) ev->minCattle = atoi(val);
+                else if (strcmp(key, "DaysWithoutFood") == 0) ev->daysWithoutFoodMin = atoi(val);
+                else if (strcmp(key, "DaysWithoutWater") == 0) ev->daysWithoutWaterMin = atoi(val);
             } else if (currentOption >= 0 && currentOption < MAX_OPTIONS) {
                 EventOption* opt = &ev->options[currentOption];
                 if (strcmp(key, "Text") == 0) strncpy(opt->text, val, sizeof(opt->text)-1);
+                else if (strcmp(key, "Requires") == 0) strncpy(opt->requiresCondition, val, sizeof(opt->requiresCondition)-1);
                 else if (strcmp(key, "Result_Battle") == 0) opt->startsBattle = true;
                 else if (strcmp(key, "Result_pool") == 0) {
                     if (strcmp(val, "NONE") == 0) {
@@ -367,6 +372,113 @@ void Event_ApplyResult(const EventResult* res, Army* army, float* gmInfamy) {
                 if (army->sargentos < 0) army->sargentos = 0;
                 break;
             }
+            case EFFECT_CATTLE: {
+                if (eff->mode == EFFECT_MODE_ALL) army->ganado = 0;
+                else if (eff->mode == EFFECT_MODE_PERCENTAGE) {
+                    army->ganado += (int)roundf(army->ganado * (eff->value / 100.0f));
+                } else {
+                    army->ganado += (int)eff->value;
+                }
+                if (army->ganado < 0) army->ganado = 0;
+                break;
+            }
+            case EFFECT_SALUD: {
+                army->salud += eff->value;
+                if (army->salud < 0.0f) army->salud = 0.0f;
+                if (army->salud > 100.0f) army->salud = 100.0f;
+                break;
+            }
+        }
+    }
+}
+
+void Event_EvaluateOptions(EventDef* event, const Army* army) {
+    if (!event || !army) return;
+
+    for (int i = 0; i < event->optionCount; i++) {
+        EventOption* opt = &event->options[i];
+        opt->enabled = true;
+        opt->disabledReason[0] = 0;
+
+        if (strlen(opt->requiresCondition) == 0) continue;
+
+        char buf[64];
+        strncpy(buf, opt->requiresCondition, sizeof(buf)-1);
+        buf[sizeof(buf)-1] = 0;
+        TrimWhitespace(buf);
+
+        char* op = strstr(buf, ">=");
+        int opType = 1; /* 1: >=, 2: >, 3: ==, 4: <=, 5: < */
+        char* valStr = NULL;
+
+        if (op) {
+            *op = 0;
+            valStr = op + 2;
+        } else {
+            op = strstr(buf, "<=");
+            if (op) {
+                *op = 0;
+                valStr = op + 2;
+                opType = 4;
+            } else {
+                op = strstr(buf, "==");
+                if (op) {
+                    *op = 0;
+                    valStr = op + 2;
+                    opType = 3;
+                } else {
+                    op = strchr(buf, '>');
+                    if (op) {
+                        *op = 0;
+                        valStr = op + 1;
+                        opType = 2;
+                    } else {
+                        op = strchr(buf, '<');
+                        if (op) {
+                            *op = 0;
+                            valStr = op + 1;
+                            opType = 5;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!valStr) continue;
+
+        char* varName = buf;
+        TrimWhitespace(varName);
+        TrimWhitespace(valStr);
+        float reqVal = (float)atof(valStr);
+        float curVal = 0.0f;
+
+        if (strcmp(varName, "cattle") == 0) curVal = (float)army->ganado;
+        else if (strcmp(varName, "gold") == 0) curVal = (float)army->monedas;
+        else if (strcmp(varName, "food") == 0) curVal = army->comida_disponible;
+        else if (strcmp(varName, "water") == 0) curVal = army->agua_disponible;
+        else if (strcmp(varName, "moral") == 0) curVal = army->moral;
+        else if (strcmp(varName, "salud") == 0) curVal = army->salud;
+        else if (strcmp(varName, "initiates") == 0) curVal = (float)army->iniciados;
+        else if (strcmp(varName, "soldiers") == 0) curVal = (float)army->soldados;
+        else if (strcmp(varName, "sergeants") == 0) curVal = (float)army->sargentos;
+        else if (strcmp(varName, "eval") == 0 || strcmp(varName, "evaluacion") == 0) curVal = (float)Commander_GetEvaluation(army->commander);
+        else if (strcmp(varName, "lead") == 0 || strcmp(varName, "liderazgo") == 0) curVal = (float)Commander_GetLeadership(army->commander);
+        else if (strcmp(varName, "plan") == 0 || strcmp(varName, "planificacion") == 0) curVal = (float)Commander_GetPlanning(army->commander);
+        else if (strcmp(varName, "exec") == 0 || strcmp(varName, "ejecucion") == 0) curVal = (float)Commander_GetExecution(army->commander);
+        else if (strcmp(varName, "vision") == 0) curVal = (float)Commander_GetVision(army->commander);
+
+        bool satisfied = false;
+        switch (opType) {
+            case 1: satisfied = (curVal >= reqVal); break;
+            case 2: satisfied = (curVal > reqVal); break;
+            case 3: satisfied = (curVal == reqVal); break;
+            case 4: satisfied = (curVal <= reqVal); break;
+            case 5: satisfied = (curVal < reqVal); break;
+        }
+
+        if (!satisfied) {
+            opt->enabled = false;
+            snprintf(opt->disabledReason, sizeof(opt->disabledReason), "Requiere %s", opt->requiresCondition);
         }
     }
 }

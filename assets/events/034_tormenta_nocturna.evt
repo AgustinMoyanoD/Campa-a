@@ -1,0 +1,23 @@
+[EVENT]
+Id=event_tormenta_nocturna
+Name=Vendaval Nocturno
+Description=Un aguacero helado azota la ruta. El barro amenaza con paralizar los carros y desmoralizar a los soldados.
+Trigger=NIGHT
+Time=NIGHT
+Biome=PLAINS,FOREST,MOUNTAIN,JUNGLE
+Probability=30
+MinInfamy=0.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Dirigir la columna hacia abrigos rocosos
+Requires=plan>=2
+Result_pool=res_tormenta_refugio
+
+[OPTION_2]
+Text=Continuar a la intemperie sin detenerse
+Result_pool=res_tormenta_resistir

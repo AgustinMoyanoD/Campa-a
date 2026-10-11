@@ -447,27 +447,37 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
         else if (t->special == TILE_SPECIAL_END)
             DrawCircleV(topPos, radius * 0.35f, RED);
 
-        /* -- Token del ejército -- */
-        if (false) {
-            if (hasAssets && assets->armyToken.id != 0) {
-                float tw = (float)assets->armyToken.width;
-                float th = (float)assets->armyToken.height;
-                float scale = (radius * 1.6f) / tw;
-                Rectangle src = { 0, 0, tw, th };
-                Rectangle dst = { topPos.x - tw*scale/2.0f,
-                                   topPos.y - th*scale - radius*0.1f,
-                                   tw*scale, th*scale };
-                DrawTexturePro(assets->armyToken, src, dst,
-                               (Vector2){ 0,0 }, 0.0f, WHITE);
-            } else {
-                DrawCircleV((Vector2){ topPos.x, topPos.y - radius*0.4f },
-                            radius * 0.4f, (Color){ 200,150,50,255 });
-                DrawCircleLines((int)topPos.x, (int)(topPos.y - radius*0.4f),
-                                radius * 0.4f, BLACK);
-                DrawText("ARMY", (int)(topPos.x - 12),
-                         (int)(topPos.y - radius*0.4f - 4), 10, WHITE);
-            }
+                /* -- Token removido del loop -- */
+    }
+
+    /* -- Token del ejército Interpolado -- */
+    Vector2 topPos = armyPos;
+    topPos.x += origin.x;
+    topPos.y += origin.y;
+    
+    float currentHeight = 0.0f;
+    for (int i=0; i<map->tileCount; i++) {
+        Vector2 p = HexToPixel(map->tiles[i].coord, radius);
+        float dx = armyPos.x - p.x;
+        float dy = armyPos.y - p.y;
+        if (dx*dx + dy*dy < radius*radius) {
+            currentHeight = GetBiomeHeight(map->tiles[i].biome);
+            break;
         }
+    }
+    topPos.y -= currentHeight;
+
+    if (hasAssets && assets->armyToken.id != 0) {
+        float tw = (float)assets->armyToken.width;
+        float th = (float)assets->armyToken.height;
+        float scale = (radius * 1.6f) / tw;
+        Rectangle src = { 0, 0, tw, th };
+        Rectangle dst = { topPos.x - tw*scale/2.0f, topPos.y - th*scale - radius*0.1f, tw*scale, th*scale };
+        DrawTexturePro(assets->armyToken, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+    } else {
+        DrawCircleV((Vector2){ topPos.x, topPos.y - radius*0.4f }, radius * 0.4f, (Color){ 200,150,50,255 });
+        DrawCircleLines((int)topPos.x, (int)(topPos.y - radius*0.4f), radius * 0.4f, BLACK);
+        DrawText("ARMY", (int)(topPos.x - 12), (int)(topPos.y - radius*0.4f - 4), 10, WHITE);
     }
 
     free(nodes);
@@ -502,14 +512,12 @@ void MapView_DrawPath(HexTile** path, int length, float radius, Vector2 origin) 
     
     for (int i = 0; i < length - 1; i++) {
         Vector2 p1 = HexToPixel(path[i]->coord, radius);
-        
         p1.x += origin.x;
-        p1.y += origin.y;
+        p1.y += origin.y - GetBiomeHeight(path[i]->biome);
         
         Vector2 p2 = HexToPixel(path[i+1]->coord, radius);
-        
         p2.x += origin.x;
-        p2.y += origin.y;
+        p2.y += origin.y - GetBiomeHeight(path[i+1]->biome);
         
         DrawLineEx(p1, p2, 4.0f, Fade(GOLD, 0.7f));
     }

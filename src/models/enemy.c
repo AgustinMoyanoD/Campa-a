@@ -1,10 +1,22 @@
 #include "models/enemy.h"
+#include <string.h>
 
 EnemySquad Enemy_Create(const char* name, HexCoord position, int strength, int mobility, int ini, int sol, int sgt) {
+    return Enemy_CreateWithBehavior(name, position, strength, mobility, ini, sol, sgt, AI_PATROL);
+}
+
+EnemySquad Enemy_CreateWithBehavior(const char* name, HexCoord position, int strength, int mobility, int ini, int sol, int sgt, EnemyBehavior behavior) {
     EnemySquad squad;
+    memset(&squad, 0, sizeof(EnemySquad));
     squad.name = name;
     squad.position = position;
+    squad.homeHex = position;
+    squad.originalSpawn = position;
+    squad.patrolTarget = position;
+    squad.lastKnownPlayerPos = position;
+
     squad.baseStrength = strength;
+    squad.maxStrength = strength;
     squad.mobility = mobility;
     squad.initiates = ini;
     squad.soldiers = sol;
@@ -12,7 +24,52 @@ EnemySquad Enemy_Create(const char* name, HexCoord position, int strength, int m
     squad.tags = TAG_NONE;
     squad.knownTags = TAG_NONE;
     squad.isActive = true;
+    squad.infoLevel = 0;
+
+    squad.behavior = behavior;
+    squad.aiState = AIS_IDLE;
+    squad.currentIntent = INTENT_NONE;
+
+    squad.senseRadius = 3;
+    squad.leash = 4;
+    squad.chaseTurnsLeft = 0;
+    squad.skipNextPhase = 0;
+    squad.initiator = 0;
+
+    if (behavior == AI_AMBUSH) {
+        squad.tags |= TAG_AMBUSH;
+        squad.senseRadius = 2;
+    } else if (behavior == AI_GUARD) {
+        squad.leash = 3;
+        squad.aiState = AIS_PATROLLING;
+    } else if (behavior == AI_HUNTER) {
+        squad.senseRadius = 5;
+    } else if (behavior == AI_BEAST) {
+        squad.mobility += 2;
+        squad.senseRadius = 3;
+    }
+
     return squad;
+}
+
+void Enemy_SetPatrolRoute(EnemySquad* enemy, const HexCoord* waypoints, int count) {
+    if (!enemy || !waypoints) return;
+    int limit = count;
+    if (limit > 16) limit = 16;
+    for (int i = 0; i < limit; i++) {
+        enemy->route[i] = waypoints[i];
+    }
+    enemy->routeLength = limit;
+    enemy->routeIndex = 0;
+    if (limit > 0) {
+        enemy->patrolTarget = enemy->route[0];
+    }
+}
+
+void Enemy_SetGuardLeash(EnemySquad* enemy, int leash) {
+    if (enemy) {
+        enemy->leash = leash;
+    }
 }
 
 void Enemy_AddTag(EnemySquad* enemy, EnemyTag tag) {
@@ -23,7 +80,6 @@ void Enemy_AddTag(EnemySquad* enemy, EnemyTag tag) {
 
 void Enemy_RevealTags(EnemySquad* enemy, unsigned int tagsToRevealMask) {
     if (enemy) {
-        // Revela solo los tags que el enemigo realmente tiene y que estan en la mascara
         enemy->knownTags |= (enemy->tags & tagsToRevealMask);
     }
 }
@@ -38,3 +94,26 @@ bool Enemy_IsTagKnown(const EnemySquad* enemy, EnemyTag tag) {
     return (enemy->knownTags & tag) != 0;
 }
 
+const char* Enemy_GetBehaviorName(EnemyBehavior b) {
+    switch (b) {
+        case AI_PATROL: return "Patrulla";
+        case AI_GUARD:  return "Guardia";
+        case AI_HUNTER: return "Cazador";
+        case AI_AMBUSH: return "Emboscador";
+        case AI_BEAST:  return "Bestia";
+        default:        return "Desconocido";
+    }
+}
+
+const char* Enemy_GetAIStateName(EnemyAIState s) {
+    switch (s) {
+        case AIS_IDLE:       return "Inactivo";
+        case AIS_PATROLLING: return "Patrullando";
+        case AIS_ALERT:      return "Alerta";
+        case AIS_CHASING:    return "Persiguiendo";
+        case AIS_SEARCHING:  return "Buscando";
+        case AIS_RETURNING:  return "Regresando";
+        case AIS_RESTING:    return "Descansando";
+        default:             return "Normal";
+    }
+}

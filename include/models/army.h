@@ -3,19 +3,46 @@
 
 #include "hex_tile.h"
 #include "general.h"
+#include "models/rng.h"
 #include <stdbool.h>
 
 #define MAX_ARMY_LIEUTENANTS 6
 
-/* Constante por defecto B para la f髍mula de ejecuci髇 (peso relativo de tropa regular) */
+/* Constante por defecto B para la f贸rmula de ejecuci贸n (peso relativo de tropa regular) */
 #define DEFAULT_EXECUTION_B 2.0f
 
 /* ============================================================
-   ESTRUCTURA DE LA ARMY (EJ蒖CITO / DIVISI覰)
+   REPORTE DE CIERRE DEL D脥A (I7)
+   Registra todos los efectos de consumo, desgaste y supervivencia.
    ============================================================ */
 
 typedef struct {
-    /* Posici髇 en el mapa hexagonal */
+    int dayNumber;
+    float foodConsumed;
+    float waterConsumed;
+    bool foodShortage;
+    bool waterShortage;
+    int daysWithoutFood;
+    int daysWithoutWater;
+
+    float moralDelta;
+    float saludDelta;
+
+    int desertedInitiates;
+    int desertedSoldiers;
+    int desertedSergeants;
+
+    int deadInitiates;
+    int deadSoldiers;
+    int deadSergeants;
+} DayReport;
+
+/* ============================================================
+   ESTRUCTURA DE LA ARMY (EJ脡RCITO / DIVISI脫N)
+   ============================================================ */
+
+typedef struct {
+    /* Posici贸n en el mapa hexagonal */
     HexCoord position;
     HexCoord previousPosition;
 
@@ -27,16 +54,17 @@ typedef struct {
     /* Oficial actualmente al mando de esta tropa */
     CommanderRef commander;
 
-    /* Tropas por categor韆 de experiencia */
-    int sargentos;  /* Soldados veteranos experimentados: alto valor t醕tico */
-    int soldados;   /* Soldados regulares de l韓ea */
-    int iniciados;  /* Reclutas novatos reci閚 alistados */
+    /* Tropas por categor铆a de experiencia */
+    int sargentos;  /* Soldados veteranos experimentados: alto valor t谩ctico */
+    int soldados;   /* Soldados regulares de l铆nea */
+    int iniciados;  /* Reclutas novatos reci茅n alistados */
 
-    /* Recursos log韘ticos de utilidad */
+    /* Recursos log铆sticos de utilidad */
     float agua_disponible;
     float comida_disponible;
     int monedas;
     int ganado;     /* Animales vivos: reserva de emergencia y carga */
+    int commandTokens; /* Fichas de mando para repetir tiradas o sumar +2 */
 
     ModifierInstance curses[8];
     int curseCount;
@@ -45,6 +73,11 @@ typedef struct {
     float moral;    /* 0.0f a 100.0f */
     float salud;    /* 0.0f a 100.0f */
     int infamia;    /* Escala con saqueos y agresiones */
+
+    /* Supervivencia y Noche (arreglo_exploracion.md) */
+    int daysWithoutFood;
+    int daysWithoutWater;
+    int consecutiveNightMarches;
 
     /* Animacion de Movimiento */
     HexCoord movePath[128];
@@ -57,20 +90,20 @@ typedef struct {
 
 
 /* ============================================================
-   ESTAD蚐TICAS CALCULADAS DE LA ARMY
+   ESTAD脥STICAS CALCULADAS DE LA ARMY
    ============================================================ */
 
 typedef struct {
     float vision;
     float movilidad;    /* Puntos de dirigencia / movimiento por turno */
     float evaluacion;   /* Etapa 1 del combate: reconocimiento enemigo */
-    float planificacion;/* Etapa 2 del combate: estrategia t醕tica */
+    float planificacion;/* Etapa 2 del combate: estrategia t谩ctica */
     float ejecucion;    /* Etapa 3 del combate: poder de choque */
 } ArmyStats;
 
 
 /* ============================================================
-   FUNCIONES DE CONSTRUCCI覰 Y GESTI覰
+   FUNCIONES DE CONSTRUCCI脫N Y GESTI脫N
    ============================================================ */
 
 Army Army_Create(
@@ -89,22 +122,26 @@ Army Army_Create(
 int Army_GetTotalSoldiers(const Army* army);
 int Army_GetTotalWeight(const Army* army);
 
-/* Gesti髇 de oficiales al mando */
+/* Gesti贸n de oficiales al mando */
 bool Army_AddLieutenant(Army* army, Lieutenant lt);
 void Army_SetCommanderGeneral(Army* army);
 bool Army_SetCommanderLieutenant(Army* army, int lieutenantIndex);
 
-/* Consumo log韘tico por turno */
+/* Consumo log铆stico por turno */
 float Army_CalculateWaterUsage(int cantSoldados, int cantGanado);
 float Army_CalculateFoodUsage(int cantSoldados, int cantGanado);
 void Army_ConsumeTurnResources(Army* army);
 
+/* Supervivencia y Cierre de D铆a (6.1, E1) */
+void  Army_EndDay(Army* army, DayReport* report, Rng* rng);
+float Army_DaysOfSupply(const Army* army);
+
 /* ============================================================
-   F覴MULAS DE ESTAD蚐TICAS GLOBALES DE LA ARMY
+   F脫RMULAS DE ESTAD脥STICAS GLOBALES DE LA ARMY
    ============================================================ */
 
 /*
-    F髍mula de Ejecuci髇 solicitada:
+    F贸rmula de Ejecuci贸n solicitada:
     f_ejecucion = ejecucion_comandante + sargentos + (soldados / B) + f(iniciados)
     Donde tener pocos iniciados ayuda ligeramente, pero tener demasiados perjudica.
 */
@@ -117,8 +154,8 @@ float Army_CalculatePlanning(const Army* army);
 ArmyStats Army_GetStats(const Army* army, float B);
 
 /* ============================================================
-   SISTEMA DE MOT蚇 Y TRAICI覰
-   Eval鷄 el riesgo de mot韓 si la moral cae y hay tenientes con baja lealtad.
+   SISTEMA DE MOT脥N Y TRAICI脫N
+   Eval煤a el riesgo de mot铆n si la moral cae y hay tenientes con baja lealtad.
    ============================================================ */
 
 float Army_CalculateMutinyRisk(const Army* army);
