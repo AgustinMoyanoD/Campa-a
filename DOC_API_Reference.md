@@ -78,6 +78,10 @@ typedef struct {
 ### Funciones
 * `void Army_EndDay(Army* army, DayReport* report, Rng* rng);`
   Aplica la escalera de inanición y deshidratación al cerrar el día. Genera el informe `DayReport`.
+* `void Army_ConsumeTurnResources(Army* army);`
+  Consume los recursos correspondientes a una franja horaria ($0.25 \times \text{consumo diario}$ por slot, 4 slots por jornada).
+* `SupplyForecast Army_ForecastSupply(const Army* army, const Map* map, HexCoord pos);`
+  Fuente única de verdad para la proyección de suministros. Simula hacia adelante ranura por ranura con una copia del ejército hasta agotar reservas (tope 30 días) evaluando tres escenarios: acampando, marcha diurna y marcha nocturna. Considera el peor multiplicador de bioma dentro de un radio configurable (`forecastRadius`). Retorna `campDays`, `marchDays` y `nightMarchDays`.
 * `float Army_DaysOfSupply(const Army* army);`
   Calcula el remanente mínimo de días de consumo sostenible ($\min(\text{comida}, \text{agua}) / \text{consumo diario}$).
 
@@ -85,31 +89,42 @@ typedef struct {
 
 ## 4. Inteligencia Artificial Enemiga (`models/enemy.h`)
 
-Comportamientos tácticos y zona de control (Sección 8).
+Comportamientos tácticos, estados de la máquina de decisión, etiquetas y zona de control (Sección 8, A5.6).
 
 ```c
 typedef enum {
-    AI_PATROL = 0,
-    AI_GUARD,
-    AI_HUNTER,
-    AI_AMBUSH,
-    AI_BEAST
+    TAG_NONE            = 0,
+    TAG_CAVALRY         = 1 << 0,
+    TAG_AMBUSH          = 1 << 1,
+    TAG_EXPOSED_FLANK   = 1 << 2,
+    TAG_HEAVILY_ARMORED = 1 << 3,
+    TAG_DISORGANIZED    = 1 << 4,
+    TAG_FORTIFIED       = 1 << 5
+} EnemyTag;
+
+typedef enum {
+    AI_PATROL = 0, /* Patrullaje regular entre waypoints */
+    AI_GUARD,      /* Guardia defensivo de estructuras (persigue a corta distancia y retorna) */
+    AI_HUNTER,     /* Rastreador orientado a retaguardia/última posición de campamento */
+    AI_AMBUSH,     /* Oculto en alta cobertura; sorprende al jugador (ambushed=true) */
+    AI_BEAST       /* Depredador agresivo sin formación militar formal */
 } EnemyBehavior;
 
 typedef enum {
-    AIS_IDLE = 0,
-    AIS_PATROLLING,
-    AIS_ALERT,
-    AIS_CHASING,
-    AIS_SEARCHING,
-    AIS_RETURNING,
-    AIS_RESTING
+    AIS_IDLE = 0,    /* Inactivo o apostado en reposo */
+    AIS_PATROLLING, /* Recorriendo su ruta preestablecida */
+    AIS_ALERT,      /* Sospecha de presencia cercana */
+    AIS_CHASING,    /* Persecución directa del ejército jugador */
+    AIS_SEARCHING,  /* Explorando última posición conocida tras perder línea de visión */
+    AIS_RETURNING,  /* Retorno a su zona base tras agotar ChaseTurns */
+    AIS_RESTING     /* En recuperación tras huida/combate (skipNextPhase) */
 } EnemyAIState;
 ```
 
 ### Campos clave en `EnemySquad`:
-* `behavior`: Estrategia asignada al escuadrón.
-* `aiState`: Estado actual de la máquina de estados.
+* `behavior`: Estrategia asignada al escuadrón (`AI_PATROL`, `AI_GUARD`, `AI_HUNTER`, `AI_AMBUSH`, `AI_BEAST`).
+* `aiState`: Estado actual de la FSM (`AIS_IDLE` .. `AIS_RESTING`).
+* `tags`: Banderas de características tácticas activas (`TAG_CAVALRY`, `TAG_FORTIFIED`, etc.).
 * `mobility`: Puntos de movimiento/PA disponibles por turno.
 * `chaseTurnsLeft`: Turnos restantes antes de desistir de la persecución.
 * `skipNextPhase`: Turnos que el enemigo debe saltar tras huida o combate.
@@ -166,16 +181,19 @@ typedef struct {
 ### Funciones de Servicios:
 * `int City_GetHospitalCost(const CityContext* ctx, const Army* army, int pointsToHeal);`
 * `bool City_HealArmy(CityContext* ctx, Army* army, int pointsToHeal);`
-* `int City_GetTempleCurseRemoveCost(const CityContext* ctx);`
+* `int City_GetTempleCurseRemoveCost(const CityContext* ctx, const Army* army);`
+  Calcula el costo en oro para purificar una maldición, escalando con cada purificación previa realizada por el ejército: $\text{baseCost} + \text{army->cursesRemovedCount} \times 20$.
 * `bool City_RemoveCurse(CityContext* ctx, Army* army);`
 * `int City_GetInnCost(const CityContext* ctx);`
 * `bool City_RestAtInn(CityContext* ctx, Army* army);`
 
 ---
 
-## 6. Facciones y Asedio (`models/city.h`, `controllers/game_master.h`)
+## 6. Facciones y Asedio (`models/city.h`, `controllers/game_master.h`, `models/map_generator.c`)
 
-Sistema sociopolítico y confrontación táctica de asedio (Secciones 9.4 y 9.5).
+Sistema sociopolítico y confrontación táctica de asedio (Secciones 9.4 y 9.5, A5.3, A5.4).
+
+* **Asignación Espacial de Facciones:** Cada nivel inicializa 3 semillas espaciales en el mapa; cada cluster urbano toma la facción de la semilla más cercana (diagrama de Voronoi), garantizando coherencia territorial en lugar de distribución modular.
 
 ```c
 typedef enum {
@@ -207,6 +225,18 @@ typedef struct {
 
 ### Funciones de Asedio (`GameMaster`):
 * `void GameMaster_StartSiege(GameMaster* gm, Map* map, Army* playerArmy, HexCoord targetCoord);`
-  Eleva la alerta a Asedio, inicializa el combate contra una guarnición con `TAG_FORTIFIED` (150 salud, 6 rondas).
+  Eleva la alerta a Asedio, inicializa el combate contra una guarnición con `TAG_FORTIFIED` (150 salud, 6 rondas) y fija `activeCombat.lootMultiplier = 3.0f`.
 * `void GameMaster_ResolveSiegeVictory(GameMaster* gm, Map* map, Army* playerArmy, HexCoord targetCoord);`
-  Acredita botín triplicado ($\times 3.0$), incrementa infamia ($+15$), descuenta opinión ($-40$), marca `isBesieged = true` y pone en alerta a todos los centros de la facción durante 5 días.
+  El botín triplicado es computado y acreditado automáticamente por `Combat_ComputeLoot` y `Combat_Commit` usando `lootMultiplier`. Incrementa infamia ($+15$), descuenta opinión ($-40$), marca `isBesieged = true` y pone en alerta a la facción por 5 días.
+
+---
+
+## 7. Combate Táctico y Widgets de Presentación (`models/combat.h`, `presentation/ui_widgets.h`)
+
+* **Inicialización de Planes (`CombatContext`):** `Combat_Init` inicializa `previousPlan = PLAN_NONE`, garantizando que en la Ronda 1 ningún plan figure con la etiqueta `[FATIGADO]`.
+* **Multiplicador de Botín Unificado:** `ctx->lootMultiplier` (por defecto $1.0f$, $3.0f$ en asedio) modula las recompensas de oro y comida de forma centralizada en `Combat_ComputeLoot`.
+* **Ciclo de Vida de Widgets UI (`presentation/ui_widgets.h`):**
+  * `void UI_Init(void);`
+  * `void UI_Shutdown(void);` (liberación segura de memoria de tooltips y temas).
+  * `bool UI_ButtonClicked(Rectangle bounds);` (gestión unificada de colisión y clic del mouse).
+

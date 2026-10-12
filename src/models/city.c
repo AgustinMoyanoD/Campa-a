@@ -405,19 +405,21 @@ bool City_HealArmy(CityContext* ctx, Army* army, int pointsToHeal) {
     return true;
 }
 
-int City_GetTempleCurseRemoveCost(const CityContext* ctx) {
+int City_GetTempleCurseRemoveCost(const CityContext* ctx, const Army* army) {
     const BalanceConfig* cfg = Balance_GetGlobal();
     int base = (cfg && cfg->servicesTempleCurseRemoveCost > 0) ? cfg->servicesTempleCurseRemoveCost : 40;
-    return base + (ctx ? ctx->cursesRemoved * 20 : 0);
+    int count = army ? army->cursesRemovedCount : (ctx ? ctx->cursesRemoved : 0);
+    return base + count * 20;
 }
 
 bool City_RemoveCurse(CityContext* ctx, Army* army) {
     if (!ctx || !army || army->curseCount <= 0) return false;
-    int cost = City_GetTempleCurseRemoveCost(ctx);
+    int cost = City_GetTempleCurseRemoveCost(ctx, army);
     if (army->monedas < cost) return false;
 
     army->monedas -= cost;
     army->curseCount--;
+    army->cursesRemovedCount++;
     ctx->cursesRemoved++;
     return true;
 }

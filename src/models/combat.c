@@ -16,6 +16,9 @@ void Combat_Init(CombatContext* ctx, struct GameMaster* gm, Army* army, EnemySqu
     ctx->playerArmy = army;
     ctx->enemy = enemy;
     ctx->round = 1;
+    ctx->previousPlan = PLAN_NONE;
+    ctx->selectedPlan = PLAN_NONE;
+    ctx->lootMultiplier = 1.0f;
 
     const BalanceConfig* cfg = Balance_GetGlobal();
     ctx->maxRounds = (cfg->maxCombatRounds > 0) ? cfg->maxCombatRounds : 4;
@@ -341,10 +344,12 @@ void Combat_ComputeLoot(CombatContext* ctx, Rng* rng) {
         factorFood += rollF;
     }
 
-    ctx->lootGold = (int)roundf(baseGold * factorGold);
+    float mult = (ctx->lootMultiplier > 0.0f) ? ctx->lootMultiplier : 1.0f;
+
+    ctx->lootGold = (int)roundf(baseGold * factorGold * mult);
     if (ctx->lootGold < 5) ctx->lootGold = 5;
 
-    ctx->lootFood = roundf(baseFood * factorFood);
+    ctx->lootFood = roundf(baseFood * factorFood * mult);
     if (ctx->lootFood < 2.0f) ctx->lootFood = 2.0f;
 }
 

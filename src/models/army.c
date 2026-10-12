@@ -1,6 +1,7 @@
 #include "army.h"
 #include "models/modifier.h"
 #include "models/balance_config.h"
+#include "models/map_generator.h"
 #include "models/rng.h"
 #include <string.h>
 #include <math.h>
@@ -114,8 +115,12 @@ void Army_ConsumeTurnResources(Army* army)
     if (army == NULL) return;
 
     int totalSoldiers = Army_GetTotalSoldiers(army);
-    float waterNeeded = Army_CalculateWaterUsage(totalSoldiers, army->ganado);
-    float foodNeeded = Army_CalculateFoodUsage(totalSoldiers, army->ganado);
+    float dailyWater = Army_CalculateWaterUsage(totalSoldiers, army->ganado);
+    float dailyFood = Army_CalculateFoodUsage(totalSoldiers, army->ganado);
+
+    /* Cada franja horaria consume el 25% del uso diario (1 dia = 4 franjas) */
+    float waterNeeded = dailyWater * 0.25f;
+    float foodNeeded = dailyFood * 0.25f;
 
     /* Consumo de agua */
     if (army->agua_disponible >= waterNeeded)
@@ -168,18 +173,82 @@ void Army_ConsumeTurnResources(Army* army)
     if (army->salud > 100.0f) army->salud = 100.0f;
 }
 
+SupplyForecast Army_ForecastSupply(const Army* army, const Map* map, HexCoord pos) {
+    SupplyForecast fc = { 0.0f, 0.0f, 0.0f };
+    if (!army) return fc;
+
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    int radius = (cfg && cfg->forecastRadius > 0) ? cfg->forecastRadius : 2;
+
+    float worstWaterMult = 1.0f;
+    float worstFoodMult = 1.0f;
+
+    if (map && map->tiles && map->tileCount > 0) {
+        for (int i = 0; i < map->tileCount; i++) {
+            if (map->tiles[i].terrain == TERRAIN_LAND) {
+                int dist = HexCoord_Distance(map->tiles[i].coord, pos);
+                if (dist <= radius) {
+                    BiomeProperties bp = Biome_GetProperties(map->tiles[i].biome);
+                    if (bp.waterConsumption > worstWaterMult) worstWaterMult = bp.waterConsumption;
+                    if (bp.foodConsumption > worstFoodMult) worstFoodMult = bp.foodConsumption;
+                }
+            }
+        }
+    }
+
+    // 1. Escenario Acampar (Camp): consumo base continuo franja por franja
+    {
+        Army sim = *army;
+        int slots = 0;
+        while (sim.comida_disponible > 0.0f && sim.agua_disponible > 0.0f && slots < 120) {
+            Army_ConsumeTurnResources(&sim);
+            slots++;
+        }
+        fc.campDays = (float)slots / 4.0f;
+    }
+
+    // 2. Escenario Marcha Diurna (March): 3 franjas de marcha con peor bioma, 1 de acampe nocturno
+    {
+        Army sim = *army;
+        int slots = 0;
+        while (sim.comida_disponible > 0.0f && sim.agua_disponible > 0.0f && slots < 120) {
+            int slotInDay = slots % 4;
+            if (slotInDay < 3) {
+                int tot = Army_GetTotalSoldiers(&sim);
+                float w = Army_CalculateWaterUsage(tot, sim.ganado) * worstWaterMult * 0.25f;
+                float f = Army_CalculateFoodUsage(tot, sim.ganado) * worstFoodMult * 0.25f;
+                sim.agua_disponible -= w;
+                sim.comida_disponible -= f;
+            } else {
+                Army_ConsumeTurnResources(&sim);
+            }
+            slots++;
+        }
+        fc.marchDays = (float)slots / 4.0f;
+    }
+
+    // 3. Escenario Marcha Nocturna Continua (Night March): todas las franjas marchando
+    {
+        Army sim = *army;
+        int slots = 0;
+        while (sim.comida_disponible > 0.0f && sim.agua_disponible > 0.0f && slots < 120) {
+            int tot = Army_GetTotalSoldiers(&sim);
+            float w = Army_CalculateWaterUsage(tot, sim.ganado) * worstWaterMult * 0.25f;
+            float f = Army_CalculateFoodUsage(tot, sim.ganado) * worstFoodMult * 0.25f;
+            sim.agua_disponible -= w;
+            sim.comida_disponible -= f;
+            slots++;
+        }
+        fc.nightMarchDays = (float)slots / 4.0f;
+    }
+
+    return fc;
+}
+
 float Army_DaysOfSupply(const Army* army) {
     if (!army) return 0.0f;
-    int total = Army_GetTotalSoldiers(army);
-    if (total <= 0) return 99.0f;
-
-    float dailyFood = Army_CalculateFoodUsage(total, army->ganado);
-    float dailyWater = Army_CalculateWaterUsage(total, army->ganado);
-
-    float foodDays = (dailyFood > 0.0f) ? (army->comida_disponible / dailyFood) : 99.0f;
-    float waterDays = (dailyWater > 0.0f) ? (army->agua_disponible / dailyWater) : 99.0f;
-
-    return (foodDays < waterDays) ? foodDays : waterDays;
+    SupplyForecast fc = Army_ForecastSupply(army, NULL, (HexCoord){0, 0});
+    return fc.campDays;
 }
 
 static void CalculateRankCasualties(int* count, float desertPct, float deathPct, float rankMult, int* outDesert, int* outDead, Rng* rng) {

@@ -154,7 +154,7 @@ if (ctx->playerArmy->commandTokens > 0) {
 }
         const char* txtSk = (ctx->intentRevealed && ctx->enemyIntent == 1) ? "Escaramuza (Dano -30%) [CONTRA ASEDIO]" : "Escaramuza (Dano -30%)";
         const char* txtPk = (ctx->intentRevealed && ctx->enemyIntent == 0) ? "Linea de Picas (8+) (Tirada -1) [CONTRA CARGA]" : "Linea de Picas (8+) (Tirada -1)";
-        const char* txtAs = (ctx->intentRevealed && ctx->enemyIntent == 2) ? "Asalto Frontal (6+) (Enemigo +2) [CONTRA REPLIEGUE]" : "Asalto Frontal (6+) (Enemigo +2)";
+        const char* txtAs = (ctx->intentRevealed && ctx->enemyIntent == 2) ? "Asalto Frontal (6+) (Tirada +2) [CONTRA REPLIEGUE]" : "Asalto Frontal (6+) (Tirada +2)";
         const char* txtFl = (ctx->intentRevealed && ctx->enemyIntent == 1) ? "Flanqueo (9+ / Expuesto) (Tirada +4) [CONTRA ASEDIO]" : "Flanqueo (9+ / Expuesto) (Tirada +4)";
 
         if (ctx->previousPlan == PLAN_SKIRMISH) txtSk = TextFormat("%s [FATIGADO]", txtSk);
@@ -284,7 +284,7 @@ bool CombatView_Update(CombatContext* ctx, int SW, int SH) {
         }
         const char* txtSk2 = (ctx->intentRevealed && ctx->enemyIntent == 1) ? "Escaramuza (Dano -30%) [CONTRA ASEDIO]" : "Escaramuza (Dano -30%)";
         const char* txtPk2 = (ctx->intentRevealed && ctx->enemyIntent == 0) ? "Linea de Picas (8+) (Tirada -1) [CONTRA CARGA]" : "Linea de Picas (8+) (Tirada -1)";
-        const char* txtAs2 = (ctx->intentRevealed && ctx->enemyIntent == 2) ? "Asalto Frontal (6+) (Enemigo +2) [CONTRA REPLIEGUE]" : "Asalto Frontal (6+) (Enemigo +2)";
+        const char* txtAs2 = (ctx->intentRevealed && ctx->enemyIntent == 2) ? "Asalto Frontal (6+) (Tirada +2) [CONTRA REPLIEGUE]" : "Asalto Frontal (6+) (Tirada +2)";
         const char* txtFl2 = (ctx->intentRevealed && ctx->enemyIntent == 1) ? "Flanqueo (9+ / Expuesto) (Tirada +4) [CONTRA ASEDIO]" : "Flanqueo (9+ / Expuesto) (Tirada +4)";
 
         if (ctx->previousPlan == PLAN_SKIRMISH) txtSk2 = TextFormat("%s [FATIGADO]", txtSk2);

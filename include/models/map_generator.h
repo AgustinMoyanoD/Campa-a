@@ -4,7 +4,7 @@
 #include "hex_tile.h"
 
 
-typedef struct {
+typedef struct Map {
 
     HexTile* tiles;
 

@@ -1,4 +1,4 @@
-﻿#include "presentation/ui_widgets.h"
+#include "presentation/ui_widgets.h"
 #include "presentation/ui_theme.h"
 
 static Font uiFont = {0};
@@ -12,6 +12,13 @@ void UI_Init(void) {
         fontLoaded = true;
     } else {
         uiFont = GetFontDefault();
+    }
+}
+
+void UI_Shutdown(void) {
+    if (fontLoaded) {
+        UnloadFont(uiFont);
+        fontLoaded = false;
     }
 }
 
@@ -66,4 +73,9 @@ void UI_DrawBar(Rectangle bounds, float percentage, Color fg, Color bg) {
     Rectangle fgBounds = { bounds.x, bounds.y, bounds.width * percentage, bounds.height };
     DrawRectangleRec(fgBounds, fg);
     DrawRectangleLinesEx(bounds, 1.0f, UI_COLOR_PANEL_BORDER);
+}
+
+bool UI_ButtonClicked(Rectangle bounds) {
+    Vector2 mouse = GetMousePosition();
+    return CheckCollisionPointRec(mouse, bounds) && IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
 }

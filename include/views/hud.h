@@ -45,10 +45,10 @@ void Hud_DrawCommanderPanel(
 );
 
 /* Dibuja el panel de stats y recursos del ejercito (abajo izquierda) */
-void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, int x, int y, int w, int h);
+void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, const Map* map, int x, int y, int w, int h);
 
 /* Dibuja el panel de dados (abajo centro) */
-void Hud_DrawDicePanel(HudState* hud, const GameMaster* gm, int x, int y, int w, int h);
+void Hud_DrawDicePanel(HudState* hud, const GameMaster* gm, const Army* army, const Map* map, int x, int y, int w, int h);
 
 /* Maneja el input del mouse para clics en los paneles */
 void Hud_HandleInput(HudState* hud, GameMaster* gm, Army* army, Map* map);

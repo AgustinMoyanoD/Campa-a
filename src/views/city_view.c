@@ -282,9 +282,9 @@ bool CityView_UpdateDraw(CityContext* ctx, Army* army, GameMaster* gm, int SW, i
             UI_DrawText("Los sacerdotes pueden purificar maldiciones que afligen al ejercito. El coste escala con cada quita.", (Vector2){ (float)contentX, (float)(contentY + 25) }, 14, LIGHTGRAY);
 
             int tempY = contentY + 70;
-            int curseCost = City_GetTempleCurseRemoveCost(ctx);
+            int curseCost = City_GetTempleCurseRemoveCost(ctx, army);
             DrawText(TextFormat("Maldiciones activas en el ejercito: %d", army->curseCount), contentX, tempY, 18, (army->curseCount > 0) ? RED : GREEN);
-            DrawText(TextFormat("Coste de purificacion: %d monedas de oro (Purificaciones previas: %d)", curseCost, ctx->cursesRemoved), contentX, tempY + 25, 14, GRAY);
+            DrawText(TextFormat("Coste de purificacion: %d monedas de oro (Maldiciones ya quitadas: %d)", curseCost, army->cursesRemovedCount), contentX, tempY + 25, 14, GRAY);
 
             tempY += 60;
             if (UI_DrawButton((Rectangle){ (float)contentX, (float)tempY, 280, 45 }, TextFormat("Purificar 1 Maldicion (%d Oro)", curseCost), army->curseCount <= 0 || army->monedas < curseCost)) {

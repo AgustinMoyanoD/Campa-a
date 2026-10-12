@@ -68,6 +68,7 @@ typedef struct {
 
     ModifierInstance curses[8];
     int curseCount;
+    int cursesRemovedCount; /* Total historico de maldiciones eliminadas en templos (Sec A5) */
 
     /* Indicadores vitales */
     float moral;    /* 0.0f a 100.0f */
@@ -135,6 +136,17 @@ void Army_ConsumeTurnResources(Army* army);
 /* Supervivencia y Cierre de Día (6.1, E1) */
 void  Army_EndDay(Army* army, DayReport* report, Rng* rng);
 float Army_DaysOfSupply(const Army* army);
+
+/* Pronóstico unificado de suministros (Sec A3) */
+struct Map;
+typedef struct Map Map;
+typedef struct {
+    float campDays;
+    float marchDays;
+    float nightMarchDays;
+} SupplyForecast;
+
+SupplyForecast Army_ForecastSupply(const Army* army, const Map* map, HexCoord pos);
 
 /* ============================================================
    FÓRMULAS DE ESTADÍSTICAS GLOBALES DE LA ARMY

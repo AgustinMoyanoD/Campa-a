@@ -54,6 +54,7 @@ int main(void)
 
     SetTargetFPS(60);
     Audio_Init();
+    UI_Init();
 
 
     srand(
@@ -155,12 +156,6 @@ int main(void)
                 
                 GameMaster_Init(&gm);
                 
-                ModifierDef* def1 = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, "ares_marea_roja");
-                if (def1) Army_EquipModifier(&playerArmy, def1);
-                ModifierDef* def2 = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, "hermes_pie_alado");
-                if (def2) Army_EquipModifier(&playerArmy, def2);
-                ModifierDef* def3 = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, "zeus_rayo");
-                if (def3) Army_EquipModifier(&playerArmy, def3);
                 
                 GameMaster_SpawnTestEnemies(&gm, &levelMap, playerArmy.position);
                 GameMaster_StartTurn(&gm, &playerArmy);
@@ -610,11 +605,11 @@ int main(void)
         Hud_DrawCommanderPanel(&playerArmy, &gm, &hudState, 10, 10, 340);
 
         /* Panel stats ejercito (abajo izquierda) */
-        Hud_DrawArmyStatsPanel(&playerArmy, &gm, 10, SH - 160, 400, 150);
+        Hud_DrawArmyStatsPanel(&playerArmy, &gm, &levelMap, 10, SH - 160, 400, 150);
         Hud_DrawTopBar(&gm, SW);
 
         /* Panel dados (abajo centro) */
-        Hud_DrawDicePanel(&hudState, &gm, 420, SH - 160, 160, 150);
+        Hud_DrawDicePanel(&hudState, &gm, &playerArmy, &levelMap, 420, SH - 160, 160, 150);
 
         /* Minimapa (abajo derecha) */
         Rectangle minimapRect = { 590.0f, (float)(SH - 160), (float)(SW - 1000), 150.0f };
@@ -808,7 +803,7 @@ int main(void)
 
     Assets_Unload(&gameAssets);
     Audio_Shutdown();
-    Audio_Shutdown();
+    UI_Shutdown();
     CloseWindow();
 
     return 0;

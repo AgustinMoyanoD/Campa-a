@@ -107,7 +107,7 @@ bool City_PromoteSoldiers(CityContext* ctx, Army* army, int amount);
 int  City_GetHospitalCost(const CityContext* ctx, const Army* army, int pointsToHeal);
 bool City_HealArmy(CityContext* ctx, Army* army, int pointsToHeal);
 
-int  City_GetTempleCurseRemoveCost(const CityContext* ctx);
+int  City_GetTempleCurseRemoveCost(const CityContext* ctx, const Army* army);
 bool City_RemoveCurse(CityContext* ctx, Army* army);
 
 int  City_GetInnCost(const CityContext* ctx);

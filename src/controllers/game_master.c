@@ -371,7 +371,6 @@ void GameMaster_ChooseCamp(GameMaster* gm, Map* map, Army* playerArmy) {
     
     gm->showCampDecision = false;
     playerArmy->consecutiveNightMarches = 0;
-    gm->isEncamped = true;
     gm->lastCampPos = playerArmy->position;
 
     /* 1. Recuperar moral y salud si no sufre hambruna/sed severa desde el día 2+ (7.3) */
@@ -396,23 +395,43 @@ void GameMaster_ChooseCamp(GameMaster* gm, Map* map, Army* playerArmy) {
 
     bool ambushTriggered = (totalRoll < cfg->campAmbushTarget);
 
-    /* 3. Avanzar reloj: la noche transcurre en el campamento hasta la mañana */
+    /* 3. Consumo de la noche en campamento */
+    Army_ConsumeTurnResources(playerArmy);
+
+    /* 4. Avanzar reloj: la noche transcurre en el campamento hasta la mañana siguiente */
     DayClock_AdvanceSlot(&gm->clock); /* Avanza a NIGHT */
-    DayClock_AdvanceSlot(&gm->clock); /* Cierra el día y pasa a MORNING */
+    DayClock_AdvanceSlot(&gm->clock); /* Cierra el día y pasa a MORNING (Dawn) */
     gm->timeOfDay = gm->clock.timeOfDay;
     gm->currentDay = gm->clock.currentDay;
     gm->currentTurn = gm->clock.totalTurnsElapsed + 1;
 
-    /* 4. Ejecutar cierre de día (I7) */
+    /* Al despertar por la mañana, el campamento se levanta: isEncamped = false */
+    gm->isEncamped = false;
+
+    /* 5. Ejecutar cierre de día (I7) */
     Army_EndDay(playerArmy, &gm->lastDayReport, &gm->rng);
     gm->hasDayReport = true;
     gm->hasForagedToday = false; /* Reset para el nuevo día */
+    gm->infamy += 1.0f;
+    if (gm->infamy > 100.0f) gm->infamy = 100.0f;
+
+    for (int f = 0; f < 3; f++) {
+        Faction_TickDay(&gm->factions[f]);
+    }
 
     /* Spawn periódico de Cazador tras campamento (8.5) */
     if (cfg->hunterEnabled && cfg->hunterSpawnEveryDays > 0) {
         if (gm->currentDay >= cfg->hunterSpawnEveryDays && 
            (gm->currentDay - gm->lastHunterSpawnDay) >= cfg->hunterSpawnEveryDays) {
             HexCoord spawnPos = gm->lastCampPos;
+            if (spawnPos.q == 0 && spawnPos.r == 0) {
+                for (int k = 0; k < map->tileCount; k++) {
+                    if (map->tiles[k].special == TILE_SPECIAL_START) {
+                        spawnPos = map->tiles[k].coord;
+                        break;
+                    }
+                }
+            }
             if (gm->enemyCount < 64) {
                 int hunterMob = (int)roundf(Army_CalculateMobility(playerArmy) * cfg->hunterMobilityMult);
                 if (hunterMob < 4) hunterMob = 4;
@@ -434,7 +453,7 @@ void GameMaster_ChooseCamp(GameMaster* gm, Map* map, Army* playerArmy) {
         }
     }
 
-    /* 5. Si hubo emboscada, disparar evento CAMP_AMBUSH */
+    /* 6. Si hubo emboscada, disparar evento CAMP_AMBUSH */
     if (ambushTriggered) {
         EventContext ctx;
         memset(&ctx, 0, sizeof(EventContext));
@@ -455,6 +474,10 @@ void GameMaster_ChooseCamp(GameMaster* gm, Map* map, Army* playerArmy) {
         }
     }
 
+    // Procesar turno de enemigos durante la noche
+    GameMaster_ProcessEnemyTurn(gm, map, playerArmy);
+
+    // Reiniciar turno matutino del jugador (Dawn)
     GameMaster_StartTurn(gm, playerArmy);
 }
 

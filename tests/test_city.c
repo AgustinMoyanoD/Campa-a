@@ -224,12 +224,12 @@ static void test_services_hospital_temple_inn(void) {
     // Templo: agregar una maldición en Army
     army.curseCount = 1;
 
-    int costCurse1 = City_GetTempleCurseRemoveCost(&city);
+    int costCurse1 = City_GetTempleCurseRemoveCost(&city, &army);
     assert(City_RemoveCurse(&city, &army));
     assert(army.curseCount == 0);
     assert(army.monedas == 160 - costCurse1);
     assert(city.cursesRemoved == 1);
-    int costCurse2 = City_GetTempleCurseRemoveCost(&city);
+    int costCurse2 = City_GetTempleCurseRemoveCost(&city, &army);
     assert(costCurse2 > costCurse1); // El costo escala con cada purificacion
     printf("  Templo OK: Maldicion removida, costo base %d pagado, proximo costo escalo a %d\n", costCurse1, costCurse2);
 

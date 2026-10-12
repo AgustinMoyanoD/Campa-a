@@ -36,15 +36,18 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
     cfg->rankMultSergeants = 0.25f;
 
     cfg->lowSupplyDays = 2.0f;
+    cfg->supplyThresholdOK = 3.0f;
+    cfg->supplyThresholdLow = 1.5f;
+    cfg->forecastRadius = 2;
 
     /* Forage */
     cfg->forageEnabled = true;
-    cfg->forageFood[0]  = 0.5f;  cfg->forageWater[0] = 0.25f; /* Plains */
-    cfg->forageFood[1]  = 0.75f; cfg->forageWater[1] = 0.25f; /* Forest */
-    cfg->forageFood[2]  = 0.1f;  cfg->forageWater[2] = 0.1f;  /* Desert */
-    cfg->forageFood[3]  = 0.8f;  cfg->forageWater[3] = 0.4f;  /* Jungle */
-    cfg->forageFood[4]  = 0.25f; cfg->forageWater[4] = 0.5f;  /* Mountain */
-    cfg->forageFood[5]  = 0.25f; cfg->forageWater[5] = 1.0f;  /* Water */
+    cfg->forageFood[0]  = 1.0f;  cfg->forageWater[0] = 0.5f;  /* Plains */
+    cfg->forageFood[1]  = 1.5f;  cfg->forageWater[1] = 0.5f;  /* Forest */
+    cfg->forageFood[2]  = 0.25f; cfg->forageWater[2] = 0.25f; /* Desert */
+    cfg->forageFood[3]  = 1.5f;  cfg->forageWater[3] = 0.5f;  /* Jungle */
+    cfg->forageFood[4]  = 0.5f;  cfg->forageWater[4] = 1.0f;  /* Mountain */
+    cfg->forageFood[5]  = 0.5f;  cfg->forageWater[5] = 1.5f;  /* Water */
 
     /* Loot */
     cfg->lootGoldPerStr   = 1.0f;
@@ -227,6 +230,9 @@ bool Balance_LoadFromFile(BalanceConfig* cfg, const char* filepath) {
         }
         else if (strcmp(section, "SUPPLY_WARNING") == 0) {
             if (strcmp(key, "LowSupplyDays") == 0) cfg->lowSupplyDays = (float)atof(val);
+            else if (strcmp(key, "SupplyThresholdOK") == 0) cfg->supplyThresholdOK = (float)atof(val);
+            else if (strcmp(key, "SupplyThresholdLow") == 0) cfg->supplyThresholdLow = (float)atof(val);
+            else if (strcmp(key, "ForecastRadius") == 0) cfg->forecastRadius = atoi(val);
         }
         else if (strcmp(section, "FORAGE") == 0) {
             if (strcmp(key, "Enabled") == 0) cfg->forageEnabled = (strcmp(val, "true") == 0 || strcmp(val, "1") == 0);

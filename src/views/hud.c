@@ -206,15 +206,26 @@ void Hud_DrawCommanderPanel(const Army* army, const GameMaster* gm, HudState* hu
     }
 }
 
-void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, int x, int y, int w, int h)
+void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, const Map* map, int x, int y, int w, int h)
 {
     DrawRectangle(x, y, w, h, (Color){ 20, 18, 25, 230 });
     DrawRectangleLines(x, y, w, h, (Color){ 160, 120, 60, 255 });
 
     int total = Army_GetTotalSoldiers(army);
-    float daysSupply = Army_DaysOfSupply(army);
+    SupplyForecast forecast = Army_ForecastSupply(army, map, army->position);
     const BalanceConfig* cfg = Balance_GetGlobal();
-    float lowThreshold = cfg ? cfg->lowSupplyDays : 2.0f;
+    float lowThreshold = (cfg && cfg->lowSupplyDays > 0.0f) ? cfg->lowSupplyDays : 2.0f;
+    float threshOK = (cfg && cfg->supplyThresholdOK > 0.0f) ? cfg->supplyThresholdOK : 3.0f;
+    float threshLow = (cfg && cfg->supplyThresholdLow > 0.0f) ? cfg->supplyThresholdLow : 1.5f;
+
+    float minDays = forecast.marchDays;
+    if (forecast.campDays < minDays) minDays = forecast.campDays;
+    float maxDays = forecast.campDays;
+    if (forecast.marchDays > maxDays) maxDays = forecast.marchDays;
+
+    /* Estado de suministros unificado derivado de los dias minimos (Sec A3) */
+    const char* statusStr = (minDays >= threshOK) ? "OK" : ((minDays >= threshLow) ? "Escasa" : "Critica");
+    Color statusColor = (minDays >= threshOK) ? GREEN : ((minDays >= threshLow) ? ORANGE : RED);
 
     /* Columna izquierda: tropas */
     DrawText(TextFormat("EJERCITO (PA: %d/%d)", gm->currentActionPoints, gm->maxActionPoints), x+12, y+10, 13, (Color){ 200, 170, 80, 255 });
@@ -231,18 +242,18 @@ void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, int x, int y
     DrawText("RECURSOS", rx, y+10, 13, (Color){ 200, 170, 80, 255 });
     DrawLine(rx, y+24, x+w-12, y+24, (Color){ 160, 120, 60, 100 });
 
-    /* Indicador de estado de comida y agua (6.3) */
-    const char* waterStatus = (army->daysWithoutWater > 0) ? TextFormat("Sed d%d", army->daysWithoutWater) : ((daysSupply < lowThreshold) ? "Escasa" : "OK");
-    Color waterColor = (army->daysWithoutWater > 0) ? RED : ((daysSupply < lowThreshold) ? ORANGE : SKYBLUE);
+    /* Indicador de estado de comida y agua (6.3, A3) */
+    const char* waterStatus = (army->daysWithoutWater > 0) ? TextFormat("Sed d%d", army->daysWithoutWater) : statusStr;
+    Color waterColor = (army->daysWithoutWater > 0) ? RED : statusColor;
 
-    const char* foodStatus = (army->daysWithoutFood > 0) ? TextFormat("Hambre d%d", army->daysWithoutFood) : ((daysSupply < lowThreshold) ? "Escasa" : "OK");
-    Color foodColor = (army->daysWithoutFood > 0) ? RED : ((daysSupply < lowThreshold) ? YELLOW : ORANGE);
+    const char* foodStatus = (army->daysWithoutFood > 0) ? TextFormat("Hambre d%d", army->daysWithoutFood) : statusStr;
+    Color foodColor = (army->daysWithoutFood > 0) ? RED : statusColor;
 
     DrawText(TextFormat("Agua:   %.0f [%s]", army->agua_disponible, waterStatus), rx, y+28, 11, waterColor);
     DrawText(TextFormat("Comida: %.0f [%s]", army->comida_disponible, foodStatus),  rx, y+42, 11, foodColor);
 
-    Color supplyColor = (daysSupply < lowThreshold) ? RED : RAYWHITE;
-    DrawText(TextFormat("Raciones: %.1fd %s", daysSupply, (daysSupply < lowThreshold) ? "[! AVISO]" : ""), rx, y+56, 11, supplyColor);
+    Color supplyColor = (minDays < lowThreshold) ? RED : RAYWHITE;
+    DrawText(TextFormat("Raciones: %.1f - %.1f d %s", minDays, maxDays, (minDays < lowThreshold) ? "[! AVISO]" : ""), rx, y+56, 11, supplyColor);
     DrawText(TextFormat("Oro: %d  Ganado: %d", army->monedas, army->ganado), rx, y+70, 11, GOLD);
 
     /* Barras de moral y salud */
@@ -293,7 +304,7 @@ static void Hud_DrawSingleDie(int cx, int cy, int size, int value)
     }
 }
 
-void Hud_DrawDicePanel(HudState* hud, const GameMaster* gm, int x, int y, int w, int h)
+void Hud_DrawDicePanel(HudState* hud, const GameMaster* gm, const Army* army, const Map* map, int x, int y, int w, int h)
 {
     DrawRectangle(x, y, w, h, (Color){ 28, 22, 26, 230 });
     DrawRectangleLines(x, y, w, h, (Color){ 160, 80, 60, 255 });
@@ -347,6 +358,21 @@ void Hud_DrawDicePanel(HudState* hud, const GameMaster* gm, int x, int y, int w,
     DrawRectangleRec(hud->forageBtnRect, forageCol);
     DrawRectangleLinesEx(hud->forageBtnRect, 1, BLACK);
     DrawText(forageTxt, x + w/2 - MeasureText(forageTxt, 10)/2, y+93, 10, canForage ? WHITE : GRAY);
+
+    if (forageHover && canForage && map) {
+        HexTile* curTile = Map_GetTile(map, army->position);
+        int bIdx = curTile ? (int)curTile->biome : 0;
+        if (bIdx < 0 || bIdx > 5) bIdx = 0;
+        const BalanceConfig* bcfg = Balance_GetGlobal();
+        float expFood = bcfg ? bcfg->forageFood[bIdx] : 1.0f;
+        float expWater = bcfg ? bcfg->forageWater[bIdx] : 0.5f;
+        float costDays = (gm->timeOfDay == TIME_MORNING) ? 0.5f : 0.25f;
+        const char* tip = TextFormat("Forrajear: ~+%.1fd com / +%.1fd agua, pasa a la tarde (-%.2fd)", expFood, expWater, costDays);
+        int tw = MeasureText(tip, 10);
+        DrawRectangle(x - tw - 16, y + 87, tw + 12, 22, (Color){ 20, 20, 25, 240 });
+        DrawRectangleLines(x - tw - 16, y + 87, tw + 12, 22, (Color){ 100, 180, 100, 255 });
+        DrawText(tip, x - tw - 10, y + 93, 10, RAYWHITE);
+    }
 
     /* Boton 3: PASAR TURNO / ATARDECER (ENTER) */
     hud->endTurnBtnRect = (Rectangle){ (float)(x+8), (float)(y+116), (float)(w-16), 24.0f };

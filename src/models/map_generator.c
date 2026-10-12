@@ -87,7 +87,8 @@ static void Map_GenerateSettlement(
     HexTile* center,
     int settlementId,
     SettlementType settlementType,
-    int provinceLevel
+    int provinceLevel,
+    int factionId
 );
 
 static void Map_GenerateStructures(
@@ -1264,7 +1265,8 @@ static void Map_GenerateSettlement(
     HexTile* center,
     int settlementId,
     SettlementType settlementType,
-    int provinceLevel
+    int provinceLevel,
+    int factionId
 )
 {
     (void)map;
@@ -1275,7 +1277,7 @@ static void Map_GenerateSettlement(
     center->structure.type = STRUCT_TOWN_CASTLE;
     center->structure.settlementId = settlementId;
     center->structure.settlementType = settlementType;
-    center->structure.factionId = (settlementId > 0) ? (settlementId - 1) % 3 : 0;
+    center->structure.factionId = factionId;
     center->structure.isBesieged = false;
 
     if (settlementType == SETTLEMENT_PRIMARY)
@@ -1373,6 +1375,22 @@ static void Map_GenerateSettlement(
 }
 
 
+static int Map_GetNearestFaction(HexCoord coord, const HexCoord factionSeeds[3])
+{
+    int bestFaction = 0;
+    int minDistance = 999999;
+    for (int f = 0; f < 3; f++)
+    {
+        int dist = HexDistance(coord, factionSeeds[f]);
+        if (dist < minDistance)
+        {
+            minDistance = dist;
+            bestFaction = f;
+        }
+    }
+    return bestFaction;
+}
+
 static void Map_GenerateStructures(
     Map* map,
     int provinceLevel
@@ -1384,6 +1402,34 @@ static void Map_GenerateStructures(
     int nextSettlementId = 1;
     HexTile* settlementCenters[10];
     int placedSettlements = 0;
+
+    /* 3 semillas espaciales para facciones */
+    HexCoord factionSeeds[3];
+    int seedsFound = 0;
+    for (int attempt = 0; attempt < 1000 && seedsFound < 3; attempt++)
+    {
+        int idx = rand() % map->tileCount;
+        HexTile* t = &map->tiles[idx];
+        if (t->terrain != TERRAIN_LAND) continue;
+        bool farEnough = true;
+        for (int s = 0; s < seedsFound; s++)
+        {
+            if (HexDistance(t->coord, factionSeeds[s]) < 12)
+            {
+                farEnough = false;
+                break;
+            }
+        }
+        if (farEnough || attempt > 800)
+        {
+            factionSeeds[seedsFound++] = t->coord;
+        }
+    }
+    while (seedsFound < 3)
+    {
+        factionSeeds[seedsFound] = map->tiles[rand() % map->tileCount].coord;
+        seedsFound++;
+    }
 
     /* 1. Ciudad Principal (1 cluster primario con centro urbano) */
     for (int attempt = 0; attempt < 800 && placedSettlements < 1; attempt++)
@@ -1416,7 +1462,8 @@ static void Map_GenerateStructures(
             continue;
 
         settlementCenters[placedSettlements++] = tile;
-        Map_GenerateSettlement(map, tile, nextSettlementId++, SETTLEMENT_PRIMARY, provinceLevel);
+        int fId = Map_GetNearestFaction(tile->coord, factionSeeds);
+        Map_GenerateSettlement(map, tile, nextSettlementId++, SETTLEMENT_PRIMARY, provinceLevel, fId);
     }
 
     /* 2. Poblados Secundarios (2 a 3 clusters secundarios) */
@@ -1463,7 +1510,8 @@ static void Map_GenerateStructures(
             continue;
 
         settlementCenters[placedSettlements++] = tile;
-        Map_GenerateSettlement(map, tile, nextSettlementId++, SETTLEMENT_SECONDARY, provinceLevel);
+        int fId = Map_GetNearestFaction(tile->coord, factionSeeds);
+        Map_GenerateSettlement(map, tile, nextSettlementId++, SETTLEMENT_SECONDARY, provinceLevel, fId);
     }
 
     /* 3. Altares Divinos (3 altares) */

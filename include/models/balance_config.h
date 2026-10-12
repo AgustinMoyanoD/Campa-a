@@ -23,6 +23,9 @@ typedef struct {
     float rankMultSoldiers;
     float rankMultSergeants;
     float lowSupplyDays;
+    float supplyThresholdOK;
+    float supplyThresholdLow;
+    int   forecastRadius;
 
     /* Forrajeo (6.5) - Biomas: 0:Plains, 1:Forest, 2:Desert, 3:Jungle, 4:Mountain, 5:Water */
     bool forageEnabled;

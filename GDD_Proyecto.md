@@ -98,13 +98,14 @@ El diseño busca un ciclo de recompensa basado en riesgo y supervivencia:
 ### 3.7. Reloj, Supervivencia e Inanición (DayClock & Survival)
 * **Reloj Canónico (`DayClock`):** Cuatro franjas horarias por jornada (Mañana, Mediodía, Tarde, Noche). Controla unívocamente los eventos de cambio de fase y cierre del día.
 * **Escalera de Inanición y Deshidratación:** Si al cerrar el día la comida o el agua están en 0, se incrementa el contador de días sin suministro. Al día 1 hay gracia; al día 2 cae la moral; al día 3 y posteriores hay pérdida severa de salud y bajas/deserciones escalonadas por rango (Iniciados primero).
-* **Forrajeo de Emergencia:** Acción disponible por la tarde que consume el turno y recolecta suministros según el bioma transitado.
+* **Pronóstico de Raciones Unificado (`SupplyForecast`):** El HUD consulta directamente a `Army_ForecastSupply` una proyección franja a franja con el peor bioma del entorno. Muestra el rango $min - max$ días, derivando el estado (OK $\ge 3.0$, Escasa $1.5 - 3.0$, Crítica $< 1.5$) estrictamente de los días mínimos.
+* **Forrajeo Calibrado:** Forrajear avanza el reloj hasta la tarde y rinde neto positivo ($\ge +0.25$ días de raciones) en biomas fértiles (Llanura, Bosque), con hover explicativo de rendimientos y coste en el HUD.
 * **Sacrificio de Ganado y Pactos Divinos:** Opciones de emergencia para obtener raciones o agua a cambio de ganado o contrayendo maldiciones con deidades.
 
 ### 3.8. Campamento y Ciclo Nocturno
-* **Elección al Atardecer:** Al finalizar la tarde es obligatorio decidir entre acampar o realizar marcha nocturna.
-* **Acampar:** Detiene el avance, recupera moral y salud (salvo inanición severa) y realiza tirada de emboscada ($2d6 + \text{Evaluación} + \text{Cobertura Terrestre}$).
-* **Marcha Nocturna:** Permite seguir avanzando con coste de movimiento multiplicado ($\times 1.5$) y penalidades acumulativas de salud y moral por noches consecutivas sin descanso.
+* **Elección al Atardecer:** Al finalizar la tarde es obligatorio decidir entre acampar o realizar marcha nocturna (con acampar como opción por defecto confirmable con ENTER).
+* **Acampar:** Detiene el avance, recupera moral y salud (salvo inanición severa) y realiza tirada de emboscada ($2d6 + \text{Evaluación} + \text{Cobertura Terrestre}$). Al amanecer (`TIME_MORNING`) el estado de campamento se resetea limpiamente permitiendo tirar PA y moverse con normalidad.
+* **Marcha Nocturna:** Permite seguir avanzando con coste de movimiento multiplicado fijo ($\times 1.5$) y penalidades acumulativas de salud y moral por noches consecutivas sin descanso.
 
 ### 3.9. IA Enemiga y Zona de Control (EnemySquad AI)
 * **Máquina de Estados de Comportamiento:** Patrulla, Guardia, Cazador, Emboscador y Bestia. Estados de alerta, persecución mediante pathfinding hexagonal y retorno a base.
@@ -116,12 +117,12 @@ El diseño busca un ciclo de recompensa basado en riesgo y supervivencia:
 * **Interacción No Modal:** Al pasar cerca de un asentamiento se muestra un aviso interactivo (`[E]`), sin interrumpir la marcha salvo que el jugador lo elija.
 * **Mercado Real:** Tienda con stock finito por visita generado determinísticamente. Precios de venta estrictamente menores que los de compra ($40\%$).
 * **Armería y Ascensos:** Promoción de Iniciados a Soldados y Soldados a Sargentos con estricta conservación de tropas y ratio máximo ($\text{Sargentos} \le \text{Soldados}/15$).
-* **Servicios Civiles:** Hospital para curar salud persistente por oro, Templo para purificar maldiciones (costo progresivo) y Posada para restaurar moral consumiendo el día.
+* **Servicios Civiles:** Hospital para curar salud persistente por oro, Templo para purificar maldiciones (costo progresivo escalado según maldiciones purificadas) y Posada para restaurar moral consumiendo el día.
 
 ### 3.11. Sistema de Facciones y Asedio
-* **Tres Facciones por Nivel:** Asignadas por cluster urbano con temperamentos $(-1, 0, +1)$ que reaccionan a la Infamia del jugador.
+* **Tres Facciones por Nivel (Asignación Espacial):** 3 semillas espaciales distribuidas en el mapa definen las áreas de influencia (diagrama de Voronoi) para cada asentamiento urbano, con temperamentos $(-1, 0, +1)$ que reaccionan a la Infamia del jugador.
 * **Niveles de Opinión:** Hostil ($\le -50$, puertas cerradas), Desconfiado ($-49..-20$, precios $\times 1.5$), Neutral, Amistoso ($+21..+50$, precios $\times 0.85$) y Aliado ($> +50$, precios $\times 0.70$ y posada gratis).
-* **Asedio a Guarniciones Fortificadas:** Opción en Castillos y Centros Urbanos. Dispara alerta de guardia, combate especial contra guarnición fortificada (`TAG_FORTIFIED`, 150 Salud, 6 rondas) y otorga botín triplicado ($\times 3.0$), infamia ($+15$) y caída de reputación ($-40$).
+* **Asedio a Guarniciones Fortificadas:** Opción en Castillos y Centros Urbanos. Dispara alerta de guardia, combate especial contra guarnición fortificada (`TAG_FORTIFIED`, 150 Salud, 6 rondas) y otorga botín triplicado ($\times 3.0$ mediante `CombatContext.lootMultiplier`), infamia ($+15$) y caída de reputación ($-40$).
 
 ***
 
@@ -145,4 +146,14 @@ El diseño busca un ciclo de recompensa basado en riesgo y supervivencia:
 * [x] **IA Enemiga y Movimiento (Fase 3):** Estados de IA, persecución, ZOC (+1 PA), salto de fase post-huida y Cazador de retaguardia.
 * [x] **Ciudades y Mercados (Fase 4):** Menú no modal, tienda con stock determinista, armería con ascensos $1:15$, hospital, templo y posada.
 * [x] **Facciones y Asedio (Fase 5):** 3 facciones, modificadores de precios, niveles de alerta y combate de asedio fortificado con botín $\times 3$.
-* [ ] **Equilibrio Final y Contenido (Fase 6):** Pasada completa de datos y calibración de curvas.
+* [x] **Bloque A - Correcciones Playtest:**
+  * A1: Desbloqueo de movimiento matutino tras acampar y unificación del reloj.
+  * A2: Calibración de rendimientos de forrajeo neto positivo en Llanura/Bosque con tooltip HUD.
+  * A3: Fuente única de pronóstico de suministros (`Army_ForecastSupply`) y umbrales unificados.
+  * A4: Limpieza de combate (desfatigado ronda 1, centrado de botones, UI_Shutdown/UI_ButtonClicked).
+  * A5: Asignación espacial de facciones Voronoi, botín de asedio integrado en `CombatContext`, escalado de purificación en templos por `cursesRemovedCount`.
+* [ ] **Bloque B - Legibilidad de la Interfaz:** Glosario (`assets/glossary.cfg`), tooltips con `UI_DrawChip`, tarjetas de plan en combate.
+* [ ] **Bloque C - Balance y Simulador de Cruce:** Simulador de cruce con piloto automático (`tests/sim_crossing.c`), retuneo nocturno.
+* [ ] **Bloque D - Descubrir Asentamientos:** Carteles / indicaciones en mapa, espaciado garantizado.
+* [ ] **Bloque E - Oficiales y Motín:** Visibilidad y utilidad de tenientes, mecánica de motín recuperable.
+* [ ] **Bloque F - Sensación de la Exploración.**

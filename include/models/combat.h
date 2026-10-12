@@ -70,6 +70,7 @@ typedef struct CombatContext {
     // Botin (solo si victoria)
     int lootGold;
     int lootFood;
+    float lootMultiplier;
     
     CombatLog log;
     struct GameMaster* gm;
