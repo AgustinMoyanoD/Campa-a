@@ -48,6 +48,16 @@ Carga centralizada de parámetros desde `assets/balance.cfg` (Invariante I2).
 * `int Balance_GetTerrainCover(const BalanceConfig* cfg, int biome, int structType);`
   Calcula el bono de cobertura para tiradas de campamento según el terreno y estructura.
 
+### Campos Destacados de Balance (Bloque C)
+* `initialSupplyDays`: Raciones iniciales de suministro (por defecto `5.0` días).
+* `siegeSupplyDays`: Botín mínimo garantizado en días de comida tras vencer un asedio (`5.0` días).
+* `siegeBaseGold`: Botín mínimo garantizado en oro tras asedio (`200` oro).
+* `nightMoveCostMult`, `nightMoralPerTurn`, `nightSaludPerTurn`: Parámetros retuneados de marcha nocturna (C4).
+
+### Herramientas de Simulación (Headless)
+* `tests/sim_crossing.c`: Simulador procedural de cruce de nivel ($N \ge 1.000$) con autopilot, desvíos comerciales, combate y evaluación de raciones iniciales (3, 4, 5, 6 días).
+* `tests/sim_night_policy.c`: Simulador de políticas nocturnas (acampar vs marcha vs mixta) con análisis de sensibilidad ($\pm 50\%$) y cartas divinas.
+
 ---
 
 ## 3. Supervivencia y Ejército (`models/army.h`)

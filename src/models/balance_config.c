@@ -66,12 +66,12 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
     cfg->campCoverDesert        = -1;
     cfg->campCoverRuins         = 1;
 
-    /* Night March */
-    cfg->nightMoveCostMult      = 1.5f;
-    cfg->nightMoralPerTurn      = -2.0f;
-    cfg->nightSaludPerTurn      = -2.0f;
-    cfg->nightConsecutiveMult   = 0.5f;
-    cfg->nightEncounterChance   = 35;
+    /* Night March (Retuned Bloque C) */
+    cfg->nightMoveCostMult      = 1.62f;
+    cfg->nightMoralPerTurn      = -1.25f;
+    cfg->nightSaludPerTurn      = -1.0f;
+    cfg->nightConsecutiveMult   = 0.27f;
+    cfg->nightEncounterChance   = 25;
 
     /* Combat defaults */
     cfg->maxCombatRounds         = 4;
@@ -143,6 +143,11 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
     cfg->siegeInfamyGain                  = 15;
     cfg->siegeAlertDays                   = 5;
     cfg->siegeLootMultiplier              = 3.0f;
+    cfg->siegeSupplyDays                  = 5.0f;
+    cfg->siegeBaseGold                    = 200;
+
+    /* Suministros Iniciales (C3) */
+    cfg->initialSupplyDays                = 5.0f;
 }
 
 static void ParseStarvationLine(StarvationRow* row, const char* val) {
@@ -347,6 +352,11 @@ bool Balance_LoadFromFile(BalanceConfig* cfg, const char* filepath) {
             else if (strcmp(key, "InfamyGain") == 0) cfg->siegeInfamyGain = atoi(val);
             else if (strcmp(key, "AlertDays") == 0) cfg->siegeAlertDays = atoi(val);
             else if (strcmp(key, "LootMultiplier") == 0) cfg->siegeLootMultiplier = (float)atof(val);
+            else if (strcmp(key, "SupplyDays") == 0) cfg->siegeSupplyDays = (float)atof(val);
+            else if (strcmp(key, "BaseGold") == 0) cfg->siegeBaseGold = atoi(val);
+        }
+        else if (strcmp(section, "INITIAL_SUPPLIES") == 0) {
+            if (strcmp(key, "InitialSupplyDays") == 0) cfg->initialSupplyDays = (float)atof(val);
         }
     }
 

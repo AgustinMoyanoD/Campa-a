@@ -126,6 +126,11 @@ typedef struct {
     int   siegeInfamyGain;
     int   siegeAlertDays;
     float siegeLootMultiplier;
+    float siegeSupplyDays;
+    int   siegeBaseGold;
+
+    /* Suministros Iniciales (C3) */
+    float initialSupplyDays;
 } BalanceConfig;
 
 void Balance_InitDefaults(BalanceConfig* cfg);

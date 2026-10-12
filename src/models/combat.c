@@ -351,6 +351,18 @@ void Combat_ComputeLoot(CombatContext* ctx, Rng* rng) {
 
     ctx->lootFood = roundf(baseFood * factorFood * mult);
     if (ctx->lootFood < 2.0f) ctx->lootFood = 2.0f;
+
+    /* Botín garantizado de asedio contra guarnición fortificada (C3) */
+    if (ctx->enemy && (ctx->enemy->tags & TAG_FORTIFIED)) {
+        int targetGold = (cfg->siegeBaseGold > 0) ? cfg->siegeBaseGold : 200;
+        if (ctx->lootGold < targetGold) ctx->lootGold = targetGold;
+
+        if (ctx->playerArmy) {
+            float dailyUsage = Army_CalculateFoodUsage(Army_GetTotalSoldiers(ctx->playerArmy), ctx->playerArmy->ganado);
+            float targetFood = (cfg->siegeSupplyDays > 0.0f ? cfg->siegeSupplyDays : 5.0f) * dailyUsage;
+            if (ctx->lootFood < targetFood) ctx->lootFood = targetFood;
+        }
+    }
 }
 
 void Combat_RoundClose(CombatContext* ctx) {
