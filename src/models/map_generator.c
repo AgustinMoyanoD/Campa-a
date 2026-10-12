@@ -1,4 +1,5 @@
 #include "map_generator.h"
+#include "models/balance_config.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -2059,6 +2060,9 @@ Map Map_GenerateProcedural(
         }
     }
 
+    /* 11. Garantia de asentamientos (D1) y Postes indicadores (D2) */
+    Map_EnsureSettlementGuarantee(&map, start, provinceLevel);
+    Map_GenerateSignposts(&map);
 
     return map;
 }
@@ -2089,7 +2093,16 @@ HexTile* Map_GetTile(const Map* map, HexCoord coord) {
     return NULL;
 }
 
+static bool Structure_IsSettlement(StructureType type) {
+    return (type == STRUCT_TOWN_CASTLE ||
+            type == STRUCT_TOWN_MARKET ||
+            type == STRUCT_TOWN_ARMORY ||
+            type == STRUCT_TOWN_HOUSES);
+}
+
 void Map_UpdateVision(Map* map, HexCoord center, int visionRange) {
+    if (!map) return;
+
     for (int i = 0; i < map->tileCount; i++) {
         map->tiles[i].visible = false;
     }
@@ -2100,6 +2113,78 @@ void Map_UpdateVision(Map* map, HexCoord center, int visionRange) {
             map->tiles[i].visited = true;
         } else if (dist <= visionRange + 2) {
             map->tiles[i].visited = true;
+        }
+    }
+
+    /* D2: Si una casilla con rumor pasa a estar en vista o visitada, se promueve a descubierta */
+    for (int i = 0; i < map->tileCount; i++) {
+        if (map->tiles[i].isRumor && (map->tiles[i].visible || map->tiles[i].visited)) {
+            map->tiles[i].isRumor = false;
+        }
+    }
+
+    /* D2: Al ver o visitar un poste indicador (STRUCT_SIGNPOST),
+       revela el asentamiento mas cercano como rumor (isRumor = true) sin costo */
+    for (int i = 0; i < map->tileCount; i++) {
+        HexTile* signpost = &map->tiles[i];
+        if (signpost->structure.type != STRUCT_SIGNPOST) continue;
+        if (!signpost->visible && !signpost->visited) continue;
+
+        /* Buscar el asentamiento mas cercano por red vial */
+        HexTile** queue = (HexTile**)malloc(map->tileCount * sizeof(HexTile*));
+        bool* visited = (bool*)calloc(map->tileCount, sizeof(bool));
+        if (!queue || !visited) {
+            free(queue); free(visited);
+            continue;
+        }
+
+        int qStart = 0, qEnd = 0;
+        int sIdx = (int)(signpost - map->tiles);
+        visited[sIdx] = true;
+        queue[qEnd++] = signpost;
+
+        HexTile* nearestSettlementTile = NULL;
+
+        while (qStart < qEnd) {
+            HexTile* curr = queue[qStart++];
+
+            if (curr != signpost && (Structure_IsSettlement(curr->structure.type) || curr->structure.settlementId > 0)) {
+                nearestSettlementTile = curr;
+                break;
+            }
+
+            for (int d = 0; d < 6; d++) {
+                HexTile* nb = curr->neighbors[d];
+                if (!nb) continue;
+                if (!nb->isRoad && !Structure_IsSettlement(nb->structure.type)) continue;
+                int nIdx = (int)(nb - map->tiles);
+                if (!visited[nIdx]) {
+                    visited[nIdx] = true;
+                    queue[qEnd++] = nb;
+                }
+            }
+        }
+
+        free(queue);
+        free(visited);
+
+        if (nearestSettlementTile != NULL) {
+            /* Encontrar el castillo / centro si existe */
+            HexTile* markerTile = nearestSettlementTile;
+            if (nearestSettlementTile->structure.settlementId > 0) {
+                for (int k = 0; k < map->tileCount; k++) {
+                    if (map->tiles[k].structure.settlementId == nearestSettlementTile->structure.settlementId &&
+                        map->tiles[k].structure.type == STRUCT_TOWN_CASTLE) {
+                        markerTile = &map->tiles[k];
+                        break;
+                    }
+                }
+            }
+
+            /* Si no ha sido visitado, se marca como rumor */
+            if (!markerTile->visited) {
+                markerTile->isRumor = true;
+            }
         }
     }
 }
@@ -2250,5 +2335,275 @@ int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexT
 
 int Map_FindPathEnemy(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut) {
     return Map_FindPathEx(map, start, end, true, outTotalCost, pathOut);
+}
+
+/* ============================================================
+   BLOQUE D: GARANTÍA DE ASENTAMIENTOS Y POSTES INDICADORES
+   ============================================================ */
+
+void Map_EnsureSettlementGuarantee(Map* map, HexTile* start, int provinceLevel) {
+    if (!map || map->tileCount <= 0 || !start) return;
+
+    float maxDays = 2.0f;
+    int hexPerDay = 9;
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    if (cfg != NULL) {
+        if (cfg->maxDaysToSettlement > 0.01f) maxDays = cfg->maxDaysToSettlement;
+        if (cfg->hexPerDay > 0) hexPerDay = cfg->hexPerDay;
+    }
+    int maxHexDist = (int)(maxDays * (float)hexPerDay + 0.5f);
+    if (maxHexDist <= 0) maxHexDist = 18;
+
+    /* Encontrar el ID de asentamiento más alto */
+    int maxSettlementId = 0;
+    for (int i = 0; i < map->tileCount; i++) {
+        if (map->tiles[i].structure.settlementId > maxSettlementId) {
+            maxSettlementId = map->tiles[i].structure.settlementId;
+        }
+    }
+    int nextSettlementId = maxSettlementId + 1;
+
+    /* 1. Identificar casillas de las rutas A (start) -> B (cada exit) */
+    bool* onRoute = (bool*)calloc(map->tileCount, sizeof(bool));
+    if (!onRoute) return;
+
+    for (int i = 0; i < map->tileCount; i++) {
+        HexTile* end = &map->tiles[i];
+        if (end->special != TILE_SPECIAL_END) continue;
+
+        HexTile** queue = (HexTile**)malloc(map->tileCount * sizeof(HexTile*));
+        HexTile** prev = (HexTile**)calloc(map->tileCount, sizeof(HexTile*));
+        bool* visited = (bool*)calloc(map->tileCount, sizeof(bool));
+        if (!queue || !prev || !visited) {
+            free(queue); free(prev); free(visited);
+            continue;
+        }
+
+        int qStart = 0, qEnd = 0;
+        int sIdx = (int)(start - map->tiles);
+        visited[sIdx] = true;
+        queue[qEnd++] = start;
+        bool found = false;
+
+        while (qStart < qEnd) {
+            HexTile* curr = queue[qStart++];
+            if (curr == end) {
+                found = true;
+                break;
+            }
+            for (int d = 0; d < 6; d++) {
+                HexTile* nb = curr->neighbors[d];
+                if (!nb || !nb->isRoad) continue;
+                int nIdx = (int)(nb - map->tiles);
+                if (!visited[nIdx]) {
+                    visited[nIdx] = true;
+                    prev[nIdx] = curr;
+                    queue[qEnd++] = nb;
+                }
+            }
+        }
+
+        if (found) {
+            HexTile* curr = end;
+            while (curr != NULL) {
+                int cIdx = (int)(curr - map->tiles);
+                onRoute[cIdx] = true;
+                if (curr == start) break;
+                curr = prev[cIdx];
+            }
+        }
+
+        free(queue);
+        free(prev);
+        free(visited);
+    }
+
+    /* 2. Bucle iterativo de garantia */
+    int* roadDist = (int*)malloc(map->tileCount * sizeof(int));
+    HexTile** bfsQueue = (HexTile**)malloc(map->tileCount * sizeof(HexTile*));
+    if (!roadDist || !bfsQueue) {
+        free(onRoute); free(roadDist); free(bfsQueue);
+        return;
+    }
+
+    int safetyMaxIterations = 100;
+    while (safetyMaxIterations-- > 0) {
+        for (int i = 0; i < map->tileCount; i++) {
+            roadDist[i] = -1;
+        }
+
+        int qStart = 0, qEnd = 0;
+        for (int i = 0; i < map->tileCount; i++) {
+            HexTile* t = &map->tiles[i];
+            if (Structure_IsSettlement(t->structure.type) || t->structure.settlementId > 0) {
+                roadDist[i] = 0;
+                bfsQueue[qEnd++] = t;
+            }
+        }
+
+        while (qStart < qEnd) {
+            HexTile* curr = bfsQueue[qStart++];
+            int cDist = roadDist[(int)(curr - map->tiles)];
+            for (int d = 0; d < 6; d++) {
+                HexTile* nb = curr->neighbors[d];
+                if (!nb) continue;
+                if (!nb->isRoad && !Structure_IsSettlement(nb->structure.type)) continue;
+                int nIdx = (int)(nb - map->tiles);
+                if (roadDist[nIdx] == -1 || roadDist[nIdx] > cDist + 1) {
+                    roadDist[nIdx] = cDist + 1;
+                    bfsQueue[qEnd++] = nb;
+                }
+            }
+        }
+
+        int worstDist = -1;
+        HexTile* worstTile = NULL;
+
+        for (int i = 0; i < map->tileCount; i++) {
+            if (!onRoute[i]) continue;
+            int d = roadDist[i];
+            if (d == -1) {
+                worstDist = 999999;
+                worstTile = &map->tiles[i];
+                break;
+            } else if (d > maxHexDist && d > worstDist) {
+                worstDist = d;
+                worstTile = &map->tiles[i];
+            }
+        }
+
+        if (worstTile == NULL || worstDist <= maxHexDist) {
+            break; /* Garantia satisfecha */
+        }
+
+        /* Colocar Viviendas en casilla disponible en la ruta */
+        HexTile* targetCandidate = NULL;
+        if (worstTile->structure.type == STRUCT_NONE && worstTile->special == TILE_SPECIAL_NONE) {
+            targetCandidate = worstTile;
+        } else {
+            for (int d = 0; d < 6; d++) {
+                HexTile* nb = worstTile->neighbors[d];
+                if (nb && onRoute[(int)(nb - map->tiles)] &&
+                    nb->structure.type == STRUCT_NONE && nb->special == TILE_SPECIAL_NONE) {
+                    targetCandidate = nb;
+                    break;
+                }
+            }
+            if (targetCandidate == NULL) {
+                for (int i = 0; i < map->tileCount; i++) {
+                    if (onRoute[i] && map->tiles[i].structure.type == STRUCT_NONE &&
+                        map->tiles[i].special == TILE_SPECIAL_NONE) {
+                        targetCandidate = &map->tiles[i];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (targetCandidate != NULL) {
+            targetCandidate->structure.type = STRUCT_TOWN_HOUSES;
+            targetCandidate->structure.settlementId = nextSettlementId++;
+            targetCandidate->structure.settlementType = SETTLEMENT_SECONDARY;
+            targetCandidate->structure.isGuarded = false;
+            targetCandidate->structure.isBesieged = false;
+            targetCandidate->structure.factionId = 0;
+            targetCandidate->isRoad = true;
+            if (targetCandidate->road == ROAD_NONE) {
+                targetCandidate->road = ROAD_SECONDARY;
+            }
+        } else {
+            break;
+        }
+    }
+
+    free(onRoute);
+    free(roadDist);
+    free(bfsQueue);
+}
+
+void Map_GenerateSignposts(Map* map) {
+    if (!map || map->tileCount <= 0) return;
+
+    /* 1. Cruces de caminos (>= 3 vecinos con isRoad) */
+    for (int i = 0; i < map->tileCount; i++) {
+        HexTile* tile = &map->tiles[i];
+        if (!tile->isRoad || tile->structure.type != STRUCT_NONE || tile->special != TILE_SPECIAL_NONE) {
+            continue;
+        }
+        int roadNeighbors = 0;
+        for (int d = 0; d < 6; d++) {
+            if (tile->neighbors[d] && tile->neighbors[d]->isRoad) {
+                roadNeighbors++;
+            }
+        }
+        if (roadNeighbors >= 3) {
+            tile->structure.type = STRUCT_SIGNPOST;
+            tile->structure.settlementId = 0;
+            tile->structure.settlementType = SETTLEMENT_NONE;
+            tile->structure.isGuarded = false;
+        }
+    }
+
+    /* 2. Postes espaciados cada ~8 casillas de camino */
+    int* distToStruct = (int*)malloc(map->tileCount * sizeof(int));
+    HexTile** queue = (HexTile**)malloc(map->tileCount * sizeof(HexTile*));
+    if (!distToStruct || !queue) {
+        free(distToStruct); free(queue);
+        return;
+    }
+
+    for (int pass = 0; pass < 20; pass++) {
+        for (int i = 0; i < map->tileCount; i++) {
+            distToStruct[i] = -1;
+        }
+        int qStart = 0, qEnd = 0;
+
+        for (int i = 0; i < map->tileCount; i++) {
+            HexTile* t = &map->tiles[i];
+            if (t->structure.type != STRUCT_NONE) {
+                distToStruct[i] = 0;
+                queue[qEnd++] = t;
+            }
+        }
+
+        while (qStart < qEnd) {
+            HexTile* curr = queue[qStart++];
+            int cDist = distToStruct[(int)(curr - map->tiles)];
+            for (int d = 0; d < 6; d++) {
+                HexTile* nb = curr->neighbors[d];
+                if (!nb || !nb->isRoad) continue;
+                int nIdx = (int)(nb - map->tiles);
+                if (distToStruct[nIdx] == -1 || distToStruct[nIdx] > cDist + 1) {
+                    distToStruct[nIdx] = cDist + 1;
+                    queue[qEnd++] = nb;
+                }
+            }
+        }
+
+        int maxDist = 0;
+        HexTile* bestCand = NULL;
+        for (int i = 0; i < map->tileCount; i++) {
+            HexTile* t = &map->tiles[i];
+            if (t->isRoad && t->structure.type == STRUCT_NONE && t->special == TILE_SPECIAL_NONE) {
+                int d = distToStruct[i];
+                if (d >= 8 && d > maxDist) {
+                    maxDist = d;
+                    bestCand = t;
+                }
+            }
+        }
+
+        if (bestCand != NULL && maxDist >= 8) {
+            bestCand->structure.type = STRUCT_SIGNPOST;
+            bestCand->structure.settlementId = 0;
+            bestCand->structure.settlementType = SETTLEMENT_NONE;
+            bestCand->structure.isGuarded = false;
+        } else {
+            break;
+        }
+    }
+
+    free(distToStruct);
+    free(queue);
 }
 

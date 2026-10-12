@@ -5,9 +5,9 @@
 #include <stdlib.h>
 
 /* ============================================================
-   PERSPECTIVA ISOMÉTRICA
+   PERSPECTIVA ISOMï¿½TRICA
    Factor de aplastamiento 2:1. El eje Y se multiplica por 0.5
-   para dar la ilusión de profundidad.
+   para dar la ilusiï¿½n de profundidad.
    ============================================================ */
 
 #define ISO_SCALE_Y 0.5f
@@ -22,7 +22,7 @@ Vector2 HexToPixel(HexCoord coord, float radius)
 
 HexCoord PixelToHex(Vector2 position, float radius)
 {
-    /* Revertir el aplastamiento del eje Y antes de la conversión inversa */
+    /* Revertir el aplastamiento del eje Y antes de la conversiï¿½n inversa */
     float unscaledY = position.y / ISO_SCALE_Y;
 
     float q = (sqrtf(3.0f) / 3.0f * position.x - 1.0f / 3.0f * unscaledY) / radius;
@@ -90,11 +90,11 @@ static Color GetBiomeTopColor(BiomeType biome)
 }
 
 /* ============================================================
-   DIBUJO DEL BLOQUE ISOMÉTRICO (caras laterales + cara superior)
+   DIBUJO DEL BLOQUE ISOMï¿½TRICO (caras laterales + cara superior)
    ============================================================ */
 
 /*
- * Vértices del hexágono "pointy-top" aplastado:
+ * Vï¿½rtices del hexï¿½gono "pointy-top" aplastado:
  *
  *        0
  *      /   \
@@ -167,7 +167,7 @@ static void DrawHexTop(Vector2 center, float radius,
     }
 }
 
-/* Dibuja el cuerpo lateral (prisma) del bloque isométrico */
+/* Dibuja el cuerpo lateral (prisma) del bloque isomï¿½trico */
 static void DrawHexSides(Vector2 baseCenter, float radius,
                           float height, Color sideColor)
 {
@@ -181,7 +181,7 @@ static void DrawHexSides(Vector2 baseCenter, float radius,
     }
 
     /* Solo las caras visibles desde el sur: derecha (0-1) y frontal (5-0) */
-    /* Cara derecha: vértices 0, 1 (top) ? 1, 0 (base) */
+    /* Cara derecha: vï¿½rtices 0, 1 (top) ? 1, 0 (base) */
     rlBegin(RL_QUADS);
     Color dark = (Color){ (unsigned char)(sideColor.r * 0.7f),
                            (unsigned char)(sideColor.g * 0.7f),
@@ -214,7 +214,7 @@ static void DrawHexSides(Vector2 baseCenter, float radius,
 }
 
 /* ============================================================
-   DIBUJO DE ESTRUCTURAS CON TEXTURA (o fallback geométrico)
+   DIBUJO DE ESTRUCTURAS CON TEXTURA (o fallback geomï¿½trico)
    ============================================================ */
 
 static void DrawStructure(StructureType type, Vector2 topPos, float radius, bool isPrimary, bool isGuarded, const GameAssets* assets, Color tint) {
@@ -262,7 +262,7 @@ static void DrawStructure(StructureType type, Vector2 topPos, float radius, bool
         }
 
     } else {
-        /* Fallback geométrico del sistema anterior */
+        /* Fallback geomï¿½trico del sistema anterior */
         switch (type) {
             case STRUCT_ALTAR:
                 DrawRectangle((int)(topPos.x - radius*0.22f), (int)(topPos.y - radius*0.4f),
@@ -299,6 +299,21 @@ static void DrawStructure(StructureType type, Vector2 topPos, float radius, bool
                 DrawTriangle((Vector2){topPos.x, topPos.y - radius*0.9f},
                              (Vector2){topPos.x - radius*0.15f, topPos.y - radius*0.7f},
                              (Vector2){topPos.x + radius*0.15f, topPos.y - radius*0.7f}, DARKBROWN);
+                break;
+            case STRUCT_SIGNPOST:
+                /* Poste vertical de madera */
+                DrawRectangle((int)(topPos.x - radius * 0.05f), (int)(topPos.y - radius * 0.5f),
+                              (int)(radius * 0.1f), (int)(radius * 0.5f), (Color){110, 75, 45, 255});
+                /* Cartel / flecha horizontal de madera */
+                DrawRectangle((int)(topPos.x - radius * 0.25f), (int)(topPos.y - radius * 0.48f),
+                              (int)(radius * 0.5f), (int)(radius * 0.18f), (Color){185, 140, 85, 255});
+                /* Punta de flecha indicadora */
+                DrawTriangle((Vector2){topPos.x + radius * 0.38f, topPos.y - radius * 0.39f},
+                             (Vector2){topPos.x + radius * 0.25f, topPos.y - radius * 0.48f},
+                             (Vector2){topPos.x + radius * 0.25f, topPos.y - radius * 0.30f}, (Color){185, 140, 85, 255});
+                /* Contorno */
+                DrawRectangleLines((int)(topPos.x - radius * 0.25f), (int)(topPos.y - radius * 0.48f),
+                                   (int)(radius * 0.5f), (int)(radius * 0.18f), (Color){80, 50, 30, 255});
                 break;
             default: break;
         }
@@ -346,7 +361,7 @@ static bool IsTileInRange(const HexTile* tile, HexCoord center, int renderRadius
 }
 
 /* ============================================================
-   FUNCIÓN PRINCIPAL DE DIBUJADO
+   FUNCIï¿½N PRINCIPAL DE DIBUJADO
    ============================================================ */
 
 void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnections, HexCoord viewCenter, int renderRadius, Vector2 armyPos, const GameAssets* assets, bool debugRevealMap) {
@@ -370,7 +385,7 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
         count++;
     }
 
-    /* 2. Ordenar atrás?adelante (Y menor = más al norte = se dibuja antes) */
+    /* 2. Ordenar atrï¿½s?adelante (Y menor = mï¿½s al norte = se dibuja antes) */
     qsort(nodes, count, sizeof(RenderNode), CompareRenderNodes);
 
     /* 3. Dibujar cada tile */
@@ -415,7 +430,7 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
         }
         DrawHexTop(topPos, radius, topColor, tileTex, srcFrame, hasAssets && tileTex.id != 0, tint);
 
-        /* -- Ríos entre vecinos -- */
+        /* -- Rï¿½os entre vecinos -- */
         for (int d = 0; d < 6; d++) {
             const HexTile* nb = t->neighbors[d];
             if (!nb) continue;
@@ -450,7 +465,7 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
                 /* -- Token removido del loop -- */
     }
 
-    /* -- Token del ejército Interpolado -- */
+    /* -- Token del ejï¿½rcito Interpolado -- */
     Vector2 topPos = armyPos;
     topPos.x += origin.x;
     topPos.y += origin.y;
@@ -478,6 +493,30 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
         DrawCircleV((Vector2){ topPos.x, topPos.y - radius*0.4f }, radius * 0.4f, (Color){ 200,150,50,255 });
         DrawCircleLines((int)topPos.x, (int)(topPos.y - radius*0.4f), radius * 0.4f, BLACK);
         DrawText("ARMY", (int)(topPos.x - 12), (int)(topPos.y - radius*0.4f - 4), 10, WHITE);
+    }
+
+    /* -- Rumores de asentamientos no descubiertos (D2) -- */
+    for (int i = 0; i < map->tileCount; i++) {
+        const HexTile* t = &map->tiles[i];
+        if (t->isRumor && !t->visited) {
+            Vector2 rBase = HexToPixel(t->coord, radius);
+            rBase.x += origin.x;
+            rBase.y += origin.y - GetBiomeHeight(t->biome);
+
+            /* Icono de rumor: sello ambar con destello */
+            DrawCircleV(rBase, radius * 0.42f, (Color){ 230, 160, 20, 200 });
+            DrawCircleLines((int)rBase.x, (int)rBase.y, radius * 0.42f, GOLD);
+            DrawPoly((Vector2){rBase.x, rBase.y}, 4, radius * 0.25f, 45.0f, WHITE);
+
+            /* Etiqueta con distancia estimada en dias */
+            HexCoord armyHex = PixelToHex((Vector2){armyPos.x - origin.x, armyPos.y - origin.y}, radius);
+            float distDays = (float)HexDistance(armyHex, t->coord) / 9.0f;
+            const char* rText = TextFormat("Rumor %.1fd", distDays);
+            int tw = MeasureText(rText, 10);
+            DrawRectangle((int)rBase.x - tw / 2 - 4, (int)rBase.y + (int)(radius * 0.38f), tw + 8, 14, (Color){15, 15, 25, 210});
+            DrawRectangleLines((int)rBase.x - tw / 2 - 4, (int)rBase.y + (int)(radius * 0.38f), tw + 8, 14, GOLD);
+            DrawText(rText, (int)rBase.x - tw / 2, (int)rBase.y + (int)(radius * 0.38f) + 2, 10, GOLD);
+        }
     }
 
     free(nodes);
@@ -584,6 +623,18 @@ void MapView_DrawMinimap(const Map* map, Rectangle dest,
         }
     }
 
+    /* Rumores en el minimapa (D2) */
+    for (int i = 0; i < map->tileCount; i++) {
+        const HexTile* t = &map->tiles[i];
+        if (t->isRumor && !t->visited) {
+            Vector2 rPos = HexToPixel(t->coord, miniR);
+            rPos.x += origin.x;
+            rPos.y += origin.y;
+            DrawPoly(rPos, 4, miniR * 2.2f, 45.0f, ORANGE);
+            DrawPolyLines(rPos, 4, miniR * 2.2f, 45.0f, GOLD);
+        }
+    }
+
     /* Pen parpadeante */
     if ((int)(blinkTimer * 2.0f) % 2 == 0) {
         Vector2 armyPixel = HexToPixel(armyPos, miniR);
@@ -615,5 +666,91 @@ void MapView_DrawHexFillHighlight(const HexTile* tile, float radius, Vector2 ori
         points[i+1].y = center.y + (radius * sinf(angle_rad)) * ISO_SCALE_Y;
     }
     DrawTriangleFan(points, 8, color);
+}
+
+/* ============================================================
+   BLOQUE D3: INDICADOR DIRECCIONAL DE RUMORES FUERA DE VISTA
+   ============================================================ */
+
+void MapView_DrawOffscreenRumors(
+    const Map*  map,
+    Camera2D    camera,
+    float       radius,
+    Vector2     origin,
+    HexCoord    playerPos
+) {
+    if (!map || map->tileCount <= 0) return;
+
+    int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+    Vector2 center = { (float)sw / 2.0f, (float)sh / 2.0f };
+
+    float minX = 70.0f;
+    float maxX = (float)sw - 70.0f;
+    float minY = 70.0f;
+    float maxY = (float)sh - 180.0f; /* Margen para no solapar con el HUD */
+
+    for (int i = 0; i < map->tileCount; i++) {
+        const HexTile* t = &map->tiles[i];
+        if (!t->isRumor || t->visited) continue;
+
+        Vector2 worldPos = HexToPixel(t->coord, radius);
+        worldPos.x += origin.x;
+        worldPos.y += origin.y - GetBiomeHeight(t->biome);
+
+        Vector2 screenPos = GetWorldToScreen2D(worldPos, camera);
+
+        /* Si el rumor esta dentro de la pantalla, no dibujar indicador de borde */
+        if (screenPos.x >= 20.0f && screenPos.x <= (float)sw - 20.0f &&
+            screenPos.y >= 20.0f && screenPos.y <= (float)sh - 20.0f) {
+            continue;
+        }
+
+        /* Direccion hacia la posicion del rumor */
+        float dx = screenPos.x - center.x;
+        float dy = screenPos.y - center.y;
+        if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) continue;
+
+        /* Interseccion de rayo con bordes rectangulares */
+        float tIntersect = 1e9f;
+        if (dx > 0) {
+            float tx = (maxX - center.x) / dx;
+            if (tx < tIntersect) tIntersect = tx;
+        } else if (dx < 0) {
+            float tx = (minX - center.x) / dx;
+            if (tx < tIntersect) tIntersect = tx;
+        }
+
+        if (dy > 0) {
+            float ty = (maxY - center.y) / dy;
+            if (ty < tIntersect) tIntersect = ty;
+        } else if (dy < 0) {
+            float ty = (minY - center.y) / dy;
+            if (ty < tIntersect) tIntersect = ty;
+        }
+
+        Vector2 edgePos = { center.x + tIntersect * dx, center.y + tIntersect * dy };
+
+        /* Distancia en dias hacia el asentamiento rumor */
+        float distDays = (float)HexDistance(playerPos, t->coord) / 9.0f;
+        const char* badgeText = TextFormat("Rumor: %.1fd", distDays);
+        int textW = MeasureText(badgeText, 11);
+
+        /* Flecha direccional apuntando hacia el rumor fuera de pantalla */
+        float angle = atan2f(dy, dx);
+        Vector2 dir = { cosf(angle), sinf(angle) };
+        Vector2 perp = { -sinf(angle), cosf(angle) };
+        Vector2 tip = { edgePos.x + dir.x * 16.0f, edgePos.y + dir.y * 16.0f };
+        Vector2 left = { edgePos.x - dir.x * 4.0f + perp.x * 8.0f, edgePos.y - dir.y * 4.0f + perp.y * 8.0f };
+        Vector2 right = { edgePos.x - dir.x * 4.0f - perp.x * 8.0f, edgePos.y - dir.y * 4.0f - perp.y * 8.0f };
+
+        DrawTriangle(tip, left, right, GOLD);
+        DrawTriangleLines(tip, left, right, DARKGRAY);
+
+        /* Insignia con texto */
+        DrawRectangle((int)edgePos.x - textW / 2 - 8, (int)edgePos.y - 12, textW + 16, 24, (Color){ 20, 20, 30, 230 });
+        DrawRectangleLines((int)edgePos.x - textW / 2 - 8, (int)edgePos.y - 12, textW + 16, 24, GOLD);
+        DrawText(badgeText, (int)edgePos.x - textW / 2, (int)edgePos.y - 6, 11, GOLD);
+    }
 }
 

@@ -148,6 +148,10 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
 
     /* Suministros Iniciales (C3) */
     cfg->initialSupplyDays                = 5.0f;
+
+    /* Generación de Mapa y Asentamientos (D1) */
+    cfg->maxDaysToSettlement              = 2.0f;
+    cfg->hexPerDay                        = 9;
 }
 
 static void ParseStarvationLine(StarvationRow* row, const char* val) {
@@ -357,6 +361,10 @@ bool Balance_LoadFromFile(BalanceConfig* cfg, const char* filepath) {
         }
         else if (strcmp(section, "INITIAL_SUPPLIES") == 0) {
             if (strcmp(key, "InitialSupplyDays") == 0) cfg->initialSupplyDays = (float)atof(val);
+        }
+        else if (strcmp(section, "MAPGEN") == 0) {
+            if (strcmp(key, "MaxDaysToSettlement") == 0) cfg->maxDaysToSettlement = (float)atof(val);
+            else if (strcmp(key, "HexPerDay") == 0) cfg->hexPerDay = atoi(val);
         }
     }
 

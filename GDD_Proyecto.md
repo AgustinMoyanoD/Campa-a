@@ -160,6 +160,9 @@ El diseño busca un ciclo de recompensa basado en riesgo y supervivencia:
   * C1: Principio de balance expresado en días de suministro.
   * C2 & C3: Simulador de cruce de nivel con piloto automático en C (`tests/sim_crossing.c`) sobre 4.000 mapas procedurales ($N=1.000$ por configuración de 3, 4, 5 y 6 días). Validación de metas C2 con 5.0 días: victoria 100%, salud 95.3/100, reservas finales 31.9% (meta: 15% a 35%). Botín de asedio garantizado (5 días de raciones y 200 de oro).
   * C4: Retuneo nocturno y simulador ampliado (`tests/sim_night_policy.c`): marcha sin cartas $\Delta = -11.8$ utilidad y salud $60.6 \ge 60$; marcha con 1 carta $\Delta = +9.3$; política mixta superior (337.4 pts); tabla de sensibilidad $\pm 50\%$ validada.
-* [ ] **Bloque D - Descubrir Asentamientos:** Carteles / indicaciones en mapa, espaciado garantizado.
+* [x] **Bloque D - Descubrir Asentamientos:**
+  * D1: Garantía procedural de asentamientos (`Map_EnsureSettlementGuarantee`) con parámetros configurables en `balance.cfg` (`MaxDaysToSettlement=2.0`, `HexPerDay=9`). Toda casilla de las rutas A $\to$ B tiene un asentamiento a distancia vial $\le 18$ hexágonos. Validación: 1.000 niveles generados en `tests/test_settlement_guarantee.c` con 0 fallos.
+  * D2: Postes indicadores (`STRUCT_SIGNPOST`) en cruces de caminos ($\ge 3$ vecinos) y tramos largos cada $\sim 8$ casillas. Ver o pisar un poste revela el asentamiento más cercano como rumor (`isRumor = true`) en mapa y minimapa sin costo, promocionándose a descubierto normal al entrar en visión.
+  * D3: Indicadores direccionales al borde de la pantalla (`MapView_DrawOffscreenRumors`) con flecha dorada y distancia en días (`Rumor: X.X d`) cuando el rumor queda fuera del viewport de la cámara.
 * [ ] **Bloque E - Oficiales y Motín:** Visibilidad y utilidad de tenientes, mecánica de motín recuperable.
 * [ ] **Bloque F - Sensación de la Exploración.**

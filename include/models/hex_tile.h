@@ -77,7 +77,8 @@ typedef enum {
     STRUCT_TOWN_CASTLE,     /* Centro de gobierno / cuartel / centro urbano */
     STRUCT_TOWN_MARKET,     /* Mercado de provisiones y ganado */
     STRUCT_TOWN_ARMORY,     /* Armería y equipo */
-    STRUCT_TOWN_HOUSES      /* Casas / suburbio */
+    STRUCT_TOWN_HOUSES,     /* Casas / suburbio */
+    STRUCT_SIGNPOST         /* Poste indicador en cruce de caminos (D2) */
 } StructureType;
 
 
@@ -132,6 +133,8 @@ typedef struct HexTile {
     bool visited;
 
     bool visible;
+
+    bool isRumor;
 
 } HexTile;
 

@@ -272,4 +272,28 @@ Sistema unificado de legibilidad de interfaz (Secciones B1, B2 y B3 de `arreglo_
   * `CombatPlanInfo Combat_GetPlanInfo(const CombatContext* ctx, CombatPlan plan);`
     Retorna una estructura `CombatPlanInfo` con nombre, descripción, costo de tirada, estado de bloqueo (`locked`), puntos faltantes (`neededPoints`), chips de efecto (`effectChips`), flecha de ventaja/desventaja frente a la intención revelada del enemigo (`vsIntentAdvantage`: +1 ventaja, -1 desventaja, 0 neutro) y flag `isFatigued`. Usado por `combat_view.c` para renderizar tarjetas interactivas de 2 columnas.
 
+---
+
+## 9. Descubrimiento de Asentamientos y Postes Indicadores (`models/map_generator.h`, `views/map_view.h`, `assets/balance.cfg`)
+
+Implementación del Bloque D de `arreglo_correcciones.md`.
+
+* **Garantía Procedural de Asentamientos (D1):**
+  * Parámetros en `assets/balance.cfg`: sección `[MAPGEN]` con `MaxDaysToSettlement=2.0` y `HexPerDay=9` (distancia máxima vial = $18$ hexágonos).
+  * `void Map_EnsureSettlementGuarantee(Map* map, HexTile* start, int provinceLevel);`
+    Evalúa cada casilla de la red vial en todas las rutas de Inicio (A) a cada Salida (B). Si alguna casilla excede la distancia vial máxima a un asentamiento o resulta inalcanzable, inserta de forma determinista `STRUCT_TOWN_HOUSES` (`SETTLEMENT_SECONDARY`) en los puntos críticos de la ruta hasta garantizar el 100% de cobertura.
+* **Postes Indicadores y Rumores (D2):**
+  * Nueva estructura `STRUCT_SIGNPOST` añadida a `StructureType`.
+  * `void Map_GenerateSignposts(Map* map);`
+    Genera postes indicadores en todas las bifurcaciones y cruces de caminos ($\ge 3$ vecinos viales) y en tramos rectos largos cada $\sim 8$ hexágonos de camino.
+  * Revelación en niebla: Al ver (`visible = true`) o transitar por un poste indicador, se ejecuta un escaneo por red vial hacia el asentamiento más cercano. Si este aún no fue descubierto (`!visited`), se marca con `isRumor = true` sin costo de recursos.
+  * Promoción: Al entrar en el campo de visión del jugador o visitarse directamente, el marcador de rumor se promueve a estructura normal descubierta (`isRumor = false`).
+  * Renderizado en minimapa: Los rumores se visualizan en el minimapa como rombos ámbar destacados.
+* **Indicadores Direccionales Fuera de Pantalla (D3):**
+  * `void MapView_DrawOffscreenRumors(const Map* map, Camera2D camera, float radius, Vector2 origin, HexCoord playerPos);`
+    Cuando un rumor no está dentro del encuadre actual de la cámara, proyecta su posición y renderiza en el margen de la pantalla una flecha direccional dorada con una insignia que indica la distancia estimada en días (`Rumor: X.X d`).
+* **Verificación Automatizada:**
+  * `tests/test_settlement_guarantee.c`: Valida $1.000$ mapas procedimentales ($3.000$ rutas y $>55.000$ casillas evaluadas). Cero violaciones de la garantía (distancia máxima $\le 18$), generación promedio de $\sim 34.8$ postes/mapa y verificación de ciclo completo de rumor (revelación y promoción).
+
+
 

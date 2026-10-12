@@ -51,6 +51,11 @@ void Map_UpdateVision(Map* map, HexCoord center, int visionRange);
 int Map_FindPath(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut);
 int Map_FindPathEnemy(Map* map, HexTile* start, HexTile* end, int* outTotalCost, HexTile** pathOut);
 int Map_FindPathEx(Map* map, HexTile* start, HexTile* end, bool ignoreFog, int* outTotalCost, HexTile** pathOut);
+
+/* Bloque D: Descubrimiento de asentamientos */
+void Map_EnsureSettlementGuarantee(Map* map, HexTile* start, int provinceLevel);
+void Map_GenerateSignposts(Map* map);
+
 #endif
 
 

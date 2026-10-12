@@ -46,6 +46,14 @@ void MapView_DrawMinimap(
     bool debugRevealMap
 );
 
+void MapView_DrawOffscreenRumors(
+    const Map*  map,
+    Camera2D    camera,
+    float       radius,
+    Vector2     origin,
+    HexCoord    playerPos
+);
+
 #endif /* MAP_VIEW_H */
 
 

@@ -1,4 +1,4 @@
-﻿#include "hex_tile.h"
+#include "hex_tile.h"
 #include <stdlib.h>
 
 #include <stddef.h>
@@ -93,6 +93,7 @@ const char* Structure_GetName(StructureType type)
         case STRUCT_TOWN_MARKET: return "Poblado - Mercado";
         case STRUCT_TOWN_ARMORY: return "Poblado - Armeria";
         case STRUCT_TOWN_HOUSES: return "Poblado - Viviendas";
+        case STRUCT_SIGNPOST:    return "Poste Indicador";
         case STRUCT_NONE:
         default:                 return "Ninguna";
     }
@@ -156,6 +157,10 @@ HexTile HexTile_Create(
     tile.structure.divineCardId = 0;
     tile.structure.tollCost = 0;
     tile.structure.enemySpawnRate = 0.0f;
+
+    tile.visited = false;
+    tile.visible = false;
+    tile.isRumor = false;
 
     for (int i = 0; i < 6; i++)
     {

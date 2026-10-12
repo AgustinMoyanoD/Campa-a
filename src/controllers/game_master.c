@@ -690,14 +690,18 @@ bool GameMaster_AttemptMove(GameMaster* gm, Map* map, Army* playerArmy, HexTile*
 
         // Actualizar interacción no-modal con estructuras urbanas (9.1)
         gm->canInteractStructure = false;
-        if (targetTile->structure.type != STRUCT_NONE && targetTile->structure.type != STRUCT_BRIDGE && targetTile->structure.type != STRUCT_ALTAR) {
+        if (targetTile->structure.type != STRUCT_NONE && targetTile->structure.type != STRUCT_BRIDGE &&
+            targetTile->structure.type != STRUCT_ALTAR && targetTile->structure.type != STRUCT_SIGNPOST &&
+            targetTile->structure.type != STRUCT_WATCHTOWER) {
             gm->canInteractStructure = true;
             gm->interactStructureCoord = targetTile->coord;
         } else {
             for (int d = 0; d < 6; d++) {
                 HexCoord nCoord = HexCoord_GetNeighbor(targetTile->coord, (HexDirection)d);
                 HexTile* nTile = Map_GetTile(map, nCoord);
-                if (nTile && nTile->structure.type != STRUCT_NONE && nTile->structure.type != STRUCT_BRIDGE && nTile->structure.type != STRUCT_ALTAR) {
+                if (nTile && nTile->structure.type != STRUCT_NONE && nTile->structure.type != STRUCT_BRIDGE &&
+                    nTile->structure.type != STRUCT_ALTAR && nTile->structure.type != STRUCT_SIGNPOST &&
+                    nTile->structure.type != STRUCT_WATCHTOWER) {
                     gm->canInteractStructure = true;
                     gm->interactStructureCoord = nTile->coord;
                     break;

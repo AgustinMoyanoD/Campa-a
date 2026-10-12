@@ -131,6 +131,10 @@ typedef struct {
 
     /* Suministros Iniciales (C3) */
     float initialSupplyDays;
+
+    /* Generación de Mapa y Asentamientos (D1) */
+    float maxDaysToSettlement;
+    int hexPerDay;
 } BalanceConfig;
 
 void Balance_InitDefaults(BalanceConfig* cfg);

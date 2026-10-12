@@ -593,6 +593,9 @@ int main(void)
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ (unsigned char)skyR, (unsigned char)skyG, (unsigned char)skyB, 255 });
         EndBlendMode();
 
+        /* Indicadores direccionales de rumores fuera de vista (D3) */
+        MapView_DrawOffscreenRumors(&levelMap, cc.camera, hexRadius, origin, playerArmy.position);
+
 
         /* ========================================================
            NUEVO HUD DEL EJERCITO
