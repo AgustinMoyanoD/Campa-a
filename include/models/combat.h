@@ -35,6 +35,21 @@ typedef enum {
     PLAN_NONE
 } CombatPlan;
 
+typedef struct {
+    CombatPlan plan;
+    const char* name;
+    int requiredRoll;      /* Requisito de tirada (0 si libre) */
+    int rollModifier;      /* Modificador de tirada de ejecucion (+2, -1, +4) */
+    float clashMultiplier; /* Multiplicador de choque (0.7f = -30%, 1.2f = +20%) */
+    const char* description;
+    int counterIntent;     /* 0=CHARGE, 1=HOLD, 2=MANEUVER, -1=ninguna */
+    bool isUnlocked;       /* Cumple tirada y requisitos tacticos */
+    int pointsNeeded;      /* Puntos que faltan en la tirada para desbloquear */
+    bool isFatigued;       /* Repetido dos rondas consecutivas */
+    bool hasAdvantage;     /* Ventaja contra la intencion enemiga revelada */
+    bool hasDisadvantage;  /* Desventaja contra la intencion enemiga revelada */
+} CombatPlanInfo;
+
 struct GameMaster;
 
 typedef struct CombatContext {
@@ -117,5 +132,6 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2);
 void Combat_RoundClose(CombatContext* ctx);
 void Combat_Recount(CombatContext* ctx);
 void Combat_Commit(CombatContext* ctx);
+CombatPlanInfo Combat_GetPlanInfo(const CombatContext* ctx, CombatPlan plan);
 
 #endif

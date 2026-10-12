@@ -240,3 +240,26 @@ typedef struct {
   * `void UI_Shutdown(void);` (liberación segura de memoria de tooltips y temas).
   * `bool UI_ButtonClicked(Rectangle bounds);` (gestión unificada de colisión y clic del mouse).
 
+---
+
+## 8. Glosario, Tooltips y Tarjetas de Plan (`presentation/glossary.h`, `presentation/ui_widgets.h`, `models/combat.h`, `assets/glossary.cfg`)
+
+Sistema unificado de legibilidad de interfaz (Secciones B1, B2 y B3 de `arreglo_correcciones.md`).
+
+* **Glosario Centralizado (`presentation/glossary.h`):** Fuente única de verdad cargada desde `assets/glossary.cfg`.
+  * `bool Glossary_Init(const char* filepath);`
+  * `void Glossary_Shutdown(void);`
+  * `const GlossaryEntry* Glossary_Get(const char* termId);`
+  * `bool Glossary_Has(const char* termId);`
+  * `bool Glossary_ValidateAll(void);` (Valida en inicialización que los 19 términos mínimos obligatorios estén presentes: TIRADA, PUNTAJE, CHOQUE, MARGEN, INTENCION, FATIGADO, EXPUESTO, FORTIFICADO, DESORGANIZADOS, CABALLERIA, MANDO, FUERA_DE_COMBATE, VENTAJA, DESVENTAJA, MORAL, SALUD, RACIONES, INFAMIA, LEALTAD).
+* **Widgets de Tooltip y Chips UI (`presentation/ui_widgets.h`):**
+  * `void UI_RequestTooltip(Rectangle triggerArea, const char* title, const char* description, const char* hotkeyHint);`
+  * `void UI_RequestGlossaryTooltip(Rectangle triggerArea, const char* termId);`
+  * `void UI_DrawPendingTooltips(void);` (Renderizado diferido en la capa superior de la pantalla antes de `EndDrawing()`, con clamp a bordes de pantalla y retardo de hover de 0.35s).
+  * `Rectangle UI_DrawChip(Vector2 position, const char* label, Color bg, Color text);`
+  * `Rectangle UI_DrawChipEx(Vector2 position, const char* label, const char* glossaryTermId, Color bg, Color text);`
+* **Información de Planes de Combate (`models/combat.h`):**
+  * `CombatPlanInfo Combat_GetPlanInfo(const CombatContext* ctx, CombatPlan plan);`
+    Retorna una estructura `CombatPlanInfo` con nombre, descripción, costo de tirada, estado de bloqueo (`locked`), puntos faltantes (`neededPoints`), chips de efecto (`effectChips`), flecha de ventaja/desventaja frente a la intención revelada del enemigo (`vsIntentAdvantage`: +1 ventaja, -1 desventaja, 0 neutro) y flag `isFatigued`. Usado por `combat_view.c` para renderizar tarjetas interactivas de 2 columnas.
+
+

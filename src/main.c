@@ -791,6 +791,7 @@ int main(void)
         }
 
         ScreenFX_DrawOverlays();
+        UI_DrawPendingTooltips();
         EndDrawing();
     }
 

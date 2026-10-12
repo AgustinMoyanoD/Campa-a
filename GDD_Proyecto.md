@@ -152,7 +152,10 @@ El diseño busca un ciclo de recompensa basado en riesgo y supervivencia:
   * A3: Fuente única de pronóstico de suministros (`Army_ForecastSupply`) y umbrales unificados.
   * A4: Limpieza de combate (desfatigado ronda 1, centrado de botones, UI_Shutdown/UI_ButtonClicked).
   * A5: Asignación espacial de facciones Voronoi, botín de asedio integrado en `CombatContext`, escalado de purificación en templos por `cursesRemovedCount`.
-* [ ] **Bloque B - Legibilidad de la Interfaz:** Glosario (`assets/glossary.cfg`), tooltips con `UI_DrawChip`, tarjetas de plan en combate.
+* [x] **Bloque B - Legibilidad de la Interfaz:**
+  * B1: Glosario unificado (`assets/glossary.cfg`, `glossary.h`, `glossary.c`) con 33 términos validados al inicio y tooltips con retardo de 0.35s.
+  * B2: Tarjetas interactivas de plan en combate (`CombatPlanInfo`, `Combat_GetPlanInfo`) con desglose de coste, chips de efecto, flecha de ventaja vs intención y estado de fatiga en cuadrícula 2x2.
+  * B3: Chips de glosario y pistas de primer uso descartables en combate, campamento y ciudad sin superposiciones a 1280x720 y 1600x900.
 * [ ] **Bloque C - Balance y Simulador de Cruce:** Simulador de cruce con piloto automático (`tests/sim_crossing.c`), retuneo nocturno.
 * [ ] **Bloque D - Descubrir Asentamientos:** Carteles / indicaciones en mapa, espaciado garantizado.
 * [ ] **Bloque E - Oficiales y Motín:** Visibilidad y utilidad de tenientes, mecánica de motín recuperable.

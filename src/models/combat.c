@@ -539,3 +539,91 @@ void Combat_Commit(CombatContext* ctx) {
         }
     }
 }
+
+CombatPlanInfo Combat_GetPlanInfo(const CombatContext* ctx, CombatPlan plan) {
+    CombatPlanInfo info = {0};
+    info.plan = plan;
+    info.counterIntent = -1;
+    info.isFatigued = (ctx && ctx->previousPlan == plan);
+
+    switch (plan) {
+        case PLAN_SKIRMISH:
+            info.name = "Escaramuza";
+            info.requiredRoll = 0;
+            info.rollModifier = 0;
+            info.clashMultiplier = 0.7f;
+            info.description = "Hostigamiento a distancia que mitiga 30% del dano recibido.";
+            info.counterIntent = 1;
+            info.isUnlocked = ctx ? ctx->canSkirmish : true;
+            info.pointsNeeded = 0;
+            if (ctx && ctx->intentRevealed) {
+                if (ctx->enemyIntent == 1) info.hasAdvantage = true;
+                else if (ctx->enemyIntent == 0) info.hasDisadvantage = true;
+            }
+            break;
+
+        case PLAN_PIKES:
+            info.name = "Linea de Picas";
+            info.requiredRoll = 8;
+            info.rollModifier = -1;
+            info.clashMultiplier = 1.0f;
+            info.description = "Muro de astas que frena en seco embestidas de caballeria.";
+            info.counterIntent = 0;
+            info.isUnlocked = ctx ? ctx->canPikes : false;
+            info.pointsNeeded = (ctx && ctx->planRoll < 8) ? (8 - ctx->planRoll) : 0;
+            if (ctx && ctx->intentRevealed) {
+                if (ctx->enemyIntent == 0) info.hasAdvantage = true;
+                else if (ctx->enemyIntent == 2) info.hasDisadvantage = true;
+            }
+            break;
+
+        case PLAN_ASSAULT:
+            info.name = "Asalto Frontal";
+            info.requiredRoll = 6;
+            info.rollModifier = 2;
+            info.clashMultiplier = 1.2f;
+            info.description = "Embestida cuerpo a cuerpo con bono de tirada y choque incrementado.";
+            info.counterIntent = 2;
+            info.isUnlocked = ctx ? ctx->canAssault : false;
+            info.pointsNeeded = (ctx && ctx->planRoll < 6) ? (6 - ctx->planRoll) : 0;
+            if (ctx && ctx->intentRevealed) {
+                if (ctx->enemyIntent == 2) info.hasAdvantage = true;
+                else if (ctx->enemyIntent == 1) info.hasDisadvantage = true;
+            }
+            break;
+
+        case PLAN_FLANK:
+            info.name = "Flanqueo";
+            info.requiredRoll = 9;
+            info.rollModifier = 4;
+            info.clashMultiplier = 1.3f;
+            info.description = "Maniobra envolvente veloz para golpear el punto ciego enemigo.";
+            info.counterIntent = 1;
+            info.isUnlocked = ctx ? ctx->canFlank : false;
+            info.pointsNeeded = (ctx && ctx->planRoll < 9) ? (9 - ctx->planRoll) : 0;
+            if (ctx && ctx->intentRevealed) {
+                if (ctx->enemyIntent == 1) info.hasAdvantage = true;
+                else if (ctx->enemyIntent == 0) info.hasDisadvantage = true;
+            }
+            break;
+
+        case PLAN_FLEE:
+            info.name = "Retirada Tactica";
+            info.requiredRoll = 0;
+            info.rollModifier = 0;
+            info.clashMultiplier = 0.5f;
+            info.description = "Desenganche ordenado para preservar la vida del batallon.";
+            info.counterIntent = -1;
+            info.isUnlocked = true;
+            info.pointsNeeded = 0;
+            break;
+
+        default:
+            info.name = "Desconocido";
+            info.description = "";
+            info.isUnlocked = false;
+            break;
+    }
+
+    return info;
+}

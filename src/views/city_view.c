@@ -32,6 +32,8 @@ bool CityView_UpdateDraw(CityContext* ctx, Army* army, GameMaster* gm, int SW, i
              ctx->factionName, opName, ctx->factionOpinion, alertStr);
     Color facCol = (opLvl == FACTION_HOSTILE) ? RED : ((opLvl == FACTION_ALLIED) ? GREEN : ((opLvl == FACTION_FRIENDLY) ? SKYBLUE : ((opLvl == FACTION_SUSPICIOUS) ? ORANGE : RAYWHITE)));
     UI_DrawText(facBuf, (Vector2){ (float)(px + 30), (float)(py + 45) }, 15, facCol);
+    UI_DrawChipEx("ALERTA", "ALERTA", (Rectangle){ (float)(px + pw - 120), (float)(py + 44), 0, 18 }, (Color){ 45, 45, 55, 230 }, (Color){ 220, 200, 140, 255 });
+    UI_DrawChipEx("INFAMIA", "INFAMIA", (Rectangle){ (float)(px + pw - 210), (float)(py + 44), 0, 18 }, (Color){ 45, 45, 55, 230 }, (Color){ 220, 200, 140, 255 });
     
     // Recursos del ejército
     char statusBuf[256];
@@ -40,6 +42,14 @@ bool CityView_UpdateDraw(CityContext* ctx, Army* army, GameMaster* gm, int SW, i
              army->salud, army->moral,
              Army_GetTotalSoldiers(army), army->iniciados, army->soldados, army->sargentos);
     UI_DrawText(statusBuf, (Vector2){ (float)(px + 30), (float)(py + 68) }, 14, LIGHTGRAY);
+
+    Vector2 mouseCity = GetMousePosition();
+    if (CheckCollisionPointRec(mouseCity, (Rectangle){ (float)(px + 30), (float)(py + 68), 55, 14 })) UI_RequestGlossaryTooltip("ORO", mouseCity);
+    if (CheckCollisionPointRec(mouseCity, (Rectangle){ (float)(px + 90), (float)(py + 68), 75, 14 })) UI_RequestGlossaryTooltip("COMIDA", mouseCity);
+    if (CheckCollisionPointRec(mouseCity, (Rectangle){ (float)(px + 170), (float)(py + 68), 65, 14 })) UI_RequestGlossaryTooltip("AGUA", mouseCity);
+    if (CheckCollisionPointRec(mouseCity, (Rectangle){ (float)(px + 240), (float)(py + 68), 75, 14 })) UI_RequestGlossaryTooltip("GANADO", mouseCity);
+    if (CheckCollisionPointRec(mouseCity, (Rectangle){ (float)(px + 320), (float)(py + 68), 85, 14 })) UI_RequestGlossaryTooltip("SALUD", mouseCity);
+    if (CheckCollisionPointRec(mouseCity, (Rectangle){ (float)(px + 410), (float)(py + 68), 85, 14 })) UI_RequestGlossaryTooltip("MORAL", mouseCity);
 
     // Barra de pestañas de navegación
     int tabY = py + 95;
@@ -308,6 +318,19 @@ bool CityView_UpdateDraw(CityContext* ctx, Army* army, GameMaster* gm, int SW, i
                 City_RestAtInn(ctx, army);
             }
             break;
+        }
+    }
+
+    /* Pista de primer uso descartable en ciudad (Sec B3) */
+    static bool s_cityHintDismissed = false;
+    if (!s_cityHintDismissed) {
+        Rectangle hintBounds = { (float)(px + 30), (float)(py + ph - 26), (float)(pw - 60), 20.0f };
+        bool hintHover = CheckCollisionPointRec(mouseCity, hintBounds);
+        DrawRectangleRec(hintBounds, hintHover ? (Color){ 35, 45, 60, 240 } : (Color){ 25, 30, 42, 220 });
+        DrawRectangleLinesEx(hintBounds, 1.0f, (Color){ 90, 120, 170, 200 });
+        DrawText("[PISTA] Administra provisiones en el mercado o cura tus tropas. (Clic aqui para cerrar)", (int)(hintBounds.x + 8), (int)(hintBounds.y + 4), 11, (Color){ 200, 220, 255, 255 });
+        if (hintHover && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            s_cityHintDismissed = true;
         }
     }
 

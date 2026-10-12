@@ -1,5 +1,6 @@
 #include "hud.h"
 #include "presentation/audio_manager.h"
+#include "presentation/ui_widgets.h"
 #include "models/balance_config.h"
 #include <string.h>
 #include <stdlib.h>
@@ -227,13 +228,21 @@ void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, const Map* m
     const char* statusStr = (minDays >= threshOK) ? "OK" : ((minDays >= threshLow) ? "Escasa" : "Critica");
     Color statusColor = (minDays >= threshOK) ? GREEN : ((minDays >= threshLow) ? ORANGE : RED);
 
+    Vector2 mouse = GetMousePosition();
+
     /* Columna izquierda: tropas */
     DrawText(TextFormat("EJERCITO (PA: %d/%d)", gm->currentActionPoints, gm->maxActionPoints), x+12, y+10, 13, (Color){ 200, 170, 80, 255 });
     DrawLine(x+12, y+24, x+w/2-10, y+24, (Color){ 160, 120, 60, 100 });
     
     DrawText(TextFormat("Sargentos: %d",  army->sargentos), x+12, y+30, 11, LIGHTGRAY);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)(x+12), (float)(y+30), 100, 12 })) UI_RequestGlossaryTooltip("SARGENTOS", mouse);
+
     DrawText(TextFormat("Soldados:  %d",  army->soldados),  x+12, y+45, 11, LIGHTGRAY);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)(x+12), (float)(y+45), 100, 12 })) UI_RequestGlossaryTooltip("SOLDADOS", mouse);
+
     DrawText(TextFormat("Iniciados: %d",  army->iniciados), x+12, y+60, 11, LIGHTGRAY);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)(x+12), (float)(y+60), 100, 12 })) UI_RequestGlossaryTooltip("INICIADOS", mouse);
+
     DrawText(TextFormat("Total:     %d",  total),           x+12, y+75, 11, WHITE);
 
     /* Columna derecha: recursos */
@@ -250,11 +259,18 @@ void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, const Map* m
     Color foodColor = (army->daysWithoutFood > 0) ? RED : statusColor;
 
     DrawText(TextFormat("Agua:   %.0f [%s]", army->agua_disponible, waterStatus), rx, y+28, 11, waterColor);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)rx, (float)(y+28), 120, 12 })) UI_RequestGlossaryTooltip("AGUA", mouse);
+
     DrawText(TextFormat("Comida: %.0f [%s]", army->comida_disponible, foodStatus),  rx, y+42, 11, foodColor);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)rx, (float)(y+42), 120, 12 })) UI_RequestGlossaryTooltip("COMIDA", mouse);
 
     Color supplyColor = (minDays < lowThreshold) ? RED : RAYWHITE;
     DrawText(TextFormat("Raciones: %.1f - %.1f d %s", minDays, maxDays, (minDays < lowThreshold) ? "[! AVISO]" : ""), rx, y+56, 11, supplyColor);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)rx, (float)(y+56), 150, 12 })) UI_RequestGlossaryTooltip("RACIONES", mouse);
+
     DrawText(TextFormat("Oro: %d  Ganado: %d", army->monedas, army->ganado), rx, y+70, 11, GOLD);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)rx, (float)(y+70), 55, 12 })) UI_RequestGlossaryTooltip("ORO", mouse);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)(rx+60), (float)(y+70), 80, 12 })) UI_RequestGlossaryTooltip("GANADO", mouse);
 
     /* Barras de moral y salud */
     int bx = x+12, bw = w-24, bh = 11;
@@ -264,12 +280,14 @@ void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, const Map* m
                   (army->moral < 30) ? RED : (army->moral < 60) ? ORANGE : GREEN);
     DrawText(TextFormat("Moral %.0f%%", army->moral), bx+4, y+93, 10, WHITE);
     DrawRectangleLines(bx, y+92, bw, bh, BLACK);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)bx, (float)(y+92), (float)bw, (float)bh })) UI_RequestGlossaryTooltip("MORAL", mouse);
 
     /* Salud */
     DrawRectangle(bx, y+107, bw, bh, (Color){ 30, 50, 30, 255 });
     DrawRectangle(bx, y+107, (int)(bw * army->salud / 100.0f), bh, GREEN);
     DrawText(TextFormat("Salud %.0f%%", army->salud), bx+4, y+108, 10, WHITE);
     DrawRectangleLines(bx, y+107, bw, bh, BLACK);
+    if (CheckCollisionPointRec(mouse, (Rectangle){ (float)bx, (float)(y+107), (float)bw, (float)bh })) UI_RequestGlossaryTooltip("SALUD", mouse);
 
     /* Advertencia de hambruna si aplica */
     if (army->daysWithoutFood > 0 || army->daysWithoutWater > 0) {
@@ -309,6 +327,10 @@ void Hud_DrawDicePanel(HudState* hud, const GameMaster* gm, const Army* army, co
     DrawRectangle(x, y, w, h, (Color){ 28, 22, 26, 230 });
     DrawRectangleLines(x, y, w, h, (Color){ 160, 80, 60, 255 });
     DrawText(TextFormat("ACCIONES (PA: %d)", gm ? gm->currentActionPoints : 0), x + w/2 - 55, y + 6, 12, GOLD);
+    Vector2 mouseDice = GetMousePosition();
+    if (CheckCollisionPointRec(mouseDice, (Rectangle){ (float)(x + 8), (float)(y + 4), (float)(w - 16), 18 })) {
+        UI_RequestGlossaryTooltip("PA", mouseDice);
+    }
 
     /* Dados */
     int dieSize = 28;
@@ -410,6 +432,10 @@ void Hud_DrawTopBar(const GameMaster* gm, int screenWidth) {
 
     DrawText(TextFormat("Dia %d - %s (Turno %d)", gm->currentDay, timeStr, gm->currentTurn), 20, 8, 14, RAYWHITE);
     DrawText(TextFormat("Infamia: %.1f%%", gm->infamy), screenWidth / 2 - 40, 8, 14, RED);
+    Vector2 mouseTop = GetMousePosition();
+    if (CheckCollisionPointRec(mouseTop, (Rectangle){ (float)(screenWidth / 2 - 45), 4.0f, 110.0f, 22.0f })) {
+        UI_RequestGlossaryTooltip("INFAMIA", mouseTop);
+    }
 
     if (gm->timeOfDay == TIME_AFTERNOON) {
         DrawText("[ENTER] Atardecer / Noche", screenWidth - 190, 8, 14, GOLD);
@@ -518,7 +544,7 @@ void Hud_DrawCampDecisionModal(const GameMaster* gm, const Army* army, const Map
     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 0, 0, 0, 160 });
 
     int mw = 560;
-    int mh = 390;
+    int mh = 410;
     int mx = (screenWidth - mw) / 2;
     int my = (screenHeight - mh) / 2;
 
@@ -566,15 +592,20 @@ void Hud_DrawCampDecisionModal(const GameMaster* gm, const Army* army, const Map
 
     Color supplyCol = (daysSupply < 2.0f) ? RED : (daysSupply < 4.0f ? ORANGE : GREEN);
 
+    Vector2 mouseCamp = GetMousePosition();
+
     DrawText(TextFormat("Terreno: %s", terrainDesc), mx + 24, my + 68, 12, RAYWHITE);
     DrawText(TextFormat("Oficial al mando: %s  |  Evaluacion: %d", army->general.name, evalStat), mx + 24, my + 86, 12, RAYWHITE);
     DrawText(TextFormat("Riesgo estimado de emboscada: %s", riskTxt), mx + 24, my + 104, 12, riskCol);
+    if (CheckCollisionPointRec(mouseCamp, (Rectangle){ (float)(mx + 24), (float)(my + 104), 280, 14 })) {
+        UI_RequestGlossaryTooltip("EMBOSCADA", mouseCamp);
+    }
     DrawText(TextFormat("Suministros restantes: %.1f dias (Comida: %.0f | Agua: %.0f)", daysSupply, army->comida_disponible, army->agua_disponible), mx + 24, my + 122, 12, supplyCol);
 
     /* Tarjetas de Opciones */
     int cardW = (mw - 56) / 2;
-    int cardH = 175;
-    int cardY = my + 148;
+    int cardH = 170;
+    int cardY = my + 144;
 
     /* Tarjeta A: Acampar */
     Rectangle cardA = { (float)(mx + 20), (float)cardY, (float)cardW, (float)cardH };
@@ -606,23 +637,39 @@ void Hud_DrawCampDecisionModal(const GameMaster* gm, const Army* army, const Map
     }
 
     /* Botones de Accion */
-    Rectangle btnA = { (float)(mx + 20), (float)(my + mh - 48), (float)cardW, 32.0f };
-    Rectangle btnB = { (float)(mx + 36 + cardW), (float)(my + mh - 48), (float)cardW, 32.0f };
+    Rectangle btnA = { (float)(mx + 20), (float)(my + mh - 60), (float)cardW, 30.0f };
+    Rectangle btnB = { (float)(mx + 36 + cardW), (float)(my + mh - 60), (float)cardW, 30.0f };
 
-    bool hoverA = CheckCollisionPointRec(GetMousePosition(), btnA);
-    bool hoverB = CheckCollisionPointRec(GetMousePosition(), btnB);
+    bool hoverA = CheckCollisionPointRec(mouseCamp, btnA) || CheckCollisionPointRec(mouseCamp, cardA);
+    bool hoverB = CheckCollisionPointRec(mouseCamp, btnB) || CheckCollisionPointRec(mouseCamp, cardB);
+
+    if (hoverA) UI_RequestGlossaryTooltip("ACAMPAR", mouseCamp);
+    if (hoverB) UI_RequestGlossaryTooltip("MARCHA_NOCTURNA", mouseCamp);
 
     DrawRectangleRec(btnA, hoverA ? (Color){ 50, 120, 50, 255 } : (Color){ 30, 80, 30, 255 });
     DrawRectangleLinesEx(btnA, 1, hoverA ? GREEN : (Color){ 100, 180, 100, 255 });
     const char* txtA = "[ ACAMPAR (C) ]";
     int twA = MeasureText(txtA, 11);
-    DrawText(txtA, btnA.x + (btnA.width - twA) / 2, btnA.y + 10, 11, WHITE);
+    DrawText(txtA, btnA.x + (btnA.width - twA) / 2, btnA.y + 9, 11, WHITE);
 
     DrawRectangleRec(btnB, hoverB ? (Color){ 140, 50, 50, 255 } : (Color){ 90, 30, 30, 255 });
     DrawRectangleLinesEx(btnB, 1, hoverB ? RED : (Color){ 180, 90, 90, 255 });
     const char* txtB = "[ MARCHA NOCTURNA (M) ]";
     int twB = MeasureText(txtB, 11);
-    DrawText(txtB, btnB.x + (btnB.width - twB) / 2, btnB.y + 10, 11, WHITE);
+    DrawText(txtB, btnB.x + (btnB.width - twB) / 2, btnB.y + 9, 11, WHITE);
+
+    /* Pista de primer uso descartable (Sec B3) */
+    static bool s_campHintDismissed = false;
+    if (!s_campHintDismissed) {
+        Rectangle hintBox = { (float)(mx + 20), (float)(my + mh - 26), (float)(mw - 40), 20.0f };
+        bool hintHover = CheckCollisionPointRec(mouseCamp, hintBox);
+        DrawRectangleRec(hintBox, hintHover ? (Color){ 35, 45, 60, 240 } : (Color){ 25, 30, 42, 220 });
+        DrawRectangleLinesEx(hintBox, 1.0f, (Color){ 90, 120, 170, 200 });
+        DrawText("[PISTA] Acampar recupera moral y salud; marchar de noche desgasta. (Clic para cerrar)", (int)(hintBox.x + 8), (int)(hintBox.y + 5), 11, (Color){ 200, 220, 255, 255 });
+        if (hintHover && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            s_campHintDismissed = true;
+        }
+    }
 }
 
 bool Hud_HandleCampDecisionInput(GameMaster* gm, Map* map, Army* army, int screenWidth, int screenHeight)
@@ -636,13 +683,13 @@ bool Hud_HandleCampDecisionInput(GameMaster* gm, Map* map, Army* army, int scree
     if (campModalTime < 0.25f) return false;
 
     int mw = 560;
-    int mh = 390;
+    int mh = 410;
     int mx = (screenWidth - mw) / 2;
     int my = (screenHeight - mh) / 2;
     int cardW = (mw - 56) / 2;
 
-    Rectangle btnA = { (float)(mx + 20), (float)(my + mh - 48), (float)cardW, 32.0f };
-    Rectangle btnB = { (float)(mx + 36 + cardW), (float)(my + mh - 48), (float)cardW, 32.0f };
+    Rectangle btnA = { (float)(mx + 20), (float)(my + mh - 60), (float)cardW, 30.0f };
+    Rectangle btnB = { (float)(mx + 36 + cardW), (float)(my + mh - 60), (float)cardW, 30.0f };
 
     bool clickA = IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), btnA);
     bool clickB = IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), btnB);
