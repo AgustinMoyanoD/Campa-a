@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_urb_04
+Name=La Milicia Rebelde en el Puente de Piedra
+Description=Una milicia de burgueses y artesanos bloquea el puente levadizo que comunica con el distrito urbano. Temen que tu paso arrastre la represalia de las legiones enemigas.
+Trigger=ROAD,CITY
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Cargar en formación de tortuga y quebrar su línea de escudos
+Result_pool=res_urb_04_carga_clean:65,res_urb_04_carga_cost:35
+
+[OPTION_2]
+Text=Negociar paso pacífico a cambio de monedas y promesa de no pillaje
+Requires=gold>=25
+Result_pool=res_urb_04_pago_clean:65,res_urb_04_pago_craso:35
+
+[OPTION_3]
+Text=Desplegar una maniobra de intimidación táctica y flanqueo fluvial
+Requires=plan>=2
+Result_pool=res_urb_04_plan:100

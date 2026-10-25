@@ -35,18 +35,32 @@ EnemySquad Enemy_CreateWithBehavior(const char* name, HexCoord position, int str
     squad.chaseTurnsLeft = 0;
     squad.skipNextPhase = 0;
     squad.initiator = 0;
+    squad.factionId = -1;
+    squad.alwaysHostile = true;
+    squad.lootMultiplier = 1.0f;
 
-    if (behavior == AI_AMBUSH) {
+    if (behavior == AI_PATROL) {
+        squad.aiState = AIS_PATROLLING;
+        squad.currentIntent = INTENT_PATROL;
+    } else if (behavior == AI_AMBUSH) {
         squad.tags |= TAG_AMBUSH;
         squad.senseRadius = 2;
+        squad.aiState = AIS_PATROLLING;
+        squad.currentIntent = INTENT_PATROL;
     } else if (behavior == AI_GUARD) {
         squad.leash = 3;
         squad.aiState = AIS_PATROLLING;
+        squad.currentIntent = INTENT_PATROL;
     } else if (behavior == AI_HUNTER) {
         squad.senseRadius = 5;
+        squad.aiState = AIS_CHASING;
+        squad.currentIntent = INTENT_CHASE;
+        squad.chaseTurnsLeft = 999;
     } else if (behavior == AI_BEAST) {
         squad.mobility += 2;
         squad.senseRadius = 3;
+        squad.aiState = AIS_PATROLLING;
+        squad.currentIntent = INTENT_PATROL;
     }
 
     return squad;
@@ -107,13 +121,13 @@ const char* Enemy_GetBehaviorName(EnemyBehavior b) {
 
 const char* Enemy_GetAIStateName(EnemyAIState s) {
     switch (s) {
-        case AIS_IDLE:       return "Inactivo";
+        case AIS_IDLE:       return "Guardia / Inmovil";
         case AIS_PATROLLING: return "Patrullando";
-        case AIS_ALERT:      return "Alerta";
-        case AIS_CHASING:    return "Persiguiendo";
-        case AIS_SEARCHING:  return "Buscando";
-        case AIS_RETURNING:  return "Regresando";
-        case AIS_RESTING:    return "Descansando";
+        case AIS_ALERT:      return "Alerta / Sospecha";
+        case AIS_CHASING:    return "En Persecucion";
+        case AIS_SEARCHING:  return "Rastreando";
+        case AIS_RETURNING:  return "Regresando al puesto";
+        case AIS_RESTING:    return "Descansando / Saqueando";
         default:             return "Normal";
     }
 }

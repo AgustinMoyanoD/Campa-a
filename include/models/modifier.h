@@ -39,7 +39,9 @@ typedef enum {
     HOOK_AMBUSH_ROLL,
     HOOK_NIGHT_ENCOUNTER_CHANCE,
     HOOK_EVENT_FILTER,
-    HOOK_EVENT_RESULT
+    HOOK_EVENT_RESULT,
+    HOOK_DAY_START,
+    HOOK_FORAGE_YIELD
 } ModifierHook;
 
 typedef enum { MOD_TARGET_COMMANDER = 0, MOD_TARGET_ARMY, MOD_TARGET_ENEMY } ModifierTarget;
@@ -73,6 +75,16 @@ typedef struct ModifierDef {
     int  durationValue;
     ModifierRule rules[MAX_RULES_PER_MODIFIER];
     int  ruleCount;
+    
+    // Invocación activa como plan de combate
+    bool hasInvocation;
+    char invocationName[48];
+    char invocationDesc[128];
+    int  invocationRollMod;
+    float invocationClashMult;
+    int  invocationCounterIntent; // 0=CHARGE, 1=HOLD, 2=MANEUVER, -1=ANY
+    bool invocationHighVariance;  // Varianza extrema
+    char rivalGod[32];            // ID/Nombre del dios rival
 } ModifierDef;
 
 typedef struct {
@@ -127,6 +139,7 @@ ModifierDef* Modifier_GetById(const ModifierDef* registry, int registryCount, co
 int Modifier_CollectActive(const ModifierRegistry* reg, const Army* army, const EnemySquad* enemy, ActiveMod* out, int max);
 int Modifier_Query(ModifierHook hook, EffectType stat, ModSide side, const ModContext* ctx, int base, ModBreakdown* outOpt);
 int Modifier_CollectActions(ModifierHook hook, const ModContext* ctx, ModAction* out, int max);
+bool Modifier_CheckRivals(const ModifierRegistry* reg, const Army* army, char* outConflict, int maxLen);
 
 
 

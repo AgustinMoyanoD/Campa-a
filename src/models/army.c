@@ -8,8 +8,65 @@
 #include <stdlib.h>
 
 /* ============================================================
-   CREACIÓN DE LA ARMY
+   CONFIGURACIÓN E INICIALIZACIÓN DE LA ARMY
    ============================================================ */
+
+void ArmySetup_InitDefault(ArmySetupConfig* setup) {
+    if (!setup) return;
+    memset(setup, 0, sizeof(ArmySetupConfig));
+
+    setup->general = General_GetPreset(0);
+    setup->unspentStatPoints = 0;
+
+    int ltPresets = Lieutenant_GetPresetCount();
+    if (ltPresets > MAX_ARMY_LIEUTENANTS) ltPresets = MAX_ARMY_LIEUTENANTS;
+    for (int i = 0; i < ltPresets; i++) {
+        setup->lieutenants[i] = Lieutenant_GetPreset(i);
+    }
+    setup->lieutenantCount = ltPresets;
+
+    setup->sargentos = 8;
+    setup->soldados  = 40;
+    setup->iniciados = 15;
+    setup->ganado    = 12;
+    setup->agua      = 1800.0f;
+    setup->comida    = 1800.0f;
+    setup->monedas   = 350;
+}
+
+void Army_Init(Army* army, const ArmySetupConfig* setup, HexCoord startPos) {
+    if (!army) return;
+
+    ArmySetupConfig defaultSetup;
+    if (!setup) {
+        ArmySetup_InitDefault(&defaultSetup);
+        setup = &defaultSetup;
+    }
+
+    General gen;
+    General_Init(&gen, &setup->general);
+
+    *army = Army_Create(
+        startPos,
+        gen,
+        setup->sargentos,
+        setup->soldados,
+        setup->iniciados,
+        setup->agua,
+        setup->comida,
+        setup->monedas,
+        setup->ganado
+    );
+
+    for (int i = 0; i < setup->lieutenantCount && i < MAX_ARMY_LIEUTENANTS; i++) {
+        Lieutenant lt;
+        Lieutenant_Init(&lt, &setup->lieutenants[i]);
+        Army_AddLieutenant(army, lt);
+    }
+
+    /* Asegurar que la referencia polimórfica apunte a la instancia real en memoria */
+    Army_SetCommanderGeneral(army);
+}
 
 Army Army_Create(
     HexCoord startPos,
@@ -39,11 +96,46 @@ Army Army_Create(
 
     army.agua_disponible = (agua >= 0.0f) ? agua : 0.0f;
     army.comida_disponible = (comida >= 0.0f) ? comida : 0.0f;
+    army.vino_disponible = 0.0f;
+    army.carne_disponible = 0.0f;
     army.monedas = (monedas >= 0) ? monedas : 0;
     army.ganado = (ganado >= 0) ? ganado : 0;
     army.commandTokens = 3; /* Comenzar con 3 fichas de mando */
 
-    army.moral = 80.0f;  /* Moral inicial sólida */
+    army.hasDeposedGeneral = false;
+    army.mutinyGraceDaysLeft = 0;
+    army.warnedMoral1 = false;
+    army.warnedMoral2 = false;
+
+    /* Inicializar estados por grupo de raciones (6.3) */
+    army.groupState[RG_INICIADOS].morale = 80.0f;
+    army.groupState[RG_INICIADOS].health = 100.0f;
+    army.groupState[RG_INICIADOS].daysUnfed = 0;
+    army.groupState[RG_INICIADOS].satisfaction = 0.0f;
+    army.groupState[RG_INICIADOS].satisfactionMax = 0.0f;
+
+    army.groupState[RG_SOLDADOS].morale = 80.0f;
+    army.groupState[RG_SOLDADOS].health = 100.0f;
+    army.groupState[RG_SOLDADOS].daysUnfed = 0;
+    army.groupState[RG_SOLDADOS].satisfaction = 0.0f;
+    army.groupState[RG_SOLDADOS].satisfactionMax = 0.0f;
+
+    army.groupState[RG_SARGENTOS].morale = 80.0f;
+    army.groupState[RG_SARGENTOS].health = 100.0f;
+    army.groupState[RG_SARGENTOS].daysUnfed = 0;
+    army.groupState[RG_SARGENTOS].satisfaction = 10.0f;
+    army.groupState[RG_SARGENTOS].satisfactionMax = 10.0f;
+
+    army.groupState[RG_GANADO].morale = 0.0f;
+    army.groupState[RG_GANADO].health = 100.0f;
+    army.groupState[RG_GANADO].daysUnfed = 0;
+    army.groupState[RG_GANADO].satisfaction = 0.0f;
+    army.groupState[RG_GANADO].satisfactionMax = 0.0f;
+
+    army.hasLastRationPlan = false;
+    army.dayRationCommitted = false;
+
+    army.moral = 80.0f;  /* Moral inicial sólida (promedio ponderado) */
     army.salud = 100.0f; /* Salud plena */
     army.infamia = 0;
 
@@ -112,136 +204,31 @@ float Army_CalculateFoodUsage(int cantSoldados, int cantGanado)
 
 void Army_ConsumeTurnResources(Army* army)
 {
-    if (army == NULL) return;
-
-    int totalSoldiers = Army_GetTotalSoldiers(army);
-    float dailyWater = Army_CalculateWaterUsage(totalSoldiers, army->ganado);
-    float dailyFood = Army_CalculateFoodUsage(totalSoldiers, army->ganado);
-
-    /* Cada franja horaria consume el 25% del uso diario (1 dia = 4 franjas) */
-    float waterNeeded = dailyWater * 0.25f;
-    float foodNeeded = dailyFood * 0.25f;
-
-    /* Consumo de agua */
-    if (army->agua_disponible >= waterNeeded)
-    {
-        army->agua_disponible -= waterNeeded;
-    }
-    else
-    {
-        /* Escasez de agua: deshidratación y caída de moral */
-        army->agua_disponible = 0.0f;
-        army->moral -= 8.0f;
-        army->salud -= 4.0f;
-    }
-
-    /* Consumo de comida */
-    if (army->comida_disponible >= foodNeeded)
-    {
-        army->comida_disponible -= foodNeeded;
-    }
-    else
-    {
-        /* Hambruna: se puede sacrificar ganado automáticamente o mermar salud */
-        if (army->ganado > 0)
-        {
-            /* Sacrificio de emergencia: 1 cabeza de ganado aporta 15 de comida */
-            army->ganado--;
-            army->comida_disponible += 15.0f;
-            if (army->comida_disponible >= foodNeeded)
-            {
-                army->comida_disponible -= foodNeeded;
-            }
-            else
-            {
-                army->comida_disponible = 0.0f;
-                army->moral -= 5.0f;
-            }
-        }
-        else
-        {
-            army->comida_disponible = 0.0f;
-            army->moral -= 12.0f;
-            army->salud -= 8.0f;
-        }
-    }
-
-    /* Clamping de indicadores */
-    if (army->moral < 0.0f) army->moral = 0.0f;
-    if (army->moral > 100.0f) army->moral = 100.0f;
-    if (army->salud < 0.0f) army->salud = 0.0f;
-    if (army->salud > 100.0f) army->salud = 100.0f;
+    (void)army;
+    /* Obsoleto: Reemplazado por el sistema de reparto de raciones diario (Ration_Commit).
+       El consumo ahora ocurre una única vez al cierre del día. */
 }
 
 SupplyForecast Army_ForecastSupply(const Army* army, const Map* map, HexCoord pos) {
     SupplyForecast fc = { 0.0f, 0.0f, 0.0f };
     if (!army) return fc;
 
-    const BalanceConfig* cfg = Balance_GetGlobal();
-    int radius = (cfg && cfg->forecastRadius > 0) ? cfg->forecastRadius : 2;
+    RationNeeds needs = Ration_GetNeeds(army, map, pos);
+    float totalDrinkNeed = needs.drink[RG_INICIADOS] + needs.drink[RG_SOLDADOS] +
+                           needs.drink[RG_SARGENTOS] + needs.drink[RG_GANADO];
+    float totalFoodNeed  = needs.food[RG_INICIADOS] + needs.food[RG_SOLDADOS] +
+                           needs.food[RG_SARGENTOS] + needs.food[RG_GANADO];
 
-    float worstWaterMult = 1.0f;
-    float worstFoodMult = 1.0f;
+    float totalDrinkStock = army->agua_disponible + army->vino_disponible;
+    float totalFoodStock  = army->comida_disponible + army->carne_disponible;
 
-    if (map && map->tiles && map->tileCount > 0) {
-        for (int i = 0; i < map->tileCount; i++) {
-            if (map->tiles[i].terrain == TERRAIN_LAND) {
-                int dist = HexCoord_Distance(map->tiles[i].coord, pos);
-                if (dist <= radius) {
-                    BiomeProperties bp = Biome_GetProperties(map->tiles[i].biome);
-                    if (bp.waterConsumption > worstWaterMult) worstWaterMult = bp.waterConsumption;
-                    if (bp.foodConsumption > worstFoodMult) worstFoodMult = bp.foodConsumption;
-                }
-            }
-        }
-    }
+    float drinkDays = (totalDrinkNeed > 0.001f) ? (totalDrinkStock / totalDrinkNeed) : 999.0f;
+    float foodDays  = (totalFoodNeed > 0.001f) ? (totalFoodStock / totalFoodNeed) : 999.0f;
+    float days = (drinkDays < foodDays) ? drinkDays : foodDays;
 
-    // 1. Escenario Acampar (Camp): consumo base continuo franja por franja
-    {
-        Army sim = *army;
-        int slots = 0;
-        while (sim.comida_disponible > 0.0f && sim.agua_disponible > 0.0f && slots < 120) {
-            Army_ConsumeTurnResources(&sim);
-            slots++;
-        }
-        fc.campDays = (float)slots / 4.0f;
-    }
-
-    // 2. Escenario Marcha Diurna (March): 3 franjas de marcha con peor bioma, 1 de acampe nocturno
-    {
-        Army sim = *army;
-        int slots = 0;
-        while (sim.comida_disponible > 0.0f && sim.agua_disponible > 0.0f && slots < 120) {
-            int slotInDay = slots % 4;
-            if (slotInDay < 3) {
-                int tot = Army_GetTotalSoldiers(&sim);
-                float w = Army_CalculateWaterUsage(tot, sim.ganado) * worstWaterMult * 0.25f;
-                float f = Army_CalculateFoodUsage(tot, sim.ganado) * worstFoodMult * 0.25f;
-                sim.agua_disponible -= w;
-                sim.comida_disponible -= f;
-            } else {
-                Army_ConsumeTurnResources(&sim);
-            }
-            slots++;
-        }
-        fc.marchDays = (float)slots / 4.0f;
-    }
-
-    // 3. Escenario Marcha Nocturna Continua (Night March): todas las franjas marchando
-    {
-        Army sim = *army;
-        int slots = 0;
-        while (sim.comida_disponible > 0.0f && sim.agua_disponible > 0.0f && slots < 120) {
-            int tot = Army_GetTotalSoldiers(&sim);
-            float w = Army_CalculateWaterUsage(tot, sim.ganado) * worstWaterMult * 0.25f;
-            float f = Army_CalculateFoodUsage(tot, sim.ganado) * worstFoodMult * 0.25f;
-            sim.agua_disponible -= w;
-            sim.comida_disponible -= f;
-            slots++;
-        }
-        fc.nightMarchDays = (float)slots / 4.0f;
-    }
-
+    fc.campDays = days;
+    fc.marchDays = days;
+    fc.nightMarchDays = days;
     return fc;
 }
 
@@ -251,10 +238,10 @@ float Army_DaysOfSupply(const Army* army) {
     return fc.campDays;
 }
 
-static void CalculateRankCasualties(int* count, float desertPct, float deathPct, float rankMult, int* outDesert, int* outDead, Rng* rng) {
+void Army_CalculateRankCasualties(int* count, float desertPct, float deathPct, float rankMult, int* outDesert, int* outDead, Rng* rng) {
     *outDesert = 0;
     *outDead = 0;
-    if (*count <= 0) return;
+    if (!count || *count <= 0) return;
 
     float effDesert = (desertPct * rankMult) / 100.0f;
     float effDeath  = (deathPct  * rankMult) / 100.0f;
@@ -278,80 +265,157 @@ static void CalculateRankCasualties(int* count, float desertPct, float deathPct,
     *outDead = dead;
 }
 
-void Army_EndDay(Army* army, DayReport* report, Rng* rng) {
+void Army_RecalculateAggregates(Army* army) {
     if (!army) return;
-    DayReport localReport;
-    if (!report) report = &localReport;
-    memset(report, 0, sizeof(DayReport));
 
-    const BalanceConfig* cfg = Balance_GetGlobal();
-
-    /* 1. Actualizar contadores de días sin suministro (recuperación gradual, I7, E1) */
-    if (army->comida_disponible <= 0.0f) {
-        army->daysWithoutFood++;
-        report->foodShortage = true;
+    int totalHuman = army->iniciados + army->soldados + army->sargentos;
+    if (totalHuman > 0) {
+        float weightedMoral = (float)army->iniciados * army->groupState[RG_INICIADOS].morale +
+                              (float)army->soldados  * army->groupState[RG_SOLDADOS].morale +
+                              (float)army->sargentos * army->groupState[RG_SARGENTOS].morale;
+        float weightedSalud = (float)army->iniciados * army->groupState[RG_INICIADOS].health +
+                              (float)army->soldados  * army->groupState[RG_SOLDADOS].health +
+                              (float)army->sargentos * army->groupState[RG_SARGENTOS].health;
+        army->moral = weightedMoral / (float)totalHuman;
+        army->salud = weightedSalud / (float)totalHuman;
     } else {
-        if (army->daysWithoutFood > 0) army->daysWithoutFood--;
-        report->foodShortage = false;
+        army->moral = 0.0f;
+        army->salud = 0.0f;
     }
 
-    if (army->agua_disponible <= 0.0f) {
-        army->daysWithoutWater++;
-        report->waterShortage = true;
-    } else {
-        if (army->daysWithoutWater > 0) army->daysWithoutWater--;
-        report->waterShortage = false;
-    }
-
-    report->daysWithoutFood = army->daysWithoutFood;
-    report->daysWithoutWater = army->daysWithoutWater;
-
-    float totalMoralDelta = 0.0f;
-    float totalSaludDelta = 0.0f;
-    float totalDesertPct  = 0.0f;
-    float totalDeathPct   = 0.0f;
-
-    /* 2. Aplicar escalera de Comida */
-    if (army->daysWithoutFood > 0) {
-        int idx = army->daysWithoutFood - 1;
-        if (idx > 2) idx = 2; /* Día 3 en adelante */
-        const StarvationRow* row = &cfg->starvationFood[idx];
-        totalMoralDelta += row->moral;
-        totalSaludDelta += row->salud;
-        totalDesertPct  += row->desertPct;
-        totalDeathPct   += row->deathPct;
-    }
-
-    /* 3. Aplicar escalera de Agua (más severa) */
-    if (army->daysWithoutWater > 0) {
-        int idx = army->daysWithoutWater - 1;
-        if (idx > 2) idx = 2;
-        const StarvationRow* row = &cfg->starvationWater[idx];
-        totalMoralDelta += row->moral;
-        totalSaludDelta += row->salud;
-        totalDesertPct  += row->desertPct;
-        totalDeathPct   += row->deathPct;
-    }
-
-    /* 4. Aplicar desgastes de moral y salud */
-    report->moralDelta = totalMoralDelta;
-    report->saludDelta = totalSaludDelta;
-    army->moral += totalMoralDelta;
-    army->salud += totalSaludDelta;
     if (army->moral < 0.0f) army->moral = 0.0f;
     if (army->moral > 100.0f) army->moral = 100.0f;
     if (army->salud < 0.0f) army->salud = 0.0f;
     if (army->salud > 100.0f) army->salud = 100.0f;
 
-    /* 5. Desertores y muertos por rango (Iniciados primero, con multiplicadores) */
-    CalculateRankCasualties(&army->iniciados, totalDesertPct, totalDeathPct, cfg->rankMultInitiates,
-                            &report->desertedInitiates, &report->deadInitiates, rng);
+    int maxUnfed = 0;
+    for (int g = RG_INICIADOS; g <= RG_SARGENTOS; g++) {
+        if (army->groupState[g].daysUnfed > maxUnfed) {
+            maxUnfed = army->groupState[g].daysUnfed;
+        }
+    }
+    army->daysWithoutFood = maxUnfed;
+    army->daysWithoutWater = maxUnfed;
+}
 
-    CalculateRankCasualties(&army->soldados, totalDesertPct, totalDeathPct, cfg->rankMultSoldiers,
-                            &report->desertedSoldiers, &report->deadSoldiers, rng);
+void Army_ApplyMoraleDelta(Army* army, float delta) {
+    if (!army) return;
+    for (int g = RG_INICIADOS; g <= RG_SARGENTOS; g++) {
+        army->groupState[g].morale += delta;
+        if (army->groupState[g].morale < 0.0f) army->groupState[g].morale = 0.0f;
+        if (army->groupState[g].morale > 100.0f) army->groupState[g].morale = 100.0f;
+    }
+    Army_RecalculateAggregates(army);
+}
 
-    CalculateRankCasualties(&army->sargentos, totalDesertPct, totalDeathPct, cfg->rankMultSergeants,
-                            &report->desertedSergeants, &report->deadSergeants, rng);
+void Army_ApplyHealthDelta(Army* army, float delta) {
+    if (!army) return;
+    for (int g = RG_INICIADOS; g <= RG_SARGENTOS; g++) {
+        army->groupState[g].health += delta;
+        if (army->groupState[g].health < 0.0f) army->groupState[g].health = 0.0f;
+        if (army->groupState[g].health > 100.0f) army->groupState[g].health = 100.0f;
+    }
+    Army_RecalculateAggregates(army);
+}
+
+void Army_ApplyGroupMoraleDelta(Army* army, RationGroup g, float delta) {
+    if (!army || g < 0 || g >= RG_COUNT) return;
+    if (g == RG_GANADO) return; /* ganado no tiene moral */
+    army->groupState[g].morale += delta;
+    if (army->groupState[g].morale < 0.0f) army->groupState[g].morale = 0.0f;
+    if (army->groupState[g].morale > 100.0f) army->groupState[g].morale = 100.0f;
+    Army_RecalculateAggregates(army);
+}
+
+void Army_ApplyGroupHealthDelta(Army* army, RationGroup g, float delta) {
+    if (!army || g < 0 || g >= RG_COUNT) return;
+    army->groupState[g].health += delta;
+    if (army->groupState[g].health < 0.0f) army->groupState[g].health = 0.0f;
+    if (army->groupState[g].health > 100.0f) army->groupState[g].health = 100.0f;
+    Army_RecalculateAggregates(army);
+}
+
+void Army_EndDay(Army* army, DayReport* report, Rng* rng) {
+    if (!army) return;
+    DayReport localReport;
+    if (!report) report = &localReport;
+
+    const BalanceConfig* cfg = Balance_GetGlobal();
+
+    /* Si no se comprometió un reparto de raciones hoy, ejecutar reparto automático (fallback) */
+    if (!army->dayRationCommitted) {
+        RationNeeds needs = Ration_GetNeeds(army, NULL, army->position);
+        RationPlan plan = Ration_Auto(army, &needs);
+        Ration_Commit(army, &plan, report, rng);
+    }
+    army->dayRationCommitted = false;
+
+    /* 6. Efectos de oficiales activos en el ejercito (E3):
+          Capellan: +2 moral diaria mientras moral < 50 */
+    Lieutenant* chaplain = Army_GetLieutenantByRole(army, ROLE_CAPELLAN);
+    if (chaplain && army->moral < 50.0f) {
+        Army_ApplyMoraleDelta(army, 2.0f);
+        if (army->moral > 50.0f) {
+            float excess = army->moral - 50.0f;
+            Army_ApplyMoraleDelta(army, -excess);
+        }
+        report->moralDelta += 2.0f;
+    }
+
+    /* 7. Deriva diaria de lealtad si moral < 30 (E3) */
+    if (army->moral < 30.0f) {
+        int drift = (cfg && cfg->dailyDriftWhenMoralBelow30 != 0) ? cfg->dailyDriftWhenMoralBelow30 : -1;
+        for (int i = 0; i < army->lieutenantCount; i++) {
+            int nl = army->lieutenants[i].loyalty + drift;
+            if (nl < 0) nl = 0;
+            army->lieutenants[i].loyalty = nl;
+        }
+    }
+
+    /* 8. Periodo de gracia tras motin (evita bucles, E1) */
+    if (army->mutinyGraceDaysLeft > 0) {
+        army->mutinyGraceDaysLeft--;
+    } else {
+        /* 9. Chequeo de motin diario a moral <= CheckMoral (E2) */
+        float checkMoral = (cfg && cfg->checkMoral > 0.0f) ? cfg->checkMoral : 10.0f;
+        if (army->moral <= checkMoral) {
+            int rebelIdx = -1;
+            if (Army_CheckMutiny(army, &rebelIdx)) {
+                Army_TriggerMutiny(army, rebelIdx);
+                report->mutinyOccurred = true;
+            } else if (army->lieutenantCount == 0) {
+                /* Si no quedan tenientes, ocurre una desercion masiva (E1) */
+                int desIniciados = army->iniciados / 2;
+                int desSoldados = army->soldados / 2;
+                int desSargentos = army->sargentos / 2;
+                army->iniciados -= desIniciados;
+                army->soldados -= desSoldados;
+                army->sargentos -= desSargentos;
+                report->desertedInitiates += desIniciados;
+                report->desertedSoldiers += desSoldados;
+                report->desertedSergeants += desSargentos;
+            }
+        }
+    }
+
+    /* 10. Avisos telegrafiados de motin (E2) */
+    if (cfg) {
+        if (army->moral <= cfg->warnMoral2 && !army->warnedMoral2) {
+            army->warnedMoral2 = true;
+            report->triggerWarn2 = true;
+        } else if (army->moral <= cfg->warnMoral1 && !army->warnedMoral1) {
+            army->warnedMoral1 = true;
+            report->triggerWarn1 = true;
+        }
+
+        /* Recuperacion de advertencias si la moral mejora */
+        if (army->moral > cfg->warnMoral1) {
+            army->warnedMoral1 = false;
+            army->warnedMoral2 = false;
+        } else if (army->moral > cfg->warnMoral2) {
+            army->warnedMoral2 = false;
+        }
+    }
 }
 
 
@@ -537,6 +601,87 @@ bool Army_CheckMutiny(Army* army, int* outRebelLieutenantIndex)
 
     return false;
 }
+
+bool Army_TriggerMutiny(Army* army, int rebelLieutenantIndex) {
+    if (!army) return false;
+    if (rebelLieutenantIndex < 0 || rebelLieutenantIndex >= army->lieutenantCount) return false;
+
+    /* 1. Si el comandante actual es el General, preservarlo en deposedGeneral con sus cartas y maldiciones */
+    if (army->commander.type == OFFICER_GENERAL) {
+        army->deposedGeneral = army->general;
+        army->hasDeposedGeneral = true;
+    }
+
+    /* 2. El teniente rebelde asume el mando */
+    Lieutenant* rebel = &army->lieutenants[rebelLieutenantIndex];
+    army->commander = Commander_FromLieutenant(rebel);
+
+    /* Activar su carta patrona como su unica carta activa si tiene una definida */
+    if (strlen(rebel->patronGod) > 0 && !rebel->hasPatronCard) {
+        /* Si patronCard.id ya tiene valor, marcar como activa */
+        if (strlen(rebel->patronCard.id) > 0) {
+            rebel->hasPatronCard = true;
+            rebel->patronCard.remaining = -1;
+        }
+    }
+
+    /* 3. Ajustar moral y periodo de gracia segun configuracion */
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    float moralAfter = (cfg && cfg->moralAfterMutiny > 0.0f) ? cfg->moralAfterMutiny : 35.0f;
+    int grace = (cfg && cfg->graceDays > 0) ? cfg->graceDays : 3;
+
+    army->moral = moralAfter;
+    army->mutinyGraceDaysLeft = grace;
+    army->warnedMoral1 = false;
+    army->warnedMoral2 = false;
+
+    return true;
+}
+
+bool Army_RestoreGeneral(Army* army) {
+    if (!army || !army->hasDeposedGeneral) return false;
+
+    /* Restaurar el general preservado */
+    army->general = army->deposedGeneral;
+    army->hasDeposedGeneral = false;
+
+    /* Si el comandante actual era un teniente, reducir su lealtad en 20 */
+    if (army->commander.type == OFFICER_LIEUTENANT && army->commander.ptr) {
+        Lieutenant* lt = (Lieutenant*)army->commander.ptr;
+        lt->loyalty -= 20;
+        if (lt->loyalty < 0) lt->loyalty = 0;
+    }
+
+    /* El general vuelve al mando */
+    army->commander = Commander_FromGeneral(&army->general);
+    return true;
+}
+
+void Army_DismissGeneral(Army* army) {
+    if (!army) return;
+    /* El general queda descartado definitivamente */
+    army->hasDeposedGeneral = false;
+}
+
+Lieutenant* Army_GetLieutenantByRole(Army* army, OfficerRole role) {
+    if (!army || role == ROLE_NONE) return NULL;
+    for (int i = 0; i < army->lieutenantCount; i++) {
+        if (army->lieutenants[i].role == role) {
+            return &army->lieutenants[i];
+        }
+    }
+    return NULL;
+}
+
+void Army_ApplyAdviceEffect(Army* army, OfficerRole role, int loyaltyDelta) {
+    Lieutenant* lt = Army_GetLieutenantByRole(army, role);
+    if (lt) {
+        lt->loyalty += loyaltyDelta;
+        if (lt->loyalty < 0) lt->loyalty = 0;
+        if (lt->loyalty > 100) lt->loyalty = 100;
+    }
+}
+
 
 int Army_GetVision(const Army* army) {
     if (!army) return 0;

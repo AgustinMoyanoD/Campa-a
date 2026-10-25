@@ -1,10 +1,17 @@
 [MODIFIER]
 Id=dionisio_vino
-Name=Dionisio: Coraje Liquido
+Name=Nectar de Dionisio
+Description=La embriaguez sagrada disipa el cansancio y une a las filas. Anade +20 cantimploras de Vino de botin y +25 de Moral tras vencer en combate.
 Kind=CARD
-Duration=BATTLES:3
+Source=DIONISIO
+Rarity=RARE
+Tags=VINO, MORAL
+Duration=PERMANENTE
 
-[HOOK_1]
-Hook=RECOUNT_DEATH
-Effect=casualties:-10%
+[RULE]
+Hook=COMBAT_END
+Effect=wine:+20
 
+[RULE]
+Hook=COMBAT_END
+Effect=moral:+25

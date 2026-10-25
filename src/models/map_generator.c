@@ -2086,6 +2086,45 @@ void Map_Free(
     map->tiles = NULL;
     map->tileCount = 0;
 }
+
+void MapConfig_InitDefault(MapConfig* cfg, int provinceLevel) {
+    if (!cfg) return;
+    cfg->radius = 70;
+    cfg->landProbabilityPercent = 55;
+    cfg->exitCount = 3;
+    cfg->provinceLevel = (provinceLevel >= 1 && provinceLevel <= 4) ? provinceLevel : 1;
+}
+
+void Map_Init(Map* map, const MapConfig* cfg) {
+    if (!map) return;
+    if (map->tiles != NULL) {
+        Map_Free(map);
+    }
+
+    MapConfig defaultCfg;
+    if (!cfg) {
+        MapConfig_InitDefault(&defaultCfg, 1);
+        cfg = &defaultCfg;
+    }
+
+    *map = Map_GenerateProcedural(
+        cfg->radius,
+        cfg->landProbabilityPercent,
+        cfg->exitCount,
+        cfg->provinceLevel
+    );
+}
+
+HexCoord Map_GetStartCoord(const Map* map) {
+    if (!map || !map->tiles) return HexCoord_Create(0, 0);
+    for (int i = 0; i < map->tileCount; i++) {
+        if (map->tiles[i].special == TILE_SPECIAL_START) {
+            return map->tiles[i].coord;
+        }
+    }
+    return HexCoord_Create(0, 0);
+}
+
 HexTile* Map_GetTile(const Map* map, HexCoord coord) {
     for (int i = 0; i < map->tileCount; i++) {
         if (map->tiles[i].coord.q == coord.q && map->tiles[i].coord.r == coord.r) return &map->tiles[i];

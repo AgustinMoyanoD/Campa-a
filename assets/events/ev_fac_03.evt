@@ -1,0 +1,27 @@
+[EVENT]
+Id=ev_fac_03
+Name=Emisarios de la Hermandad del Hierro
+Description=Jinetes bárbaros de la Hermandad del Hierro galopan al encuentro de la columna. Exigen tributo de sangre o monedas para cruzar su territorio montañoso.
+Trigger=RANDOM
+Biome=MOUNTAIN,FOREST
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Pagar el tributo de oro exigido
+Requires=gold>=25
+Result_pool=res_fac_03_oro_clean:60,res_fac_03_oro_burla:40
+
+[OPTION_2]
+Text=Aceptar el desafío en duelo individual ante ambas fuerzas
+Result_pool=res_fac_03_duelo_clean:65,res_fac_03_duelo_herida:35
+
+[OPTION_3]
+Text=Demostrar superioridad táctica desplegando arqueros en las alturas
+Requires=eval>=2
+Result_pool=res_fac_03_eval:100

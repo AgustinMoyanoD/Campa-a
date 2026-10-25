@@ -91,7 +91,15 @@ typedef struct {
     
     // Combate
     int initiator; // 0 = jugador, 1 = enemigo
+
+    // Identidad de Facción y Relación (NPC Controller / NPC View)
+    int factionId;          // -1 = Independiente/Bandidos/Cazador, 0 = Gremio, 1 = Sol, 2 = Hierro
+    bool alwaysHostile;     // true para bandidos, cazadores y guarniciones
+    float lootMultiplier;   // 1.0f por defecto; 2.0f para custodias de tesoro
 } EnemySquad;
+
+/* Alias para transición a NPC_view y arquitectura de personajes no jugables */
+typedef EnemySquad NPCSquad;
 
 EnemySquad Enemy_Create(const char* name, HexCoord position, int strength, int mobility, int ini, int sol, int sgt);
 EnemySquad Enemy_CreateWithBehavior(const char* name, HexCoord position, int strength, int mobility, int ini, int sol, int sgt, EnemyBehavior behavior);

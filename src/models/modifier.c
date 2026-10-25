@@ -52,6 +52,8 @@ static ModifierHook ParseHook(const char* str) {
     if (strcmp(str, "NIGHT_ENCOUNTER_CHANCE") == 0) return HOOK_NIGHT_ENCOUNTER_CHANCE;
     if (strcmp(str, "EVENT_FILTER") == 0) return HOOK_EVENT_FILTER;
     if (strcmp(str, "EVENT_RESULT") == 0) return HOOK_EVENT_RESULT;
+    if (strcmp(str, "DAY_START") == 0) return HOOK_DAY_START;
+    if (strcmp(str, "FORAGE_YIELD") == 0) return HOOK_FORAGE_YIELD;
     return HOOK_PASSIVE;
 }
 
@@ -83,6 +85,11 @@ static Condition ParseCondition(const char* str) {
         Modifier_TrimWhitespace(rhs);
         if (strcmp(lhs, "plan") == 0) {
             cond.terms[0].lhs = COND_PLAN;
+            cond.terms[0].op = OP_EQ;
+            strncpy(cond.terms[0].rhsStr, rhs, sizeof(cond.terms[0].rhsStr)-1);
+            cond.termCount = 1;
+        } else if (strcasecmp(lhs, "time") == 0) {
+            cond.terms[0].lhs = COND_TIME;
             cond.terms[0].op = OP_EQ;
             strncpy(cond.terms[0].rhsStr, rhs, sizeof(cond.terms[0].rhsStr)-1);
             cond.termCount = 1;
@@ -136,12 +143,17 @@ static int LoadModifiersFromFile(const char* filepath, ModifierDef* outMods, int
         if (strlen(buffer) == 0) continue;
         
         if (strcmp(buffer, "[MODIFIER]") == 0) {
+            if (currentMod && (int)currentMod->target == -1) {
+                currentMod->target = ParseTarget("", currentMod->kind);
+            }
             if (currentCount >= maxMods) break;
             currentMod = &outMods[currentCount];
             memset(currentMod, 0, sizeof(ModifierDef));
-            currentMod->target = MOD_TARGET_COMMANDER;
+            currentMod->target = (ModifierTarget)-1;
             currentMod->durationType = DURATION_PERMANENT;
             currentMod->rarityWeight = 60; // COMMON by default
+            currentMod->invocationClashMult = 1.0f;
+            currentMod->invocationCounterIntent = -1;
             currentCount++;
             currentRule = NULL;
             continue;
@@ -187,6 +199,20 @@ static int LoadModifiersFromFile(const char* filepath, ModifierDef* outMods, int
                 if (strcmp(val, "COMMON") == 0) currentMod->rarityWeight = 60;
                 else if (strcmp(val, "RARE") == 0) currentMod->rarityWeight = 30;
                 else if (strcmp(val, "EPIC") == 0) currentMod->rarityWeight = 10;
+                else if (strcmp(val, "LEGENDARY") == 0) currentMod->rarityWeight = 5;
+            }
+            else if (strcmp(key, "Tags") == 0) {
+                char tagsBuf[128];
+                strncpy(tagsBuf, val, sizeof(tagsBuf)-1);
+                tagsBuf[sizeof(tagsBuf)-1] = '\0';
+                char* token = strtok(tagsBuf, ",");
+                while (token && currentMod->tagCount < 8) {
+                    Modifier_TrimWhitespace(token);
+                    if (strlen(token) > 0) {
+                        strncpy(currentMod->tags[currentMod->tagCount++], token, 15);
+                    }
+                    token = strtok(NULL, ",");
+                }
             }
             else if (strcmp(key, "Duration") == 0) {
                 if (strncmp(val, "BATTLES:", 8) == 0) {
@@ -199,11 +225,41 @@ static int LoadModifiersFromFile(const char* filepath, ModifierDef* outMods, int
                     currentMod->durationType = DURATION_PERMANENT;
                 }
             }
+            else if (strcmp(key, "Invocation_Name") == 0) {
+                strncpy(currentMod->invocationName, val, sizeof(currentMod->invocationName)-1);
+                currentMod->hasInvocation = true;
+            }
+            else if (strcmp(key, "Invocation_Desc") == 0) {
+                strncpy(currentMod->invocationDesc, val, sizeof(currentMod->invocationDesc)-1);
+                currentMod->hasInvocation = true;
+            }
+            else if (strcmp(key, "Invocation_Roll") == 0) {
+                currentMod->invocationRollMod = atoi(val);
+                currentMod->hasInvocation = true;
+            }
+            else if (strcmp(key, "Invocation_Clash") == 0) {
+                currentMod->invocationClashMult = (float)atof(val);
+                currentMod->hasInvocation = true;
+            }
+            else if (strcmp(key, "Invocation_Counter") == 0) {
+                if (strcmp(val, "CHARGE") == 0) currentMod->invocationCounterIntent = 0;
+                else if (strcmp(val, "HOLD") == 0) currentMod->invocationCounterIntent = 1;
+                else if (strcmp(val, "MANEUVER") == 0) currentMod->invocationCounterIntent = 2;
+                else currentMod->invocationCounterIntent = atoi(val);
+                currentMod->hasInvocation = true;
+            }
+            else if (strcmp(key, "Invocation_Variance") == 0) {
+                currentMod->invocationHighVariance = (strcmp(val, "HIGH") == 0 || strcmp(val, "TRUE") == 0 || strcmp(val, "1") == 0);
+                currentMod->hasInvocation = true;
+            }
+            else if (strcmp(key, "Rival") == 0) {
+                strncpy(currentMod->rivalGod, val, sizeof(currentMod->rivalGod)-1);
+            }
         }
     }
     
     // Post process Target if not specified
-    if (currentMod && currentMod->target == MOD_TARGET_COMMANDER) {
+    if (currentMod && (int)currentMod->target == -1) {
         currentMod->target = ParseTarget("", currentMod->kind);
     }
     
@@ -238,9 +294,47 @@ ModifierDef* Modifier_GetById(const ModifierDef* registry, int registryCount, co
 }
 
 int Modifier_CollectActive(const ModifierRegistry* reg, const Army* army, const EnemySquad* enemy, ActiveMod* out, int max) {
-    // Phase B implementation placeholder, returning 0 for now.
-    // Real implementation requires Army/EnemySquad instance definition updates.
-    return 0;
+    if (!reg || !army || !out || max <= 0) return 0;
+    int count = 0;
+    
+    // 1. Commander Divine Cards (ignorar si están agotadas)
+    int cardCount = Commander_GetCardCount(army->commander);
+    for (int i = 0; i < cardCount && count < max; i++) {
+        if (Commander_IsCardExhausted(army->commander, i)) {
+            continue; // La carta agotada no aporta pasivas
+        }
+        const char* cardId = Commander_GetCard(army->commander, i);
+        ModifierDef* def = Modifier_GetById(reg->defs, reg->count, cardId);
+        if (def) {
+            out[count].def = def;
+            out[count].owner = SIDE_PLAYER;
+            count++;
+        }
+    }
+    
+    // 2. Commander Curses
+    int cmdCurseCount = Commander_GetCurseCount(army->commander);
+    for (int i = 0; i < cmdCurseCount && count < max; i++) {
+        const char* curseId = Commander_GetCurse(army->commander, i);
+        ModifierDef* def = Modifier_GetById(reg->defs, reg->count, curseId);
+        if (def) {
+            out[count].def = def;
+            out[count].owner = SIDE_PLAYER;
+            count++;
+        }
+    }
+    
+    // 3. Army Curses
+    for (int i = 0; i < army->curseCount && count < max; i++) {
+        ModifierDef* def = Modifier_GetById(reg->defs, reg->count, army->curses[i].id);
+        if (def) {
+            out[count].def = def;
+            out[count].owner = SIDE_PLAYER;
+            count++;
+        }
+    }
+    
+    return count;
 }
 
 static bool Condition_Eval(const Condition* cond, const ModContext* ctx) {
@@ -259,6 +353,14 @@ static bool Condition_Eval(const Condition* cond, const ModContext* ctx) {
                 if (term->op == OP_EQ && strcmp(term->rhsStr, currentPlanStr) == 0) passed = true;
                 if (term->op == OP_NE && strcmp(term->rhsStr, currentPlanStr) != 0) passed = true;
             }
+        } else if (term->lhs == COND_TIME) {
+            if (strcasecmp(term->rhsStr, "NIGHT") == 0) {
+                passed = (ctx->timeOfDay == 2);
+            } else if (strcasecmp(term->rhsStr, "AFTERNOON") == 0) {
+                passed = (ctx->timeOfDay == 1);
+            } else if (strcasecmp(term->rhsStr, "MORNING") == 0) {
+                passed = (ctx->timeOfDay == 0);
+            }
         } else if (term->lhs == COND_ENEMY_TAG) {
             // Simplified for now
             passed = false;
@@ -272,6 +374,34 @@ static bool Condition_Eval(const Condition* cond, const ModContext* ctx) {
         if (!passed) return false;
     }
     return true;
+}
+
+bool Modifier_CheckRivals(const ModifierRegistry* reg, const Army* army, char* outConflict, int maxLen) {
+    if (!reg || !army) return false;
+    int cardCount = Commander_GetCardCount(army->commander);
+    if (cardCount < 2) return false;
+
+    for (int i = 0; i < cardCount; i++) {
+        const char* idA = Commander_GetCard(army->commander, i);
+        const ModifierDef* defA = Modifier_GetById(reg->defs, reg->count, idA);
+        if (!defA || defA->rivalGod[0] == '\0') continue;
+
+        for (int j = 0; j < cardCount; j++) {
+            if (i == j) continue;
+            const char* idB = Commander_GetCard(army->commander, j);
+            const ModifierDef* defB = Modifier_GetById(reg->defs, reg->count, idB);
+            if (!defB) continue;
+
+            if (strcasecmp(defA->rivalGod, defB->source) == 0 ||
+                (defB->rivalGod[0] != '\0' && strcasecmp(defB->rivalGod, defA->source) == 0)) {
+                if (outConflict && maxLen > 0) {
+                    snprintf(outConflict, maxLen, "Disputa: %s vs %s", defA->source, defB->source);
+                }
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 int Modifier_Query(ModifierHook hook, EffectType stat, ModSide side, const ModContext* ctx, int base, ModBreakdown* outOpt) {
@@ -328,6 +458,20 @@ int Modifier_Query(ModifierHook hook, EffectType stat, ModSide side, const ModCo
     int finalValue = base + absoluteBonus;
     if (percentageBonus != 0) {
         finalValue += (finalValue * percentageBonus) / 100;
+    }
+
+    // Penalización por rivalidad divina si los dioses disputan en el campamento (-1 a planificación)
+    if (hook == HOOK_PLAN_ROLL && stat == EFFECT_PLANNING && side == EFFECT_SIDE_SELF) {
+        char rivalMsg[64];
+        if (Modifier_CheckRivals(ctx->reg, ctx->army, rivalMsg, sizeof(rivalMsg))) {
+            finalValue -= 1;
+            if (outOpt && outOpt->count < 12) {
+                strncpy(outOpt->entries[outOpt->count].source, rivalMsg, 47);
+                outOpt->entries[outOpt->count].flat = -1;
+                outOpt->entries[outOpt->count].percent = 0;
+                outOpt->count++;
+            }
+        }
     }
     
     if (outOpt) outOpt->final = finalValue;

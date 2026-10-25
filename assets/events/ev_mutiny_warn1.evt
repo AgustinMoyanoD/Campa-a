@@ -1,0 +1,21 @@
+[EVENT]
+Id=ev_mutiny_warn1
+Name=Rumores de Sedicion
+Description=Los soldados susurran en la oscuridad. El descontento por las penurias crece y algunos oficiales cuestionan tu liderazgo.
+Trigger=NONE
+Probability=0
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Prometer botin y doble racion (Cuesta 30 Comida, +10 Moral)
+Requires=food>=30
+Result_pool=res_mutiny_warn1_raciones
+
+[OPTION_2]
+Text=Discurso inspirador y disciplina (+5 Moral)
+Result_pool=res_mutiny_warn1_discurso

@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_urb_02
+Name=La Fábrica de Armas Clandestina
+Description=En los arrabales de la armería urbana, descubres un taller que vende lanzas y cotas de malla bajo cuerda a rebeldes y facciones rivales.
+Trigger=ARMORY,CITY
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Confiscar el taller completo para reequipar al ejército
+Result_pool=res_urb_02_confiscar_clean:65,res_urb_02_confiscar_cost:35
+
+[OPTION_2]
+Text=Comprar su silencio y sus mejores armas con oro de campaña
+Requires=gold>=30
+Result_pool=res_urb_02_comprar_clean:65,res_urb_02_comprar_craso:35
+
+[OPTION_3]
+Text=Reclutar a los maestros forjadores como ingenieros militares
+Requires=plan>=2
+Result_pool=res_urb_02_plan:100

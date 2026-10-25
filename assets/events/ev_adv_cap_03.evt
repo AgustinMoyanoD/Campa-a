@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_cap_03
+Name=Consejo del Capellán: Los Desertores Arrepentidos
+Description=Dos desertores son capturados cerca del vado. Varro y los sargentos exigen degollarlos ante la tropa. Vitelio pide perdonarles la vida y asignarlos a la enfermería.
+Trigger=ADVICE
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aceptar el ruego del Capellán: conmutar la pena por servicio
+Result_pool=res_adv_cap_03_acc_clean:60,res_adv_cap_03_acc_cost:40
+
+[OPTION_2]
+Text=Aplicar la ley marcial: ejecución pública ejemplar
+Result_pool=res_adv_cap_03_ign_sargentos:60,res_adv_cap_03_ign_vitelio:40
+
+[OPTION_3]
+Text=Imponer castigo de azotes y juramento solemne sobre el estandarte
+Requires=lead>=2
+Result_pool=res_adv_cap_03_lead:100

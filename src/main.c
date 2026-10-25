@@ -17,11 +17,14 @@
 #include "presentation/ui_widgets.h"
 #include "camera_controller.h"
 #include "controllers/game_master.h"
+#include "controllers/npc_controller.h"
 #include "models/menu.h"
 #include "views/menu_view.h"
 #include "views/event_view.h"
 #include "views/combat_view.h"
 #include "views/enemy_view.h"
+#include "views/npc_view.h"
+#include "views/ration_view.h"
 #include "views/draft_view.h"
 #include "views/city_view.h"
 
@@ -31,13 +34,10 @@
 
 int main(void)
 {
+    ChangeDirectory(GetApplicationDirectory());
+
     const int screenWidth = 1024;
     const int screenHeight = 768;
-
-    const int mapRadius = 70;
-    const int landProbabilityPercent = 55;
-
-    const float hexRadius = 35.0f;
 
 
     /* ============================================================
@@ -51,72 +51,45 @@ int main(void)
     );
 
     ToggleFullscreen();
-
     SetTargetFPS(60);
+    srand((unsigned int)time(NULL));
+
     Audio_Init();
     UI_Init();
 
-
-    srand(
-        (unsigned int)time(NULL)
-    );
-
-
-        /* ============================================================
-       CARGAR ASSETS
-       ============================================================ */
-
-    GameAssets gameAssets = {0};
+    GameAssets gameAssets;
     Assets_Init(&gameAssets);
 
-
-    /* ============================================================
-       CENTRO DE LA PANTALLA
-       ============================================================ */
-
-    Vector2 center = {
-        GetScreenWidth() / 2.0f,
-        GetScreenHeight() / 2.0f
-    };
-
-
-    int provinceLevel = 1;
-    Vector2 origin = (Vector2){ 0.0f, 0.0f };
+    Vector2 center = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
     CameraController cc;
     CameraController_Init(&cc, center);
 
-    /* ============================================================
-       MAPA
-       ============================================================ */
-
-    Map levelMap = {0};
-    HudState hudState = {0};
-    Army playerArmy = {0};
-    GameMaster gm = {0};
-    DraftContext activeDraft = {0};
-    
-    gm.phase = PHASE_MENU;
+    int provinceLevel = 1;
 
     MainMenu mainMenu;
     Menu_Init(&mainMenu);
     MenuView_Init();
-    Vector2 visualArmyPos = {0};
-    Vector2 visualEnemyPos[64] = {0};
-    bool enemyFirstFrame[64] = {0};
-    bool enemyIsTweening[64] = {0};
-    for (int i = 0; i < 64; i++) enemyFirstFrame[i] = true;
-    bool firstFrame = true;
-    
-    float skyR = 255.0f, skyG = 255.0f, skyB = 255.0f;
-    TimeOfDay lastTimeOfDay = gm.timeOfDay;
 
+    ArmySetupConfig armySetup;
+    ArmySetup_InitDefault(&armySetup);
+
+    Map levelMap = {0};
+    MapViewState mapView;
+    MapView_Init(&mapView);
+
+    HudState hudState;
+    Hud_InitState(&hudState);
+
+    RationViewState rationView = {0};
+    DraftContext activeDraft = {0};
+    Army playerArmy = {0};
+    GameMaster gm = {0};
+    gm.phase = PHASE_MENU;
 
     /* ============================================================
        LOOP PRINCIPAL
        ============================================================ */
 
-    bool debugRevealMap = false;
-    HexTile* selectedTile = NULL;
     GamePhase lastPhase = gm.phase;
     Audio_PlayPhaseMusic(gm.phase, 1.0f);
     Audio_PlayPhaseSFX(gm.phase);
@@ -124,47 +97,24 @@ int main(void)
     while (!WindowShouldClose())
     {
         float dt = GetFrameTime();
-        
+        Audio_Update(dt);
+
         if (gm.phase != lastPhase) {
             Audio_PlayPhaseMusic(gm.phase, 2.0f);
             Audio_PlayPhaseSFX(gm.phase);
+            ScreenFX_FadeFromBlack(0.3f);
             lastPhase = gm.phase;
         }
 
         if (gm.phase == PHASE_MENU) {
             BeginDrawing();
-            MenuView_Draw(&mainMenu, screenWidth, screenHeight);
+            MenuView_Draw(&mainMenu, GetScreenWidth(), GetScreenHeight());
             EndDrawing();
 
             if (mainMenu.startGame) {
-                levelMap = Map_GenerateProcedural(mapRadius, landProbabilityPercent, 3, provinceLevel);
-                hudState = Hud_Init();
-                
-                General generalPrueba = General_Create("Cayo Marcio", 38, 1, 3, 3, 2, 5);
-                HexTile* startTile = NULL;
-                for (int i = 0; i < levelMap.tileCount; i++) {
-                    if (levelMap.tiles[i].special == TILE_SPECIAL_START) {
-                        startTile = &levelMap.tiles[i]; break;
-                    }
-                }
-                HexCoord startCoord = startTile ? startTile->coord : HexCoord_Create(0,0);
-                
-                playerArmy = Army_Create(startCoord, generalPrueba, 8, 40, 15, 200.0f, 180.0f, 350, 12);
-                Lieutenant lt = Lieutenant_Create("Publio Varro", NULL, 26, 2, 1, 1, 0, 2, 72);
-                Army_AddLieutenant(&playerArmy, lt);
-                Army_SetCommanderGeneral(&playerArmy);
-                
-                GameMaster_Init(&gm);
-                
-                
-                GameMaster_SpawnTestEnemies(&gm, &levelMap, playerArmy.position);
-                GameMaster_StartTurn(&gm, &playerArmy);
-                
-                Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
-                visualArmyPos = HexToPixel(playerArmy.position, hexRadius);
-                cc.camera.target = visualArmyPos;
-                mainMenu.startGame = false; // consume input
-                // Note: GameMaster_Init sets gm.phase = PHASE_PLAYER implicitly
+                mainMenu.startGame = false;
+                ArmySetup_InitDefault(&armySetup);
+                gm.phase = PHASE_SETUP;
             }
             if (mainMenu.quitGame) {
                 break;
@@ -172,71 +122,45 @@ int main(void)
             continue;
         }
 
-        if (lastTimeOfDay != gm.timeOfDay) {
-            float targetR = 255.0f, targetG = 255.0f, targetB = 255.0f;
-            switch(gm.timeOfDay) {
-                case TIME_MORNING: targetR=255.0f; targetG=240.0f; targetB=220.0f; break; // Alba calida
-                case TIME_MIDDAY:  targetR=255.0f; targetG=255.0f; targetB=255.0f; break; // Sol pleno
-                case TIME_AFTERNOON:targetR=255.0f; targetG=200.0f; targetB=150.0f; break; // Atardecer naranja
-                case TIME_NIGHT:   targetR=100.0f; targetG=120.0f; targetB=180.0f; break; // Noche azulada
-            }
-            Tween_Start(&skyR, targetR, 1.5f, Ease_Linear);
-            Tween_Start(&skyG, targetG, 1.5f, Ease_Linear);
-            Tween_Start(&skyB, targetB, 1.5f, Ease_Linear);
-            lastTimeOfDay = gm.timeOfDay;
+        if (gm.phase == PHASE_SETUP) {
+            /* Punto de enganche para la futura ventana de elección de personajes:
+               La vista modificará 'armySetup' (General, Tenientes y stats) y al
+               confirmar invocará GameMaster_StartCampaign. */
+            GameMaster_StartCampaign(&gm, &levelMap, &playerArmy, &armySetup, provinceLevel);
+            Hud_InitState(&hudState);
+            MapView_SyncToArmy(&mapView, playerArmy.position, &cc);
+            Audio_SetAmbientTimeOfDay(gm.timeOfDay);
+            continue;
         }
-        Tween_Update(dt);
-        Sequence_Update(dt);
-        ScreenFX_Update(dt);
-        Audio_Update(dt);
-        if (playerArmy.isMoving || Sequence_IsBusy()) {
-            cc.camera.target = visualArmyPos;
-        }
-        if (firstFrame) { Vector2 p = HexToPixel(playerArmy.position, hexRadius); visualArmyPos = p; firstFrame = false; }
-        
-        bool anyEnemyMoving = false;
-        for (int i = 0; i < gm.enemyCount; i++) {
-            if (!gm.enemies[i].isActive) continue;
-            Vector2 target = HexToPixel(gm.enemies[i].position, hexRadius);
-            if (enemyFirstFrame[i]) {
-                visualEnemyPos[i] = target;
-                enemyFirstFrame[i] = false;
-            }
-            float dist = Vector2Distance(visualEnemyPos[i], target);
-            if (dist > 1.0f) {
-                if (!enemyIsTweening[i]) {
-                    Tween_Start(&visualEnemyPos[i].x, target.x, 0.4f, Ease_OutCubic);
-                    Tween_Start(&visualEnemyPos[i].y, target.y, 0.4f, Ease_OutCubic);
-                    enemyIsTweening[i] = true;
-                    anyEnemyMoving = true;
-                }
-            } else {
-                enemyIsTweening[i] = false;
-            }
-        }
-        if (anyEnemyMoving) {
-            SeqAction enemyMoveAct = {0};
-            enemyMoveAct.duration = 0.45f;
-            Sequence_Push(enemyMoveAct);
-        }
+
+        MapView_UpdateWorldVisuals(&mapView, &gm, &playerArmy, &cc, dt);
         /* ========================================================
-           CAMBIO DE PROVINCIA Y REGENERACI�N
+           CAMBIO DE PROVINCIA Y REGENERACIN
            ======================================================== */
 
         bool regenerate = false;
 
-        if (gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY && !gm.hasDayReport && !gm.showCampDecision && IsKeyPressed(KEY_ENTER)) {
+        if (gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY && !gm.hasDayReport && !gm.showCampDecision && !hudState.showOfficersPanel && !hudState.showGroupsPanel && !GameMaster_RationPending(&gm) && !rationView.showingReport && !hudState.dice.rolling && !playerArmy.isMoving && IsKeyPressed(KEY_ENTER)) {
+            Audio_PlaySfxByName("turn_end");
             GameMaster_EndTurn(&gm, &levelMap, &playerArmy);
             Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
         }
 
-        if (gm.canInteractStructure && gm.phase == PHASE_PLAYER && !gm.hasDayReport && !gm.showCampDecision) {
+        if (gm.canInteractStructure && gm.phase == PHASE_PLAYER && !gm.hasDayReport && !gm.showCampDecision && !hudState.showOfficersPanel && !hudState.showGroupsPanel && !GameMaster_RationPending(&gm) && !rationView.showingReport) {
             if (IsKeyPressed(KEY_E)) {
-                GameMaster_OpenCity(&gm, &levelMap, &playerArmy);
+                GameMaster_InteractStructure(&gm, &levelMap, &playerArmy);
             }
         }
 
-        if (IsKeyPressed(KEY_F1)) debugRevealMap = !debugRevealMap;
+        if (gm.phase == PHASE_PLAYER && !gm.hasDayReport && !gm.showCampDecision && !hudState.showOfficersPanel && !hudState.showGroupsPanel && !GameMaster_RationPending(&gm) && !rationView.showingReport) {
+            int attackableNpcIdx = NPC_FindAttackableSquadNear(&gm, playerArmy.position);
+            if (attackableNpcIdx >= 0 && IsKeyPressed(KEY_X)) {
+                NPC_PlayerVoluntaryAttack(&gm, &playerArmy, attackableNpcIdx);
+                playerArmy.isMoving = false;
+            }
+        }
+
+        if (IsKeyPressed(KEY_F1)) mapView.debugRevealMap = !mapView.debugRevealMap;
 
         if (IsKeyPressed(KEY_R))
             regenerate = true;
@@ -264,26 +188,10 @@ int main(void)
 
         if (regenerate)
         {
-            Map_Free(&levelMap);
-
-            levelMap =
-                Map_GenerateProcedural(
-                    mapRadius,
-                    landProbabilityPercent,
-                    3,
-                    provinceLevel
-                );
-
-            selectedTile = NULL;
+            GameMaster_TransitionProvince(&gm, &levelMap, &playerArmy, provinceLevel);
+            MapView_SyncToArmy(&mapView, playerArmy.position, &cc);
             
             /* Reposicionar ej�rcito */
-            for (int i = 0; i < levelMap.tileCount; i++) { if (levelMap.tiles[i].special == TILE_SPECIAL_START) { playerArmy.position = levelMap.tiles[i].coord; break; } } visualArmyPos = HexToPixel(playerArmy.position, hexRadius); cc.camera.target = visualArmyPos; Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
-    {
-        Vector2 pos = HexToPixel(playerArmy.position, hexRadius);
-        pos.x += origin.x;
-        pos.y += origin.y;
-        CameraController_FocusOn(&cc, pos);
-    }
         }
 
 
@@ -308,26 +216,27 @@ int main(void)
                     Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
                     playerArmy.currentPathIndex++;
                     
-                    Vector2 targetPixel = HexToPixel(playerArmy.position, hexRadius);
+                    Vector2 targetPixel = HexToPixel(playerArmy.position, mapView.hexRadius);
                     
                     
                     SeqAction moveAct = {0};
                     moveAct.duration = 0.25f;
                     Sequence_Push(moveAct);
                     
-                    Tween_Start(&visualArmyPos.x, targetPixel.x, 0.25f, Ease_Linear);
-                    Tween_Start(&visualArmyPos.y, targetPixel.y, 0.25f, Ease_Linear);
+                    Tween_Start(&mapView.visualArmyPos.x, targetPixel.x, 0.25f, Ease_Linear);
+                    Tween_Start(&mapView.visualArmyPos.y, targetPixel.y, 0.25f, Ease_Linear);
+                    Audio_PlayStepBiome(targetTile->biome);
+                    ScreenFX_SpawnMarchDust((Vector2){ targetPixel.x + mapView.origin.x, targetPixel.y + mapView.origin.y }, (Color){ 195, 175, 130, 255 });
                     
                     for (int e = 0; e < gm.enemyCount; e++) {
                         if (gm.enemies[e].isActive && gm.enemies[e].position.q == playerArmy.position.q && gm.enemies[e].position.r == playerArmy.position.r) {
-                            gm.inCombat = true;
-                            gm.phase = PHASE_EVENT;
-                            gm.enemies[e].initiator = 0;
-                            gm.activeCombat.initiator = 0;
-                            gm.activeCombat.ambushed = (gm.enemies[e].behavior == AI_AMBUSH || Enemy_HasTag(&gm.enemies[e], TAG_AMBUSH));
-                            Combat_Init(&gm.activeCombat, &gm, &playerArmy, &gm.enemies[e]);
-                            playerArmy.isMoving = false;
-                            break;
+                            if (NPC_IsHostileToPlayer(&gm.enemies[e], &gm)) {
+                                Audio_PlaySfxByName("enemy_alert");
+                                bool ambushed = (gm.enemies[e].behavior == AI_AMBUSH || Enemy_HasTag(&gm.enemies[e], TAG_AMBUSH));
+                                NPC_InitiateCombat(&gm, &playerArmy, &gm.enemies[e], 0, ambushed);
+                                playerArmy.isMoving = false;
+                                break;
+                            }
                         }
                     }
                 } else {
@@ -351,9 +260,9 @@ int main(void)
             GameMaster_ApplyDiceRoll(&gm, &playerArmy, hudState.dice.valor1 + hudState.dice.valor2);
         }
         Assets_UpdateAnimations(&gameAssets, GetFrameTime());
-        if (gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY && !gm.hasDayReport && !gm.showCampDecision) Hud_HandleInput(&hudState, &gm, &playerArmy, &levelMap);
+        if (gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY && !gm.hasDayReport && !gm.showCampDecision && !hudState.showOfficersPanel && !hudState.showGroupsPanel && !GameMaster_RationPending(&gm) && !rationView.showingReport) Hud_HandleInput(&hudState, &gm, &playerArmy, &levelMap);
         
-        if (IsKeyPressed(KEY_SPACE) && gm.phase != PHASE_CITY && !gm.hasRolledThisTurn && !gm.hasDayReport && !gm.showCampDecision) {
+        if (IsKeyPressed(KEY_SPACE) && gm.phase != PHASE_CITY && !gm.hasRolledThisTurn && !gm.hasDayReport && !gm.showCampDecision && !hudState.showOfficersPanel && !hudState.showGroupsPanel && !GameMaster_RationPending(&gm) && !rationView.showingReport) {
             Hud_RollDice(&hudState);
         }
 
@@ -361,7 +270,7 @@ int main(void)
            MOUSE INPUT PARA MAPA
            ======================================================== */
 
-        if (gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY && !gm.hasDayReport && !gm.showCampDecision && IsMouseButtonPressed(
+        if (gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY && !gm.hasDayReport && !gm.showCampDecision && !hudState.showOfficersPanel && !hudState.showGroupsPanel && !GameMaster_RationPending(&gm) && !rationView.showingReport && IsMouseButtonPressed(
                 MOUSE_BUTTON_LEFT) && 
             !CheckCollisionPointRec(GetMousePosition(), hudState.cmdPanelRect) &&
             !CheckCollisionPointRec(GetMousePosition(), hudState.rollBtnRect) &&
@@ -391,8 +300,8 @@ int main(void)
              * Por lo tanto, quitamos origin antes
              * de hacer PixelToHex().
              */
-            worldPosition.x -= origin.x;
-            worldPosition.y -= origin.y;
+            worldPosition.x -= mapView.origin.x;
+            worldPosition.y -= mapView.origin.y;
 
             /*
              * Convertir posici�n del mouse
@@ -401,7 +310,7 @@ int main(void)
             HexCoord mouseHex =
                 PixelToHex(
                     worldPosition,
-                    hexRadius
+                    mapView.hexRadius
                 );
 
 
@@ -412,14 +321,9 @@ int main(void)
                             HexTile* tile = &levelMap.tiles[i];
             
                             if (tile->coord.q == mouseHex.q && tile->coord.r == mouseHex.r) {
-                                if (tile == selectedTile && !playerArmy.isMoving) {
+                                if (tile == mapView.selectedTile && !playerArmy.isMoving) {
                                     if (gm.hasRolledThisTurn) {
-                                        HexTile* startTile = NULL;
-                                        for (int k = 0; k < levelMap.tileCount; k++) {
-                                            if (levelMap.tiles[k].coord.q == playerArmy.position.q && levelMap.tiles[k].coord.r == playerArmy.position.r) {
-                                                startTile = &levelMap.tiles[k]; break;
-                                            }
-                                        }
+                                        HexTile* startTile = Map_GetTile(&levelMap, playerArmy.position);
                                         if (startTile) {
                                             HexTile* path[128];
                                             int cost = 0;
@@ -432,12 +336,12 @@ int main(void)
                                                 playerArmy.currentPathIndex = 0;
                                                 playerArmy.moveTimer = 0.0f;
                                                 playerArmy.isMoving = true;
-                                                selectedTile = NULL;
+                                                mapView.selectedTile = NULL;
                                             }
                                         }
                                     }
                                 } else {
-                                    selectedTile = tile;
+                                    mapView.selectedTile = tile;
                                 }
                                 break;
                             }
@@ -452,34 +356,36 @@ int main(void)
         BeginDrawing();
 
         ClearBackground(
-            RAYWHITE
+            (Color){ 20, 24, 32, 255 }
         );
 
 
-        BeginMode2D(cc.camera);
+        Camera2D renderCam = cc.camera;
+        ScreenFX_ApplyShakeToCamera(&renderCam);
+        BeginMode2D(renderCam);
 
 
         Vector2 camCenterWorld = cc.camera.target;
-        camCenterWorld.x -= origin.x;
-        camCenterWorld.y -= origin.y;
-        HexCoord viewCenter = PixelToHex(camCenterWorld, hexRadius);
-        int dynamicRenderRadius = (int)(((GetScreenWidth() / cc.camera.zoom) / (hexRadius * 1.5f))) + 6;
+        camCenterWorld.x -= mapView.origin.x;
+        camCenterWorld.y -= mapView.origin.y;
+        HexCoord viewCenter = PixelToHex(camCenterWorld, mapView.hexRadius);
+        int dynamicRenderRadius = (int)(((GetScreenWidth() / cc.camera.zoom) / (mapView.hexRadius * 1.5f))) + 6;
         if (dynamicRenderRadius > 40) dynamicRenderRadius = 40;
 
-        MapView_Draw(&levelMap, hexRadius, origin, false, viewCenter, dynamicRenderRadius, visualArmyPos, &gameAssets, debugRevealMap);
+        MapView_Draw(&levelMap, mapView.hexRadius, mapView.origin, false, viewCenter, dynamicRenderRadius, mapView.visualArmyPos, &gameAssets, mapView.debugRevealMap);
 
         Vector2 mousePosition = GetMousePosition();
         Vector2 worldPosition = GetScreenToWorld2D(mousePosition, cc.camera);
-        worldPosition.x -= origin.x;
-        worldPosition.y -= origin.y;
-        HexCoord hoverHex = PixelToHex(worldPosition, hexRadius);
+        worldPosition.x -= mapView.origin.x;
+        worldPosition.y -= mapView.origin.y;
+        HexCoord hoverHex = PixelToHex(worldPosition, mapView.hexRadius);
 
-        // Dibujar Enemigos
+        // Dibujar NPCs / Facciones en el Mapa
         for (int i = 0; i < gm.enemyCount; i++) {
             HexTile* t = Map_GetTile(&levelMap, gm.enemies[i].position);
-            if (t && (t->visible || debugRevealMap)) {
+            if (t && (t->visible || mapView.debugRevealMap)) {
                 bool isHovered = (hoverHex.q == gm.enemies[i].position.q && hoverHex.r == gm.enemies[i].position.r);
-                EnemyView_DrawOnMap(&gm.enemies[i], visualEnemyPos[i], origin, &gameAssets, isHovered, hexRadius);
+                NPCView_DrawOnMap(&gm.enemies[i], &gm, mapView.visualEnemyPos[i], mapView.origin, &gameAssets, isHovered, mapView.hexRadius);
             }
         }
 
@@ -491,7 +397,7 @@ int main(void)
             HexTile* t = &levelMap.tiles[i];
             if (t->coord.q == hoverHex.q && t->coord.r == hoverHex.r) {
                 if (gm.hasRolledThisTurn && HexCoord_Distance(playerArmy.position, t->coord) == 1) {
-                    MapView_DrawHexFillHighlight(t, hexRadius, origin, (Color){100, 200, 255, 80});
+                    MapView_DrawHexFillHighlight(t, mapView.hexRadius, mapView.origin, (Color){100, 200, 255, 80});
                 }
                 break;
             }
@@ -503,98 +409,97 @@ int main(void)
             int numTiles = 0;
             // Draw remaining path
             for (int i = playerArmy.currentPathIndex; i < playerArmy.pathLength; i++) {
-                for (int k = 0; k < levelMap.tileCount; k++) {
-                    if (levelMap.tiles[k].coord.q == playerArmy.movePath[i].q && levelMap.tiles[k].coord.r == playerArmy.movePath[i].r) {
-                        pathTiles[numTiles++] = &levelMap.tiles[k];
-                        break;
-                    }
-                }
+                HexTile* pt = Map_GetTile(&levelMap, playerArmy.movePath[i]);
+                if (pt) pathTiles[numTiles++] = pt;
             }
             if (numTiles > 0) {
                 // Line from token to first remaining path node
-                Vector2 p1 = visualArmyPos;
-                p1.x += origin.x;
+                Vector2 p1 = mapView.visualArmyPos;
+                p1.x += mapView.origin.x;
                 float currentHeight = 0.0f;
                 for (int k = 0; k < levelMap.tileCount; k++) {
-                    Vector2 p = HexToPixel(levelMap.tiles[k].coord, hexRadius);
-                    float dx = visualArmyPos.x - p.x;
-                    float dy = visualArmyPos.y - p.y;
-                    if (dx*dx + dy*dy < hexRadius*hexRadius) {
+                    Vector2 p = HexToPixel(levelMap.tiles[k].coord, mapView.hexRadius);
+                    float dx = mapView.visualArmyPos.x - p.x;
+                    float dy = mapView.visualArmyPos.y - p.y;
+                    if (dx*dx + dy*dy < mapView.hexRadius*mapView.hexRadius) {
                         currentHeight = GetBiomeHeight(levelMap.tiles[k].biome);
                         break;
                     }
                 }
-                p1.y += origin.y - currentHeight;
-                Vector2 p2 = HexToPixel(pathTiles[0]->coord, hexRadius);
-                p2.x += origin.x;
-                p2.y += origin.y - GetBiomeHeight(pathTiles[0]->biome);
+                p1.y += mapView.origin.y - currentHeight;
+                Vector2 p2 = HexToPixel(pathTiles[0]->coord, mapView.hexRadius);
+                p2.x += mapView.origin.x;
+                p2.y += mapView.origin.y - GetBiomeHeight(pathTiles[0]->biome);
                 DrawLineEx(p1, p2, 4.0f, Fade(GOLD, 0.7f));
                 
                 if (numTiles > 1) {
-                    MapView_DrawPath(pathTiles, numTiles, hexRadius, origin);
+                    MapView_DrawPath(pathTiles, numTiles, mapView.hexRadius, mapView.origin);
                 }
             }
         } 
-        else if (selectedTile != NULL && !gm.inCombat && gm.phase == PHASE_PLAYER)
+        else if (mapView.selectedTile != NULL && !gm.inCombat && gm.phase == PHASE_PLAYER)
         {
-            if (!(selectedTile->coord.q == playerArmy.position.q && selectedTile->coord.r == playerArmy.position.r) && selectedTile->visited) {
-                HexTile* startTile = NULL;
-                for (int k = 0; k < levelMap.tileCount; k++) {
-                    if (levelMap.tiles[k].coord.q == playerArmy.position.q && levelMap.tiles[k].coord.r == playerArmy.position.r) {
-                        startTile = &levelMap.tiles[k]; break;
-                    }
-                }
+            if (!(mapView.selectedTile->coord.q == playerArmy.position.q && mapView.selectedTile->coord.r == playerArmy.position.r) && mapView.selectedTile->visited) {
+                HexTile* startTile = Map_GetTile(&levelMap, playerArmy.position);
                 if (startTile) {
                     HexTile* path[128];
                     int cost = 0;
-                    int pathLen = Map_FindPath(&levelMap, startTile, selectedTile, &cost, path);
+                    int pathLen = Map_FindPath(&levelMap, startTile, mapView.selectedTile, &cost, path);
                     Color pathColor = (gm.currentActionPoints >= cost) ? GREEN : RED;
                     
                     if (pathLen > 0) {
-                        MapView_DrawHexHighlight(selectedTile, hexRadius, origin, pathColor);
+                        MapView_DrawHexHighlight(mapView.selectedTile, mapView.hexRadius, mapView.origin, pathColor);
                         
                         // Line from token to first path node
-                        Vector2 p1 = visualArmyPos;
-                        p1.x += origin.x;
+                        Vector2 p1 = mapView.visualArmyPos;
+                        p1.x += mapView.origin.x;
                         float currentHeight = 0.0f;
                         for (int k = 0; k < levelMap.tileCount; k++) {
-                            Vector2 p = HexToPixel(levelMap.tiles[k].coord, hexRadius);
-                            float dx = visualArmyPos.x - p.x;
-                            float dy = visualArmyPos.y - p.y;
-                            if (dx*dx + dy*dy < hexRadius*hexRadius) {
+                            Vector2 p = HexToPixel(levelMap.tiles[k].coord, mapView.hexRadius);
+                            float dx = mapView.visualArmyPos.x - p.x;
+                            float dy = mapView.visualArmyPos.y - p.y;
+                            if (dx*dx + dy*dy < mapView.hexRadius*mapView.hexRadius) {
                                 currentHeight = GetBiomeHeight(levelMap.tiles[k].biome);
                                 break;
                             }
                         }
-                        p1.y += origin.y - currentHeight;
-                        Vector2 p2 = HexToPixel(path[0]->coord, hexRadius);
-                        p2.x += origin.x;
-                        p2.y += origin.y - GetBiomeHeight(path[0]->biome);
+                        p1.y += mapView.origin.y - currentHeight;
+                        Vector2 p2 = HexToPixel(path[0]->coord, mapView.hexRadius);
+                        p2.x += mapView.origin.x;
+                        p2.y += mapView.origin.y - GetBiomeHeight(path[0]->biome);
                         DrawLineEx(p1, p2, 4.0f, Fade(GOLD, 0.7f));
                         
-                        MapView_DrawPath(path, pathLen, hexRadius, origin);
+                        MapView_DrawPath(path, pathLen, mapView.hexRadius, mapView.origin);
                         
                         int midIdx = pathLen / 2;
-                        Vector2 midPx = HexToPixel(path[midIdx]->coord, hexRadius);
-                        midPx.x += origin.x; midPx.y += origin.y - GetBiomeHeight(path[midIdx]->biome);
+                        Vector2 midPx = HexToPixel(path[midIdx]->coord, mapView.hexRadius);
+                        midPx.x += mapView.origin.x; midPx.y += mapView.origin.y - GetBiomeHeight(path[midIdx]->biome);
                         
                         DrawCircleV(midPx, 18.0f, DARKGRAY);
                         DrawCircleLines(midPx.x, midPx.y, 18.0f, pathColor);
-                        DrawText(TextFormat("%d PA", cost), midPx.x - MeasureText(TextFormat("%d PA", cost), 10)/2, midPx.y - 5, 10, WHITE);
+                        const char* costTxt = TextFormat("%d PA", cost);
+                        Vector2 costSz = UI_MeasureText(costTxt, 11);
+                        UI_DrawText(costTxt, (Vector2){ midPx.x - costSz.x/2.0f, midPx.y - 6.0f }, 11, WHITE);
                     }
                 }
             } else {
-                MapView_DrawHexHighlight(selectedTile, hexRadius, origin, GREEN);
+                MapView_DrawHexHighlight(mapView.selectedTile, mapView.hexRadius, mapView.origin, GREEN);
             }
         }
 
+        ScreenFX_DrawMapParticles();
+
         EndMode2D();
         BeginBlendMode(BLEND_MULTIPLIED);
-        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ (unsigned char)skyR, (unsigned char)skyG, (unsigned char)skyB, 255 });
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ (unsigned char)mapView.skyR, (unsigned char)mapView.skyG, (unsigned char)mapView.skyB, 255 });
         EndBlendMode();
 
+        if (gm.clock.timeOfDay == TIME_NIGHT) {
+            ScreenFX_DrawNightAtmosphere(GetScreenWidth(), GetScreenHeight());
+        }
+
         /* Indicadores direccionales de rumores fuera de vista (D3) */
-        MapView_DrawOffscreenRumors(&levelMap, cc.camera, hexRadius, origin, playerArmy.position);
+        MapView_DrawOffscreenRumors(&levelMap, cc.camera, mapView.hexRadius, mapView.origin, playerArmy.position);
 
 
         /* ========================================================
@@ -604,42 +509,75 @@ int main(void)
         int SW = GetScreenWidth();
         int SH = GetScreenHeight();
 
+        int bottomH = 165;
+        int bottomY = SH - bottomH - 12;
+
         /* Panel comandante (arriba izquierda) */
-        Hud_DrawCommanderPanel(&playerArmy, &gm, &hudState, 10, 10, 340);
+        Hud_DrawCommanderPanel(&playerArmy, &gm, &hudState, 12, 48, 430);
 
         /* Panel stats ejercito (abajo izquierda) */
-        Hud_DrawArmyStatsPanel(&playerArmy, &gm, &levelMap, 10, SH - 160, 400, 150);
+        int statsW = 450;
+        Hud_DrawArmyStatsPanel(&playerArmy, &gm, &levelMap, &hudState, 12, bottomY, statsW, bottomH);
         Hud_DrawTopBar(&gm, SW);
 
         /* Panel dados (abajo centro) */
-        Hud_DrawDicePanel(&hudState, &gm, &playerArmy, &levelMap, 420, SH - 160, 160, 150);
+        int diceW = 215;
+        int diceX = 12 + statsW + 12;
+        Hud_DrawDicePanel(&hudState, &gm, &playerArmy, &levelMap, diceX, bottomY, diceW, bottomH);
 
         /* Minimapa (abajo derecha) */
-        Rectangle minimapRect = { 590.0f, (float)(SH - 160), (float)(SW - 1000), 150.0f };
-        DrawRectangleRec(minimapRect, (Color){ 15, 15, 20, 220 });
-        DrawRectangleLinesEx(minimapRect, 2, (Color){ 140, 100, 50, 255 });
-        MapView_DrawMinimap(&levelMap, minimapRect, playerArmy.position, hudState.blinkTimer, &gameAssets, debugRevealMap);
+        int minimapStart = diceX + diceW + 12;
+        float minimapW = (SW > 1024) ? 420.0f : (float)(SW - minimapStart - 12);
+        if (minimapW < 180.0f) minimapW = 180.0f;
+        float minimapX = (float)(SW - minimapW - 12);
+        Rectangle minimapRect = { minimapX, (float)bottomY, minimapW, (float)bottomH };
+        UI_DrawPanelStyled(minimapRect, UI_STYLE_PANEL_DARK);
+        MapView_DrawMinimap(&levelMap, minimapRect, playerArmy.position, hudState.blinkTimer, &gameAssets, mapView.debugRevealMap);
 
-                if (gm.canInteractStructure && gm.phase == PHASE_PLAYER && !gm.hasDayReport && !gm.showCampDecision) {
+        if (gm.canInteractStructure && gm.phase == PHASE_PLAYER && !gm.hasDayReport && !gm.showCampDecision) {
             const char* promptText = "[E] Interactuar con Asentamiento";
-            int tw = MeasureText(promptText, 20);
-            int px = SW / 2 - tw / 2;
-            int py = SH - 210;
-            DrawRectangle(px - 15, py - 6, tw + 30, 32, (Color){ 20, 25, 35, 230 });
-            DrawRectangleLines(px - 15, py - 6, tw + 30, 32, GOLD);
-            DrawText(promptText, px, py, 20, GOLD);
+            Vector2 pSize = UI_MeasureText(promptText, 20);
+            int px = SW / 2 - (int)pSize.x / 2;
+            int py = bottomY - 50;
+            DrawRectangle(px - 18, py - 7, (int)pSize.x + 36, 36, (Color){ 20, 25, 35, 235 });
+            DrawRectangleLinesEx((Rectangle){ (float)(px - 18), (float)(py - 7), pSize.x + 36.0f, 36.0f }, 2.0f, GOLD);
+            UI_DrawText(promptText, (Vector2){ (float)px, (float)py }, 20, GOLD);
+        }
+
+        /* Indicador contextual de Ataque Voluntario a NPC [X] */
+        if (gm.phase == PHASE_PLAYER && !gm.hasDayReport && !gm.showCampDecision) {
+            int attackNpcIdx = NPC_FindAttackableSquadNear(&gm, playerArmy.position);
+            if (attackNpcIdx >= 0) {
+                EnemySquad* targetNpc = &gm.enemies[attackNpcIdx];
+                bool isHostile = NPC_IsHostileToPlayer(targetNpc, &gm);
+                const char* promptText = TextFormat("[X] Atacar a %s%s", targetNpc->name, isHostile ? "" : " (No hostil)");
+                Vector2 pSize = UI_MeasureText(promptText, 20);
+                int px = SW / 2 - (int)pSize.x / 2;
+                int py = gm.canInteractStructure ? (bottomY - 95) : (bottomY - 50);
+                Rectangle btnRect = { (float)(px - 18), (float)(py - 7), pSize.x + 36.0f, 36.0f };
+                Color boxBg = isHostile ? (Color){ 45, 20, 20, 235 } : (Color){ 35, 30, 20, 235 };
+                Color borderCol = isHostile ? RED : GOLD;
+                DrawRectangleRec(btnRect, boxBg);
+                DrawRectangleLinesEx(btnRect, 2.0f, borderCol);
+                UI_DrawText(promptText, (Vector2){ (float)px, (float)py }, 20, borderCol);
+
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), btnRect)) {
+                    NPC_PlayerVoluntaryAttack(&gm, &playerArmy, attackNpcIdx);
+                    playerArmy.isMoving = false;
+                }
+            }
         }
 
         /* Tooltip de Exploracion */
-        if (selectedTile != NULL && !gm.inCombat && gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY)
+        if (mapView.selectedTile != NULL && !gm.inCombat && gm.phase != PHASE_EVENT && gm.phase != PHASE_CITY)
         {
-            BiomeProperties props = Biome_GetProperties(selectedTile->biome);
+            BiomeProperties props = Biome_GetProperties(mapView.selectedTile->biome);
             Vector2 mPos = GetMousePosition();
             
             int foodCost = props.actionPointCost * 2; // Ejemplo base
             
-            int tw = 200;
-            int th = 85;
+            int tw = 220;
+            int th = 96;
             int px = mPos.x + 15;
             int py = mPos.y + 15;
             
@@ -648,19 +586,22 @@ int main(void)
             if (py + th > SH) py = mPos.y - th - 15;
             
             DrawRectangle(px, py, tw, th, (Color){ 20, 20, 25, 235 });
-            DrawRectangleLines(px, py, tw, th, (Color){ 100, 80, 40, 255 });
+            DrawRectangleLinesEx((Rectangle){ (float)px, (float)py, (float)tw, (float)th }, 2.0f, (Color){ 140, 105, 50, 255 });
 
-            DrawText(props.name, px+10, py+10, 16, GOLD);
-            if (!selectedTile->visited && !selectedTile->visible) {
-                DrawText("Desconocido", px+10, py+35, 14, GRAY);
+            UI_DrawText(props.name, (Vector2){ (float)(px+12), (float)(py+10) }, 18, GOLD);
+            if (!mapView.selectedTile->visited && !mapView.selectedTile->visible) {
+                UI_DrawText("Desconocido", (Vector2){ (float)(px+12), (float)(py+38) }, 15, GRAY);
             } else {
-                DrawText(TextFormat("Costo: %d PA", props.actionPointCost), px+10, py+35, 14, RAYWHITE);
-                DrawText(TextFormat("Consumo: %d Suministros", foodCost), px+10, py+55, 14, RED);
+                UI_DrawText(TextFormat("Costo: %d PA", props.actionPointCost), (Vector2){ (float)(px+12), (float)(py+38) }, 15, RAYWHITE);
+                UI_DrawText(TextFormat("Consumo: %d Suministros", foodCost), (Vector2){ (float)(px+12), (float)(py+62) }, 15, RED);
             }
-        }        if (gm.pendingCombatEnemy >= 0 && !Sequence_IsBusy()) {
-            gm.inCombat = true;
-            gm.phase = PHASE_EVENT;
-            Combat_Init(&gm.activeCombat, &gm, &playerArmy, &gm.enemies[gm.pendingCombatEnemy]);
+        }
+
+        if (gm.pendingCombatEnemy >= 0 && !Sequence_IsBusy()) {
+            Audio_PlaySfxByName("enemy_alert");
+            int targetEnemyIdx = gm.pendingCombatEnemy;
+            NPC_InitiateCombat(&gm, &playerArmy, &gm.enemies[targetEnemyIdx], 
+                gm.enemies[targetEnemyIdx].initiator, gm.activeCombat.ambushed);
             playerArmy.isMoving = false;
             gm.pendingCombatEnemy = -1;
         }
@@ -670,17 +611,30 @@ int main(void)
                 gm.inCombat = false;
                 if (Army_GetTotalWeight(&playerArmy) <= 0) {
                     gm.phase = PHASE_GAME_OVER;
+                    Audio_PlaySfxByName("game_over");
                 } else {
                     if (gm.inSiegeCombat) {
                         if (gm.activeCombat.endReason == COMBAT_END_VICTORY) {
+                            Audio_PlaySfxByName("siege_victory");
                             GameMaster_ResolveSiegeVictory(&gm, &levelMap, &playerArmy, gm.siegeTargetCoord);
                         } else {
                             gm.inSiegeCombat = false;
                         }
                     }
                     gm.phase = PHASE_PLAYER;
-                    visualArmyPos = HexToPixel(playerArmy.position, hexRadius);
-                    cc.camera.target = visualArmyPos;
+                    Map_UpdateVision(&levelMap, playerArmy.position, Army_GetVision(&playerArmy) + GameMaster_GetVisionModifier(&gm, &playerArmy));
+                    Vector2 retreatTarget = HexToPixel(playerArmy.position, mapView.hexRadius);
+                    if (gm.activeCombat.endReason == COMBAT_END_DEFEAT || gm.activeCombat.endReason == COMBAT_END_FLEE) {
+                        SeqAction retAct = {0};
+                        retAct.duration = 0.45f;
+                        Sequence_Push(retAct);
+                        Tween_Start(&mapView.visualArmyPos.x, retreatTarget.x, 0.45f, Ease_OutCubic);
+                        Tween_Start(&mapView.visualArmyPos.y, retreatTarget.y, 0.45f, Ease_OutCubic);
+                    } else {
+                        mapView.visualArmyPos = retreatTarget;
+                        cc.camera.target = mapView.visualArmyPos;
+                    }
+                    Audio_SetMusicContext(MUSIC_CTX_MAIN);
                 }
             }
         } else if (gm.phase == PHASE_EVENT) { gm.eventTimer += GetFrameTime(); }
@@ -695,42 +649,74 @@ int main(void)
                 activeDraft.registry = NULL;
             }
         } else if (gm.phase == PHASE_CITY) {
-            if (CityView_UpdateDraw(&gm.activeCity, &playerArmy, &gm, SW, SH)) {
+            if (CityView_UpdateDraw(&gm.activeCity, &playerArmy, &gm, &levelMap, SW, SH)) {
                 GameMaster_CloseCity(&gm, &levelMap, &playerArmy);
             }
         } else if (gm.phase == PHASE_EVENT && (gm.activeEvent || gm.activeResult)) {
+            static void* s_lastActiveEvent = NULL;
+            if (gm.activeEvent != s_lastActiveEvent && gm.activeEvent != NULL) {
+                Audio_PlaySfxByName("event_open");
+                s_lastActiveEvent = gm.activeEvent;
+            } else if (gm.activeEvent == NULL && gm.activeResult == NULL) {
+                s_lastActiveEvent = NULL;
+            }
+
             if (gm.activeResult) {
                 ResultView_Draw(gm.activeResult, SW, SH);
                 int r_opt = (gm.eventTimer > 1.0f) ? ResultView_HandleInput(gm.activeResult, SW, SH) : -1;
                 if (r_opt == 0) {
-                    Event_ApplyResult(gm.activeResult, &playerArmy, &gm.infamy);
+                    Event_ApplyResult(gm.activeResult, &playerArmy, &gm);
                     for (int ei = 0; ei < gm.activeResult->effectCount; ei++) {
                         EffectDef* eff = &gm.activeResult->effects[ei];
                         if (eff->type == EFFECT_ADD_MOD && strlen(eff->stringValue) > 0) {
                             ModifierDef* def = Modifier_GetById(gm.modRegistry.defs, gm.modRegistry.count, eff->stringValue);
-                            if (def) Army_EquipModifier(&playerArmy, def);
+                            if (def) {
+                                Army_EquipModifier(&playerArmy, def);
+                                if (def->kind == MOD_KIND_CURSE) Audio_PlaySfxByName("curse_acquired");
+                            }
                         } else if (eff->type == EFFECT_REMOVE_MOD && strlen(eff->stringValue) > 0) {
                             Army_RemoveModifier(&playerArmy, eff->stringValue);
                         }
                     }
+
                     if (gm.activeResult->startsBattle) {
-                        gm.inCombat = true;
-                        static EnemySquad dummyEnemy;
-                        dummyEnemy = Enemy_Create(gm.activeResult->battleEnemy, (HexCoord){0,0}, 35, 12, 10, 5, 2);
-                        Enemy_AddTag(&dummyEnemy, TAG_CAVALRY);
-                        if (strcmp(gm.activeResult->id, "res_camp_luchar") == 0) {
-                            gm.activeCombat.ambushed = true;
-                        } else {
-                            gm.activeCombat.ambushed = false;
-                        }
-                        Combat_Init(&gm.activeCombat, &gm, &playerArmy, &dummyEnemy);
+                        gm.pendingCityAfterEvent = false;
+                        static EnemySquad eventEnemy;
+                        bool ambushed = false;
+                        int initiator = 0;
+                        eventEnemy = NPC_CreateEventSquad(gm.activeResult->battleEnemy, gm.activeResult->id, &ambushed, &initiator);
+                        NPC_InitiateCombat(&gm, &playerArmy, &eventEnemy, initiator, ambushed);
                     } else {
-                        gm.phase = PHASE_PLAYER;
+                        /* Retorno del General depuesto (E1) */
+                        if (strcmp(gm.activeResult->id, "res_general_regresa_si") == 0) {
+                            Army_RestoreGeneral(&playerArmy);
+                        } else if (strcmp(gm.activeResult->id, "res_general_regresa_no") == 0) {
+                            Army_DismissGeneral(&playerArmy);
+                        }
+
+                        /* Transición tras evento disparado por presionar [E] en estructura (Prioridad 2) */
+                        if (gm.pendingCityAfterEvent) {
+                            gm.pendingCityAfterEvent = false;
+                            HexTile* cTile = Map_GetTile(&levelMap, gm.pendingCityCoord);
+                            int fId = cTile ? cTile->structure.factionId : -1;
+                            bool isHostile = false;
+                            if (fId >= 0 && fId < 3) {
+                                const BalanceConfig* bcfg = Balance_GetGlobal();
+                                isHostile = (Faction_GetLevel(gm.factions[fId].opinion, bcfg) == FACTION_HOSTILE);
+                            }
+                            if (gm.pendingCityBlocked || isHostile || GameMaster_HasFlag(&gm, "bloqueo_ciudad") || GameMaster_HasFlag(&gm, "puertas_cerradas")) {
+                                gm.phase = PHASE_PLAYER;
+                            } else {
+                                GameMaster_OpenCity(&gm, &levelMap, &playerArmy);
+                            }
+                        } else {
+                            gm.phase = PHASE_PLAYER;
+                        }
                     }
                     gm.activeResult = NULL;
                 }
             } else if (gm.activeEvent) {
-                Event_EvaluateOptions(gm.activeEvent, &playerArmy);
+                Event_EvaluateOptions(gm.activeEvent, &playerArmy, &gm);
                 EventView_Draw(gm.activeEvent, SW, SH);
                 
                 int opt = (gm.eventTimer > 1.0f) ? EventView_HandleInput(gm.activeEvent, SW, SH) : -1;
@@ -738,8 +724,23 @@ int main(void)
                     EventOption* chosenOpt = &gm.activeEvent->options[opt];
                     
                     if (chosenOpt->resultPoolCount > 0) {
-                        int randIdx = GetRandomValue(0, chosenOpt->resultPoolCount - 1);
-                        const char* resId = chosenOpt->resultPool[randIdx];
+                        /* Sorteo de resultados ponderado por pesos (Prioridad 5) */
+                        int totalWeight = 0;
+                        for (int w = 0; w < chosenOpt->resultPoolCount; w++) {
+                            totalWeight += (chosenOpt->resultWeights[w] > 0) ? chosenOpt->resultWeights[w] : 1;
+                        }
+                        int roll = GetRandomValue(1, totalWeight);
+                        int accum = 0;
+                        int chosenIdx = 0;
+                        for (int w = 0; w < chosenOpt->resultPoolCount; w++) {
+                            accum += (chosenOpt->resultWeights[w] > 0) ? chosenOpt->resultWeights[w] : 1;
+                            if (roll <= accum) {
+                                chosenIdx = w;
+                                break;
+                            }
+                        }
+
+                        const char* resId = chosenOpt->resultPool[chosenIdx];
                         EventResult* foundRes = GameMaster_FindResult(&gm, resId);
                         
                         if (foundRes) {
@@ -774,23 +775,122 @@ int main(void)
         }
 
         if (gm.phase == PHASE_GAME_OVER) {
-            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.8f));
-            DrawText("DERROTA TOTAL", screenWidth/2 - MeasureText("DERROTA TOTAL", 40)/2, screenHeight/2 - 40, 40, RED);
-            DrawText("Tu ejercito ha sido aniquilado.", screenWidth/2 - MeasureText("Tu ejercito ha sido aniquilado.", 20)/2, screenHeight/2 + 20, 20, LIGHTGRAY);
+            DrawRectangle(0, 0, SW, SH, Fade(BLACK, 0.8f));
+            Vector2 sz1 = UI_MeasureText("DERROTA TOTAL", 40);
+            UI_DrawText("DERROTA TOTAL", (Vector2){ SW/2.0f - sz1.x/2.0f, SH/2.0f - 40.0f }, 40, RED);
+            Vector2 sz2 = UI_MeasureText("Tu ejercito ha sido aniquilado.", 20);
+            UI_DrawText("Tu ejercito ha sido aniquilado.", (Vector2){ SW/2.0f - sz2.x/2.0f, SH/2.0f + 20.0f }, 20, LIGHTGRAY);
         } else if (gm.phase == PHASE_VICTORY) {
-            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.8f));
-            DrawText("VICTORIA", screenWidth/2 - MeasureText("VICTORIA", 40)/2, screenHeight/2 - 40, 40, GOLD);
-            DrawText("Has conquistado el ultimo objetivo.", screenWidth/2 - MeasureText("Has conquistado el ultimo objetivo.", 20)/2, screenHeight/2 + 20, 20, LIGHTGRAY);
+            DrawRectangle(0, 0, SW, SH, Fade(BLACK, 0.8f));
+            Vector2 sz1 = UI_MeasureText("VICTORIA", 40);
+            UI_DrawText("VICTORIA", (Vector2){ SW/2.0f - sz1.x/2.0f, SH/2.0f - 40.0f }, 40, GOLD);
+            Vector2 sz2 = UI_MeasureText("Has conquistado el ultimo objetivo.", 20);
+            UI_DrawText("Has conquistado el ultimo objetivo.", (Vector2){ SW/2.0f - sz2.x/2.0f, SH/2.0f + 20.0f }, 20, LIGHTGRAY);
         }
 
-        if (gm.hasDayReport) {
+        /* Modal de Reparto de Raciones (cuando GameMaster_RationPending(&gm) o mostrando reporte de raciones) */
+        if (GameMaster_RationPending(&gm) || rationView.showingReport) {
+            if (!rationView.initialized && GameMaster_RationPending(&gm)) {
+                RationView_Init(&rationView, &playerArmy, &levelMap, playerArmy.position);
+                rationView.stragglersRegrouped = GameMaster_HasFlag(&gm, "reagrupamiento_reciente");
+            }
+            RationViewAction rAct = RationView_Update(&rationView, &playerArmy, &levelMap, playerArmy.position, SW, SH);
+            if (rAct.type == RATION_ACTION_SUBMIT_PLAN) {
+                GameMaster_SubmitRation(&gm, &playerArmy, &rAct.plan);
+                RationView_ShowReport(&rationView, &gm.lastDayReport);
+            } else if (rAct.type == RATION_ACTION_SLAUGHTER_CATTLE) {
+                GameMaster_SlaughterCattle(&gm, &playerArmy, rAct.cattleHeads);
+            } else if (rAct.type == RATION_ACTION_CLOSE_REPORT) {
+                rationView.initialized = false;
+                rationView.showingReport = false;
+                gm.hasDayReport = false;
+                GameMaster_ClearFlag(&gm, "reagrupamiento_reciente");
+
+                if (gm.lastDayReport.foodShortage || gm.lastDayReport.waterShortage || Army_DaysOfSupply(&playerArmy) < 2.0f) {
+                    Audio_PlaySfxByName("low_supply_warning");
+                }
+                /* Avisos telegrafiados de motín tras cerrar el reporte (E2) */
+                if (gm.lastDayReport.triggerWarn2) {
+                    Audio_PlaySfxByName("mutiny_warning");
+                    EventDef* wEvt = Event_FindById(gm.events, gm.eventCount, "ev_mutiny_warn2");
+                    if (wEvt) {
+                        gm.phase = PHASE_EVENT;
+                        gm.activeEvent = wEvt;
+                        gm.eventTimer = 0.0f;
+                    }
+                } else if (gm.lastDayReport.triggerWarn1) {
+                    Audio_PlaySfxByName("mutiny_warning");
+                    EventDef* wEvt = Event_FindById(gm.events, gm.eventCount, "ev_mutiny_warn1");
+                    if (wEvt) {
+                        gm.phase = PHASE_EVENT;
+                        gm.activeEvent = wEvt;
+                        gm.eventTimer = 0.0f;
+                    }
+                } else if (playerArmy.lieutenantCount > 0 && GetRandomValue(1, 100) <= 25) {
+                    /* Consejo de un teniente (E3) */
+                    EventDef* pool[16]; int pc = 0;
+                    for (int ei = 0; ei < gm.eventCount && pc < 16; ei++) {
+                        if (gm.events[ei].hasTriggerKey && gm.events[ei].triggers[TRIGGER_ADVICE]) pool[pc++] = &gm.events[ei];
+                    }
+                    if (pc > 0) {
+                        gm.phase = PHASE_EVENT;
+                        gm.activeEvent = pool[GetRandomValue(0, pc - 1)];
+                        gm.eventTimer = 0.0f;
+                    }
+                }
+            }
+            RationView_Draw(&rationView, &playerArmy, &levelMap, playerArmy.position, SW, SH);
+        } else if (gm.hasDayReport) {
             Hud_DrawDayReportModal(&gm.lastDayReport, SW, SH);
-            Hud_HandleDayReportInput(&gm, SW, SH);
+            if (Hud_HandleDayReportInput(&gm, SW, SH)) {
+                if (gm.lastDayReport.foodShortage || gm.lastDayReport.waterShortage || Army_DaysOfSupply(&playerArmy) < 2.0f) {
+                    Audio_PlaySfxByName("low_supply_warning");
+                }
+                /* Avisos telegrafiados de motín tras cerrar el reporte (E2) */
+                if (gm.lastDayReport.triggerWarn2) {
+                    Audio_PlaySfxByName("mutiny_warning");
+                    EventDef* wEvt = Event_FindById(gm.events, gm.eventCount, "ev_mutiny_warn2");
+                    if (wEvt) {
+                        gm.phase = PHASE_EVENT;
+                        gm.activeEvent = wEvt;
+                        gm.eventTimer = 0.0f;
+                    }
+                } else if (gm.lastDayReport.triggerWarn1) {
+                    Audio_PlaySfxByName("mutiny_warning");
+                    EventDef* wEvt = Event_FindById(gm.events, gm.eventCount, "ev_mutiny_warn1");
+                    if (wEvt) {
+                        gm.phase = PHASE_EVENT;
+                        gm.activeEvent = wEvt;
+                        gm.eventTimer = 0.0f;
+                    }
+                } else if (playerArmy.lieutenantCount > 0 && GetRandomValue(1, 100) <= 25) {
+                    /* Consejo de un teniente (E3) */
+                    EventDef* pool[16]; int pc = 0;
+                    for (int ei = 0; ei < gm.eventCount && pc < 16; ei++) {
+                        if (gm.events[ei].hasTriggerKey && gm.events[ei].triggers[TRIGGER_ADVICE]) pool[pc++] = &gm.events[ei];
+                    }
+                    if (pc > 0) {
+                        gm.phase = PHASE_EVENT;
+                        gm.activeEvent = pool[GetRandomValue(0, pc - 1)];
+                        gm.eventTimer = 0.0f;
+                    }
+                }
+            }
         }
 
         if (gm.showCampDecision) {
             Hud_DrawCampDecisionModal(&gm, &playerArmy, &levelMap, SW, SH);
             Hud_HandleCampDecisionInput(&gm, &levelMap, &playerArmy, SW, SH);
+        }
+
+        if (hudState.showOfficersPanel) {
+            Hud_DrawOfficersPanel(&playerArmy, &gm, &hudState, SW, SH);
+            Hud_HandleOfficersPanelInput(&hudState, SW, SH);
+        }
+
+        if (hudState.showGroupsPanel) {
+            Hud_DrawGroupsPanel(&playerArmy, &gm, &hudState, SW, SH);
+            Hud_HandleGroupsPanelInput(&hudState, SW, SH);
         }
 
         ScreenFX_DrawOverlays();
@@ -806,6 +906,7 @@ int main(void)
     Map_Free(&levelMap);
 
     Assets_Unload(&gameAssets);
+    CityView_UnloadAssets();
     Audio_Shutdown();
     UI_Shutdown();
     CloseWindow();

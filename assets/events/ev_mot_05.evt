@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_mot_05
+Name=Pánico Nocturno en las Tiendas
+Description=Un grito en la oscuridad desata el pánico: "¡Nos rodean!". Soldados medio vestidos toman las espadas y corren en círculos a punto de degollarse entre sí.
+Trigger=NIGHT
+Time=NIGHT
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Hacer sonar los cuernos marciales y encender todas las antorchas
+Result_pool=res_mot_05_antorchas_clean:65,res_mot_05_antorchas_cost:35
+
+[OPTION_2]
+Text=Apostar a los sargentos con escudos trabados para contener la marea
+Result_pool=res_mot_05_muro_clean:65,res_mot_05_muro_cost:35
+
+[OPTION_3]
+Text=Avanzar al centro del campamento con presencia imponente y voz de trueno
+Requires=lead>=2
+Result_pool=res_mot_05_lead:100

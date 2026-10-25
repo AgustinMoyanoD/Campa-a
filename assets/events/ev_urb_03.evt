@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_urb_03
+Name=Peste en los Callejones de la Bastida
+Description=El asentamiento donde pensabas descansar está asolado por la peste negra. Cuerpos envueltos en esteras arden en las esquinas y los pozos están cerrados.
+Trigger=HOUSE,CITY
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aislar al ejército de inmediato y bloquear la entrada al caserío
+Result_pool=res_urb_03_aislar_clean:65,res_urb_03_aislar_craso:35
+
+[OPTION_2]
+Text=Enviar cuadrillas con antorchas a rescatar grano de los almacenes
+Result_pool=res_urb_03_saquear_clean:55,res_urb_03_saquear_cost:45
+
+[OPTION_3]
+Text=Organizar un cordón sanitario con Vitelio y purificar la plaza
+Requires=eval>=2
+Result_pool=res_urb_03_eval:100

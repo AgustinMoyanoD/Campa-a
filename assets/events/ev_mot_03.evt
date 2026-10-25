@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_mot_03
+Name=Deserción en la Vanguardia
+Description=Al pasar lista con el sol naciente, falta media escuadra de exploración. Huyeron aprovechando la niebla llevándose armas y tres mulas de carga.
+Trigger=RANDOM,ROAD
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Enviar a Publio Varro con jinetes ligeros a cazarlos
+Result_pool=res_mot_03_caza_clean:65,res_mot_03_caza_cost:35
+
+[OPTION_2]
+Text=Dejarlos marchar y redoblar las centinelas con los sargentos
+Result_pool=res_mot_03_dejar_clean:60,res_mot_03_dejar_contagio:40
+
+[OPTION_3]
+Text=Rastrear el terreno con visión táctica para recuperar las mulas
+Requires=vision>=2
+Result_pool=res_mot_03_vision:100

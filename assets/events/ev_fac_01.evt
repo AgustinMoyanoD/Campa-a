@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_fac_01
+Name=La Caravana del Gremio
+Description=Una reata de mulas del Gremio de Comerciantes avanza con una escolta ligera de ballesteros, salvo un carro blindado central custodiado por veteranos con alabardas.
+Trigger=ROAD
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Comprar provisiones a precio de mercado
+Requires=gold>=30
+Result_pool=res_fac_01_comprar_clean:70,res_fac_01_comprar_regateo:30
+
+[OPTION_2]
+Text=Incautar los carros de grano ahuyentando a la escolta ligera
+Result_pool=res_fac_01_incautar_clean:65,res_fac_01_incautar_resistencia:35
+
+[OPTION_3]
+Text=Asaltar el carro blindado de caudales y enfrentar a la guardia pesada
+Result_pool=res_fac_01_asalto_tesoro:100

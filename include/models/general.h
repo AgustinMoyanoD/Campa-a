@@ -16,10 +16,19 @@ typedef enum {
     OFFICER_LIEUTENANT
 } OfficerType;
 
+typedef enum {
+    ROLE_NONE = 0,
+    ROLE_EXPLORADOR,
+    ROLE_INTENDENTE,
+    ROLE_CAPELLAN
+} OfficerRole;
+
+const char* OfficerRole_GetName(OfficerRole role);
+
 
 /* ============================================================
    ESTRUCTURA DEL GENERAL
-   - Sus estadísticas nunca pueden ser negativas (mínimo 0).
+   - Sus estadï¿½sticas nunca pueden ser negativas (mï¿½nimo 0).
    - Puede portar hasta 3 cartas divinas pasivas.
    ============================================================ */
 
@@ -33,10 +42,10 @@ typedef struct {
     int curseCount;
 
     /* Puntos base de atributos (siempre >= 0) */
-    int vision;         /* Puntos de visión en niebla de guerra */
+    int vision;         /* Puntos de visiï¿½n en niebla de guerra */
     int leadership;     /* Puntos de dirigencia (movimiento base por turno) */
-    int evaluation;     /* Estimación de tropas y composición enemiga */
-    int planning;       /* Capacidad táctica y selección de estrategia */
+    int evaluation;     /* Estimaciï¿½n de tropas y composiciï¿½n enemiga */
+    int planning;       /* Capacidad tï¿½ctica y selecciï¿½n de estrategia */
     int execution;      /* Fuerza de mando y efectividad en combate */
 
 } General;
@@ -45,13 +54,15 @@ typedef struct {
 /* ============================================================
    ESTRUCTURA DEL TENIENTE
    - Puede tener atributos reducidos o incluso NEGATIVOS.
-   - Cuenta únicamente con 1 carta divina pasiva.
-   - Posee lealtad (0 a 100), factor clave en motines y traición.
+   - Cuenta ï¿½nicamente con 1 carta divina pasiva.
+   - Posee lealtad (0 a 100), factor clave en motines y traiciï¿½n.
    ============================================================ */
 
 typedef struct {
-        char name[64];
+    char name[64];
     int age;
+    OfficerRole role;
+    char patronGod[32];
 
     ModifierInstance patronCard;
     bool hasPatronCard;
@@ -71,8 +82,8 @@ typedef struct {
 
 
 /* ============================================================
-   REFERENCIA POLIMÓRFICA AL COMANDANTE EN JEFE
-   Permite que la tropa esté dirigida tanto por el General
+   REFERENCIA POLIMï¿½RFICA AL COMANDANTE EN JEFE
+   Permite que la tropa estï¿½ dirigida tanto por el General
    como por cualquiera de los Tenientes mediante una interfaz unificada.
    ============================================================ */
 
@@ -83,8 +94,43 @@ typedef struct {
 
 
 /* ============================================================
-   FUNCIONES DE CONSTRUCCIÓN Y GESTIÓN DE OFICIALES
+   FUNCIONES DE CONSTRUCCIï¿½N Y GESTIï¿½N DE OFICIALES
    ============================================================ */
+
+typedef struct {
+    int vision;
+    int leadership;
+    int evaluation;
+    int planning;
+    int execution;
+} OfficerAttributes;
+
+typedef struct {
+    const char* name;
+    int age;
+    OfficerAttributes stats;
+    const char* initialCards[MAX_GENERAL_DIVINE_CARDS];
+    int initialCardCount;
+} GeneralConfig;
+
+typedef struct {
+    const char* name;
+    int age;
+    OfficerRole role;
+    const char* patronGod;
+    const char* patronCardId;
+    OfficerAttributes stats;
+    int loyalty;
+} LieutenantConfig;
+
+void General_Init(General* general, const GeneralConfig* cfg);
+void Lieutenant_Init(Lieutenant* lt, const LieutenantConfig* cfg);
+
+/* CatÃ¡logo de presets de personajes para selecciÃ³n y configuraciÃ³n */
+int General_GetPresetCount(void);
+GeneralConfig General_GetPreset(int index);
+int Lieutenant_GetPresetCount(void);
+LieutenantConfig Lieutenant_GetPreset(int index);
 
 General General_Create(
     const char* name,
@@ -97,7 +143,10 @@ General General_Create(
 );
 
 Lieutenant Lieutenant_Create(
-    const char* name, const char* patronCardId,
+    const char* name,
+    OfficerRole role,
+    const char* patronGod,
+    const char* patronCardId,
     int age,
     int vision,
     int leadership,
@@ -107,7 +156,7 @@ Lieutenant Lieutenant_Create(
     int loyalty
 );
 
-/* Métodos polimórficos de consulta sobre el oficial al mando */
+/* Mï¿½todos polimï¿½rficos de consulta sobre el oficial al mando */
 CommanderRef Commander_FromGeneral(General* general);
 CommanderRef Commander_FromLieutenant(Lieutenant* lt);
 
@@ -123,9 +172,19 @@ int Commander_GetLoyalty(CommanderRef cmd);
 
 
 
+int Commander_GetCardCount(CommanderRef cmd);
+const char* Commander_GetCard(CommanderRef cmd, int index);
+int Commander_GetCurseCount(CommanderRef cmd);
+const char* Commander_GetCurse(CommanderRef cmd, int index);
+
 int Commander_GetActiveModifierCount(CommanderRef cmd);
 const char* Commander_GetActiveModifier(CommanderRef cmd, int index);
 bool Commander_AddActiveModifier(CommanderRef cmd, const char* modId);
+
+ModifierInstance* Commander_GetCardInstance(CommanderRef cmd, int index);
+bool Commander_IsCardExhausted(CommanderRef cmd, int index);
+void Commander_SetCardExhausted(CommanderRef cmd, int index, bool exhausted);
+
 #endif /* GENERAL_H */
 
 

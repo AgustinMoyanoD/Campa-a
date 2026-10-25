@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_adv_cap_01
+Name=Consejo del Capellán: Ofrenda a Hestia en la Encrucijada
+Description=Lucio Vitelio señala que la expedición arrastra malos presagios. Pide detener la marcha antes del ocaso para inmolar un buey o novillo y aplacar la cólera divina.
+Trigger=ADVICE
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Autorizar el sacrificio ritual del animal
+Requires=cattle>=1
+Result_pool=res_adv_cap_01_acc_clean:65,res_adv_cap_01_acc_cost:35
+
+[OPTION_2]
+Text=Negar la ofrenda de sangre: el ganado es alimento de marcha
+Result_pool=res_adv_cap_01_ign_craso:65,res_adv_cap_01_ign_fallo:35
+
+[OPTION_3]
+Text=Dirigir una libación de vino y grano en lugar de matar ganado
+Requires=eval>=2
+Result_pool=res_adv_cap_01_eval:100

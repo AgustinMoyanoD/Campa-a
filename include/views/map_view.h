@@ -4,6 +4,34 @@
 #include "raylib.h"
 #include "map_generator.h"
 #include "asset_manager.h"
+#include "controllers/camera_controller.h"
+
+struct GameMaster;
+struct Army;
+
+typedef struct {
+    float hexRadius;
+    Vector2 origin;
+    Vector2 visualArmyPos;
+    Vector2 visualEnemyPos[64];
+    bool enemyFirstFrame[64];
+    bool enemyIsTweening[64];
+    bool firstFrame;
+    float skyR, skyG, skyB;
+    int lastTimeOfDay;
+    bool debugRevealMap;
+    HexTile* selectedTile;
+} MapViewState;
+
+void MapView_Init(MapViewState* state);
+void MapView_SyncToArmy(MapViewState* state, HexCoord armyPos, CameraController* cc);
+void MapView_UpdateWorldVisuals(
+    MapViewState* state,
+    const struct GameMaster* gm,
+    const struct Army* army,
+    CameraController* cc,
+    float dt
+);
 
 Vector2 HexToPixel(HexCoord coord, float radius);
 HexCoord PixelToHex(Vector2 position, float radius);

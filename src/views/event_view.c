@@ -1,14 +1,21 @@
 #include "views/event_view.h"
+#include "presentation/ui_widgets.h"
+#include "presentation/ui_theme.h"
+#include "presentation/audio_manager.h"
 #include "raylib.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static Rectangle GetOptionRect(int index, int screenWidth, int screenHeight, int totalOptions) {
-    int w = 500;
-    int h = 40;
+    int modalW = 780;
+    int modalH = 540;
+    int w = 710;
+    int h = 54;
     int x = screenWidth / 2 - w / 2;
-    int startY = screenHeight / 2 + 20;
-    int spacing = 50;
+    int my = screenHeight / 2 - modalH / 2;
+    int spacing = 64;
+    int startY = my + modalH - (totalOptions * spacing) - 24;
     
     return (Rectangle){ (float)x, (float)(startY + index * spacing), (float)w, (float)h };
 }
@@ -16,55 +23,34 @@ static Rectangle GetOptionRect(int index, int screenWidth, int screenHeight, int
 void EventView_Draw(const EventDef* event, int screenWidth, int screenHeight) {
     if (!event) return;
 
-    // Fondo oscurecido
-    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 0, 0, 0, 180 });
-
-    // Pergamino
-    int modalW = 600;
-    int modalH = 400;
+    int modalW = 780;
+    int modalH = 540;
     int mx = screenWidth / 2 - modalW / 2;
     int my = screenHeight / 2 - modalH / 2;
 
-    DrawRectangle(mx, my, modalW, modalH, (Color){ 240, 230, 210, 255 });
-    DrawRectangleLines(mx, my, modalW, modalH, (Color){ 100, 80, 40, 255 });
-    DrawRectangleLines(mx+2, my+2, modalW-4, modalH-4, (Color){ 100, 80, 40, 255 });
+    UI_DrawModalWindow((Rectangle){ (float)mx, (float)my, (float)modalW, (float)modalH }, event->name, NULL, UI_STYLE_PANEL_DARK);
 
-    // Titulo
-    int titleW = MeasureText(event->name, 24);
-    DrawText(event->name, screenWidth / 2 - titleW / 2, my + 30, 24, BLACK);
-    DrawLine(mx + 50, my + 60, mx + modalW - 50, my + 60, GRAY);
+    // Descripción amplia con excelente contraste en Marfil Luminoso
+    UI_DrawTextWrapped(event->description, (Vector2){ (float)(mx + 45), (float)(my + 78) }, 19.0f, (float)(modalW - 90), (Color){ 248, 244, 232, 255 });
 
-    // Descripción (TODO: Word wrap)
-    DrawText(event->description, mx + 40, my + 80, 18, DARKGRAY);
-
-    // Opciones
+    // Renderizado de opciones mediante la API modular de botones 9-slice
     for (int i = 0; i < event->optionCount; i++) {
         Rectangle rect = GetOptionRect(i, screenWidth, screenHeight, event->optionCount);
         const EventOption* opt = &event->options[i];
-        
-        bool hover = CheckCollisionPointRec(GetMousePosition(), rect);
-        Color btnColor;
-        Color textColor;
-        if (!opt->enabled) {
-            btnColor = (Color){ 180, 180, 180, 200 };
-            textColor = (Color){ 100, 100, 100, 255 };
-        } else {
-            btnColor = hover ? (Color){ 200, 180, 150, 255 } : (Color){ 220, 200, 170, 255 };
-            textColor = BLACK;
-        }
-        
-        DrawRectangleRec(rect, btnColor);
-        DrawRectangleLinesEx(rect, 1, (Color){ 120, 100, 60, 255 });
 
-        char label[256];
+        char reasonBuf[128] = {0};
         if (!opt->enabled && opt->disabledReason[0] != '\0') {
-            snprintf(label, sizeof(label), "%s [%s]", opt->text, opt->disabledReason);
-        } else {
-            snprintf(label, sizeof(label), "%s", opt->text);
+            snprintf(reasonBuf, sizeof(reasonBuf), "[%s]", opt->disabledReason);
         }
 
-        int textW = MeasureText(label, 15);
-        DrawText(label, rect.x + rect.width / 2 - textW / 2, rect.y + 12, 15, textColor);
+        UIButtonSpec spec = {
+            .style = UI_STYLE_BTN_DEFAULT,
+            .fontSize = 18.0f,
+            .disabled = !opt->enabled,
+            .subtext = (reasonBuf[0] != '\0') ? reasonBuf : NULL,
+            .sfxOnClick = ""
+        };
+        UI_DrawButtonSpec(rect, opt->text, &spec);
     }
 }
 
@@ -77,6 +63,7 @@ int EventView_HandleInput(const EventDef* event, int screenWidth, int screenHeig
             if (!event->options[i].enabled) continue;
             Rectangle rect = GetOptionRect(i, screenWidth, screenHeight, event->optionCount);
             if (CheckCollisionPointRec(mousePos, rect)) {
+                Audio_PlaySfx(SFX_EVENT_CHOICE);
                 return i;
             }
         }
@@ -84,55 +71,53 @@ int EventView_HandleInput(const EventDef* event, int screenWidth, int screenHeig
     return -1;
 }
 
-
-
 void ResultView_Draw(const EventResult* res, int screenWidth, int screenHeight) {
     if (!res) return;
 
-    int mw = 600;
-    int mh = 400;
+    int mw = 720;
+    int mh = 420;
     int mx = (screenWidth - mw) / 2;
     int my = (screenHeight - mh) / 2;
 
-    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 0, 0, 0, 180 });
-    DrawRectangle(mx, my, mw, mh, (Color){ 40, 35, 30, 255 });
-    DrawRectangleLinesEx((Rectangle){ mx, my, mw, mh }, 4, (Color){ 180, 150, 80, 255 });
+    UI_DrawModalWindow((Rectangle){ (float)mx, (float)my, (float)mw, (float)mh }, res->name, NULL, UI_STYLE_PANEL_DARK);
 
-    DrawText(res->name, mx + 20, my + 20, 24, GOLD);
+    // Descripción del resultado
+    UI_DrawTextWrapped(res->description, (Vector2){ (float)(mx + 35), (float)(my + 78) }, 19.0f, (float)(mw - 70), (Color){ 248, 244, 232, 255 });
 
-    DrawTextEx(GetFontDefault(), res->description, (Vector2){ mx + 20, my + 60 }, 18, 2, LIGHTGRAY);
-
-    int btnW = 400;
-    int btnH = 40;
+    // Botón ACEPTAR
+    int btnW = 320;
+    int btnH = 50;
     int btnX = mx + (mw - btnW) / 2;
-    int btnY = my + mh - 60;
+    int btnY = my + mh - 74;
     
-    Rectangle btnRec = { btnX, btnY, btnW, btnH };
-    bool hover = CheckCollisionPointRec(GetMousePosition(), btnRec);
-    
-    DrawRectangleRec(btnRec, hover ? (Color){ 80, 70, 60, 255 } : (Color){ 60, 50, 40, 255 });
-    DrawRectangleLinesEx(btnRec, 2, (Color){ 120, 100, 70, 255 });
-    DrawText("ACEPTAR", btnX + btnW/2 - MeasureText("ACEPTAR", 18)/2, btnY + 11, 18, WHITE);
+    Rectangle btnRec = { (float)btnX, (float)btnY, (float)btnW, (float)btnH };
+    UIButtonSpec spec = {
+        .style = UI_STYLE_BTN_PRIMARY,
+        .fontSize = 20.0f,
+        .disabled = false,
+        .sfxOnClick = ""
+    };
+    UI_DrawButtonSpec(btnRec, "ACEPTAR", &spec);
 }
 
 int ResultView_HandleInput(const EventResult* res, int screenWidth, int screenHeight) {
     if (!res) return -1;
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        int mw = 600;
-        int mh = 400;
+        int mw = 720;
+        int mh = 420;
         int mx = (screenWidth - mw) / 2;
         int my = (screenHeight - mh) / 2;
 
-        int btnW = 400;
-        int btnH = 40;
+        int btnW = 320;
+        int btnH = 50;
         int btnX = mx + (mw - btnW) / 2;
-        int btnY = my + mh - 60;
+        int btnY = my + mh - 74;
         
-        Rectangle btnRec = { btnX, btnY, btnW, btnH };
+        Rectangle btnRec = { (float)btnX, (float)btnY, (float)btnW, (float)btnH };
         if (CheckCollisionPointRec(GetMousePosition(), btnRec)) {
+            Audio_PlaySfx(SFX_UI_CONFIRM);
             return 0; // Aceptar clicked
         }
     }
     return -1;
 }
-

@@ -1,4 +1,5 @@
 #include "models/event.h"
+#include "controllers/game_master.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,6 +51,9 @@ static EventTrigger ParseTrigger(const char* str) {
     if (strcmp(str, "ARMORY") == 0) return TRIGGER_ARMORY;
     if (strcmp(str, "NIGHT") == 0) return TRIGGER_NIGHT;
     if (strcmp(str, "CAMP_AMBUSH") == 0) return TRIGGER_CAMP_AMBUSH;
+    if (strcmp(str, "ADVICE") == 0) return TRIGGER_ADVICE;
+    if (strcmp(str, "GROUP_STARVING") == 0) return TRIGGER_GROUP_STARVING;
+    if (strcmp(str, "SARGENTOS_UNSATISFIED") == 0) return TRIGGER_SARGENTOS_UNSATISFIED;
     return TRIGGER_NONE;
 }
 
@@ -159,6 +163,7 @@ static bool LoadEventFromFile(const char* filepath, EventDef* ev) {
                 else if (strcmp(key, "MinCattle") == 0) ev->minCattle = atoi(val);
                 else if (strcmp(key, "DaysWithoutFood") == 0) ev->daysWithoutFoodMin = atoi(val);
                 else if (strcmp(key, "DaysWithoutWater") == 0) ev->daysWithoutWaterMin = atoi(val);
+                else if (strcmp(key, "Requires") == 0) strncpy(ev->requiredFlag, val, sizeof(ev->requiredFlag)-1);
             } else if (currentOption >= 0 && currentOption < MAX_OPTIONS) {
                 EventOption* opt = &ev->options[currentOption];
                 if (strcmp(key, "Text") == 0) strncpy(opt->text, val, sizeof(opt->text)-1);
@@ -172,7 +177,23 @@ static bool LoadEventFromFile(const char* filepath, EventDef* ev) {
                         while (token && opt->resultPoolCount < 5) {
                             TrimWhitespace(token);
                             if (strlen(token) > 0) {
-                                strncpy(opt->resultPool[opt->resultPoolCount++], token, 31);
+                                char* weightColon = strchr(token, ':');
+                                if (weightColon) {
+                                    *weightColon = '\0';
+                                    char* idStr = token;
+                                    char* wStr = weightColon + 1;
+                                    TrimWhitespace(idStr);
+                                    TrimWhitespace(wStr);
+                                    strncpy(opt->resultPool[opt->resultPoolCount], idStr, 31);
+                                    opt->resultPool[opt->resultPoolCount][31] = '\0';
+                                    int w = atoi(wStr);
+                                    opt->resultWeights[opt->resultPoolCount] = (w > 0) ? w : 1;
+                                } else {
+                                    strncpy(opt->resultPool[opt->resultPoolCount], token, 31);
+                                    opt->resultPool[opt->resultPoolCount][31] = '\0';
+                                    opt->resultWeights[opt->resultPoolCount] = 1;
+                                }
+                                opt->resultPoolCount++;
                             }
                             token = strtok(NULL, ",");
                         }
@@ -313,8 +334,8 @@ int Result_LoadAll(const char* directory, EventResult* outResults, int maxResult
 #include <stdio.h>
 #include <math.h>
 
-void Event_ApplyResult(const EventResult* res, Army* army, float* gmInfamy) {
-    if (!res || !army || !gmInfamy) return;
+void Event_ApplyResult(const EventResult* res, Army* army, struct GameMaster* gm) {
+    if (!res || !army || !gm) return;
     
     for (int i = 0; i < res->effectCount; i++) {
         const EffectDef* eff = &res->effects[i];
@@ -325,14 +346,12 @@ void Event_ApplyResult(const EventResult* res, Army* army, float* gmInfamy) {
                 if (army->monedas < 0) army->monedas = 0;
                 break;
             case EFFECT_INFAMY:
-                *gmInfamy += eff->value;
-                if (*gmInfamy < 0.0f) *gmInfamy = 0.0f;
-                if (*gmInfamy > 100.0f) *gmInfamy = 100.0f;
+                gm->infamy += eff->value;
+                if (gm->infamy < 0.0f) gm->infamy = 0.0f;
+                if (gm->infamy > 100.0f) gm->infamy = 100.0f;
                 break;
             case EFFECT_MORAL:
-                army->moral += eff->value;
-                if (army->moral < 0.0f) army->moral = 0.0f;
-                if (army->moral > 100.0f) army->moral = 100.0f;
+                Army_ApplyMoraleDelta(army, eff->value);
                 break;
             case EFFECT_FOOD:
                 army->comida_disponible += eff->value;
@@ -383,16 +402,82 @@ void Event_ApplyResult(const EventResult* res, Army* army, float* gmInfamy) {
                 break;
             }
             case EFFECT_SALUD: {
-                army->salud += eff->value;
-                if (army->salud < 0.0f) army->salud = 0.0f;
-                if (army->salud > 100.0f) army->salud = 100.0f;
+                Army_ApplyHealthDelta(army, eff->value);
                 break;
             }
+            case EFFECT_WINE: {
+                army->vino_disponible += eff->value;
+                if (army->vino_disponible < 0.0f) army->vino_disponible = 0.0f;
+                break;
+            }
+            case EFFECT_MEAT: {
+                army->carne_disponible += eff->value;
+                if (army->carne_disponible < 0.0f) army->carne_disponible = 0.0f;
+                break;
+            }
+            case EFFECT_GROUP_MORALE: {
+                RationGroup g = RG_SOLDADOS;
+                if (strcasecmp(eff->stringValue, "iniciados") == 0) g = RG_INICIADOS;
+                else if (strcasecmp(eff->stringValue, "soldados") == 0) g = RG_SOLDADOS;
+                else if (strcasecmp(eff->stringValue, "sargentos") == 0) g = RG_SARGENTOS;
+                Army_ApplyGroupMoraleDelta(army, g, eff->value);
+                break;
+            }
+            case EFFECT_GROUP_HEALTH: {
+                RationGroup g = RG_SOLDADOS;
+                if (strcasecmp(eff->stringValue, "iniciados") == 0) g = RG_INICIADOS;
+                else if (strcasecmp(eff->stringValue, "soldados") == 0) g = RG_SOLDADOS;
+                else if (strcasecmp(eff->stringValue, "sargentos") == 0) g = RG_SARGENTOS;
+                else if (strcasecmp(eff->stringValue, "ganado") == 0) g = RG_GANADO;
+                Army_ApplyGroupHealthDelta(army, g, eff->value);
+                break;
+            }
+            case EFFECT_SARGENTOS_SATISFACTION: {
+                army->groupState[RG_SARGENTOS].satisfaction += eff->value;
+                if (army->groupState[RG_SARGENTOS].satisfaction < 0.0f) army->groupState[RG_SARGENTOS].satisfaction = 0.0f;
+                if (army->groupState[RG_SARGENTOS].satisfaction > army->groupState[RG_SARGENTOS].satisfactionMax) {
+                    army->groupState[RG_SARGENTOS].satisfaction = army->groupState[RG_SARGENTOS].satisfactionMax;
+                }
+                break;
+            }
+            case EFFECT_LOYALTY: {
+                OfficerRole role = ROLE_NONE;
+                if (strcasecmp(eff->stringValue, "explorador") == 0) role = ROLE_EXPLORADOR;
+                else if (strcasecmp(eff->stringValue, "intendente") == 0) role = ROLE_INTENDENTE;
+                else if (strcasecmp(eff->stringValue, "capellan") == 0) role = ROLE_CAPELLAN;
+
+                if (role != ROLE_NONE) {
+                    Army_ApplyAdviceEffect(army, role, (int)eff->value);
+                } else {
+                    /* Si no especifica rol, aplica a todos los tenientes */
+                    for (int ltIdx = 0; ltIdx < army->lieutenantCount; ltIdx++) {
+                        int nl = army->lieutenants[ltIdx].loyalty + (int)eff->value;
+                        if (nl < 0) nl = 0;
+                        if (nl > 100) nl = 100;
+                        army->lieutenants[ltIdx].loyalty = nl;
+                    }
+                }
+                break;
+            }
+            case EFFECT_FACTION_OPINION: {
+                GameMaster_ApplyFactionOpinion(gm, eff->stringValue, (int)eff->value);
+                break;
+            }
+            case EFFECT_SET_FLAG: {
+                GameMaster_SetFlag(gm, eff->stringValue);
+                break;
+            }
+            case EFFECT_CLEAR_FLAG: {
+                GameMaster_ClearFlag(gm, eff->stringValue);
+                break;
+            }
+            default:
+                break;
         }
     }
 }
 
-void Event_EvaluateOptions(EventDef* event, const Army* army) {
+void Event_EvaluateOptions(EventDef* event, const Army* army, const struct GameMaster* gm) {
     if (!event || !army) return;
 
     for (int i = 0; i < event->optionCount; i++) {
@@ -406,6 +491,25 @@ void Event_EvaluateOptions(EventDef* event, const Army* army) {
         strncpy(buf, opt->requiresCondition, sizeof(buf)-1);
         buf[sizeof(buf)-1] = 0;
         TrimWhitespace(buf);
+
+        // 1. Condicion de Bandera Narrativa (Flag)
+        if (strncmp(buf, "!flag:", 6) == 0) {
+            char* flagName = buf + 6;
+            TrimWhitespace(flagName);
+            if (GameMaster_HasFlag(gm, flagName)) {
+                opt->enabled = false;
+                snprintf(opt->disabledReason, sizeof(opt->disabledReason), "Incompatible con '%s'", flagName);
+            }
+            continue;
+        } else if (strncmp(buf, "flag:", 5) == 0) {
+            char* flagName = buf + 5;
+            TrimWhitespace(flagName);
+            if (!GameMaster_HasFlag(gm, flagName)) {
+                opt->enabled = false;
+                snprintf(opt->disabledReason, sizeof(opt->disabledReason), "Requiere '%s'", flagName);
+            }
+            continue;
+        }
 
         char* op = strstr(buf, ">=");
         int opType = 1; /* 1: >=, 2: >, 3: ==, 4: <=, 5: < */
@@ -466,6 +570,16 @@ void Event_EvaluateOptions(EventDef* event, const Army* army) {
         else if (strcmp(varName, "plan") == 0 || strcmp(varName, "planificacion") == 0) curVal = (float)Commander_GetPlanning(army->commander);
         else if (strcmp(varName, "exec") == 0 || strcmp(varName, "ejecucion") == 0) curVal = (float)Commander_GetExecution(army->commander);
         else if (strcmp(varName, "vision") == 0) curVal = (float)Commander_GetVision(army->commander);
+        else if (strcmp(varName, "wine") == 0 || strcmp(varName, "vino") == 0) curVal = army->vino_disponible;
+        else if (strcmp(varName, "meat") == 0 || strcmp(varName, "carne") == 0) curVal = army->carne_disponible;
+        else if (strcmp(varName, "moral_iniciados") == 0) curVal = army->groupState[RG_INICIADOS].morale;
+        else if (strcmp(varName, "moral_soldados") == 0) curVal = army->groupState[RG_SOLDADOS].morale;
+        else if (strcmp(varName, "moral_sargentos") == 0) curVal = army->groupState[RG_SARGENTOS].morale;
+        else if (strcmp(varName, "salud_iniciados") == 0) curVal = army->groupState[RG_INICIADOS].health;
+        else if (strcmp(varName, "salud_soldados") == 0) curVal = army->groupState[RG_SOLDADOS].health;
+        else if (strcmp(varName, "salud_sargentos") == 0) curVal = army->groupState[RG_SARGENTOS].health;
+        else if (strcmp(varName, "salud_ganado") == 0) curVal = army->groupState[RG_GANADO].health;
+        else if (strcmp(varName, "satisfaccion_sargentos") == 0 || strcmp(varName, "satisfaction_sergeants") == 0) curVal = army->groupState[RG_SARGENTOS].satisfaction;
 
         bool satisfied = false;
         switch (opType) {
@@ -491,3 +605,11 @@ void Event_EvaluateOptions(EventDef* event, const Army* army) {
 
 
 
+
+EventDef* Event_FindById(EventDef* events, int count, const char* id) {
+    if (!events || !id) return NULL;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(events[i].id, id) == 0) return &events[i];
+    }
+    return NULL;
+}

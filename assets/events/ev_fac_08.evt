@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_fac_08
+Name=Rehenes de la Aristocracia Urbana
+Description=Un coche de gala escoltado por guardias privados queda atascado en un lodazal. En su interior viajan parientes de un magistrado del Gremio de Comerciantes.
+Trigger=ROAD
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Ayudar a desatascar el carruaje y escoltarlos sin exigir rescate
+Result_pool=res_fac_08_ayuda_clean:65,res_fac_08_ayuda_cost:35
+
+[OPTION_2]
+Text=Apresar al magistrado y exigir rescate inmediato en oro
+Result_pool=res_fac_08_rehen_clean:60,res_fac_08_rehen_cost:40
+
+[OPTION_3]
+Text=Negociar un salvoconducto perpetuo y entrega de víveres urbanos
+Requires=plan>=2
+Result_pool=res_fac_08_plan:100

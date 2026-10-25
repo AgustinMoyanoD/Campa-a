@@ -21,7 +21,20 @@ typedef enum {
     EFFECT_ADD_MOD,
     EFFECT_REMOVE_MOD,
     EFFECT_DRAW_MOD,
+    EFFECT_LOYALTY,
     
+    // Narrativa y Facciones
+    EFFECT_FACTION_OPINION,
+    EFFECT_SET_FLAG,
+    EFFECT_CLEAR_FLAG,
+
+    // Raciones y recursos de lujo (models/ration.h)
+    EFFECT_WINE,
+    EFFECT_MEAT,
+    EFFECT_GROUP_MORALE,
+    EFFECT_GROUP_HEALTH,
+    EFFECT_SARGENTOS_SATISFACTION,
+
     // Efectos dinamicos para ganchos (Hooks)
     EFFECT_FLEE_COST,
     EFFECT_PA,
@@ -43,6 +56,8 @@ typedef enum {
 typedef struct {
     char id[32];
     int remaining;
+    bool isExhausted;
+    int battlesUntilRecharge;
 } ModifierInstance;
 
 typedef enum {

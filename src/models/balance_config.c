@@ -21,14 +21,14 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
     memset(cfg, 0, sizeof(BalanceConfig));
 
     /* Starvation Food */
-    cfg->starvationFood[0] = (StarvationRow){ .moral = 0.0f,  .salud = 0.0f,   .desertPct = 0.0f, .deathPct = 0.0f };
-    cfg->starvationFood[1] = (StarvationRow){ .moral = -6.0f, .salud = 0.0f,   .desertPct = 0.0f, .deathPct = 0.0f };
-    cfg->starvationFood[2] = (StarvationRow){ .moral = -8.0f, .salud = -10.0f, .desertPct = 3.0f, .deathPct = 2.0f };
+    cfg->starvationFood[0] = (StarvationRow){ .moral = -4.0f, .salud = -2.0f,  .desertPct = 1.0f, .deathPct = 0.0f };
+    cfg->starvationFood[1] = (StarvationRow){ .moral = -7.0f, .salud = -4.0f,  .desertPct = 2.0f, .deathPct = 0.0f };
+    cfg->starvationFood[2] = (StarvationRow){ .moral = -9.0f, .salud = -5.0f,  .desertPct = 1.0f, .deathPct = 1.0f };
 
     /* Starvation Water */
-    cfg->starvationWater[0] = (StarvationRow){ .moral = 0.0f,   .salud = 0.0f,   .desertPct = 0.0f, .deathPct = 0.0f };
-    cfg->starvationWater[1] = (StarvationRow){ .moral = -8.0f,  .salud = -5.0f,  .desertPct = 0.0f, .deathPct = 0.0f };
-    cfg->starvationWater[2] = (StarvationRow){ .moral = -10.0f, .salud = -18.0f, .desertPct = 4.0f, .deathPct = 3.0f };
+    cfg->starvationWater[0] = (StarvationRow){ .moral = -4.0f, .salud = -2.0f,  .desertPct = 1.0f, .deathPct = 0.0f };
+    cfg->starvationWater[1] = (StarvationRow){ .moral = -7.0f, .salud = -4.0f,  .desertPct = 2.0f, .deathPct = 0.0f };
+    cfg->starvationWater[2] = (StarvationRow){ .moral = -9.0f, .salud = -5.0f,  .desertPct = 1.0f, .deathPct = 1.0f };
 
     /* Rank Multipliers */
     cfg->rankMultInitiates = 1.0f;
@@ -50,16 +50,18 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
     cfg->forageFood[5]  = 0.5f;  cfg->forageWater[5] = 1.5f;  /* Water */
 
     /* Loot */
-    cfg->lootGoldPerStr   = 1.0f;
-    cfg->lootFoodPerStr   = 0.5f;
-    cfg->lootVariancePct  = 20.0f;
+    cfg->lootGoldPerStr      = 1.0f;
+    cfg->lootFoodPerStr      = 0.5f;
+    cfg->lootVariancePct     = 20.0f;
+    cfg->lootWineChanceLarge = 0.45f;
+    cfg->lootMeatChanceLarge = 0.45f;
 
     /* Camp */
     cfg->campRecoverMoral       = 6.0f;
     cfg->campRecoverSalud       = 5.0f;
     cfg->campAmbushTarget       = 7;
     cfg->campStarvingNoRecovery = true;
-    cfg->campCoverForest        = 2;
+    cfg->campCoverForest        = 3;
     cfg->campCoverHills         = 1;
     cfg->campCoverPlains        = 0;
     cfg->campCoverMountain      = 1;
@@ -103,12 +105,18 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
     cfg->marketPriceWater           = 3;
     cfg->marketPriceCattle          = 25;
     cfg->marketPriceInitiate        = 5;
+    cfg->marketPriceWine            = 6;
+    cfg->marketPriceMeat            = 5;
     cfg->marketStockViviendaFood    = 20;
     cfg->marketStockViviendaWater   = 20;
+    cfg->marketStockViviendaWine    = 4;
+    cfg->marketStockViviendaMeat    = 4;
     cfg->marketStockUrbanoFood      = 100;
     cfg->marketStockUrbanoWater     = 100;
     cfg->marketStockUrbanoCattle    = 6;
     cfg->marketStockUrbanoInitiates = 20;
+    cfg->marketStockUrbanoWine      = 15;
+    cfg->marketStockUrbanoMeat      = 20;
 
     /* Armory defaults (9.3) */
     cfg->armoryPromoteInitiateCost        = 15;
@@ -149,9 +157,38 @@ void Balance_InitDefaults(BalanceConfig* cfg) {
     /* Suministros Iniciales (C3) */
     cfg->initialSupplyDays                = 5.0f;
 
-    /* Generación de Mapa y Asentamientos (D1) */
+    /* GeneraciÃ³n de Mapa y Asentamientos (D1) */
     cfg->maxDaysToSettlement              = 2.0f;
     cfg->hexPerDay                        = 9;
+
+    /* Mutiny defaults (Bloque E) */
+    cfg->warnMoral1                       = 35.0f;
+    cfg->warnMoral2                       = 15.0f;
+    cfg->checkMoral                       = 10.0f;
+    cfg->moralAfterMutiny                 = 35.0f;
+    cfg->graceDays                        = 3;
+    cfg->returnMoral                      = 60.0f;
+
+    /* Loyalty defaults (Bloque E3) */
+    cfg->acceptAdvice                     = 3;
+    cfg->ignoreAdvice                     = -2;
+    cfg->dailyDriftWhenMoralBelow30       = -1;
+
+    /* Raciones y Consumo Diario defaults */
+    cfg->humanDrinkNeed                   = 1.0f;
+    cfg->humanFoodNeed                    = 1.0f;
+    cfg->cattleDrinkNeed                  = 1.5f;
+    cfg->cattleFoodNeed                   = 0.2f;
+    cfg->rationFullThreshold              = 1.0f;
+    cfg->rationReducedThreshold           = 0.5f;
+    cfg->reducedMoraleLossPerDay          = 2.5f;
+    cfg->luxuryThresholdPct               = 0.25f;
+    cfg->luxuryMoraleBonus                = 2.0f;
+    cfg->luxuryMoraleBonusCap             = 100.0f;
+    cfg->sargentosDailySatisfactionDecay  = 1.0f;
+    cfg->sargentosLuxurySatisfactionBonus = 2.0f;
+    cfg->sargentosSatisfactionMax         = 10.0f;
+    cfg->cattleMeatYield                  = 6;
 }
 
 static void ParseStarvationLine(StarvationRow* row, const char* val) {
@@ -256,6 +293,8 @@ bool Balance_LoadFromFile(BalanceConfig* cfg, const char* filepath) {
             if (strcmp(key, "GoldPerStr") == 0) cfg->lootGoldPerStr = (float)atof(val);
             else if (strcmp(key, "FoodPerStr") == 0) cfg->lootFoodPerStr = (float)atof(val);
             else if (strcmp(key, "VariancePct") == 0) cfg->lootVariancePct = (float)atof(val);
+            else if (strcmp(key, "WineChanceLarge") == 0) cfg->lootWineChanceLarge = (float)atof(val);
+            else if (strcmp(key, "MeatChanceLarge") == 0) cfg->lootMeatChanceLarge = (float)atof(val);
         }
         else if (strcmp(section, "COMBAT_END") == 0) {
             if (strcmp(key, "MaxRounds") == 0) cfg->maxCombatRounds = atoi(val);
@@ -316,12 +355,18 @@ bool Balance_LoadFromFile(BalanceConfig* cfg, const char* filepath) {
             else if (strcmp(key, "PriceWater") == 0) cfg->marketPriceWater = atoi(val);
             else if (strcmp(key, "PriceCattle") == 0) cfg->marketPriceCattle = atoi(val);
             else if (strcmp(key, "PriceInitiate") == 0) cfg->marketPriceInitiate = atoi(val);
+            else if (strcmp(key, "PriceWine") == 0) cfg->marketPriceWine = atoi(val);
+            else if (strcmp(key, "PriceMeat") == 0) cfg->marketPriceMeat = atoi(val);
             else if (strcmp(key, "StockViviendaFood") == 0) cfg->marketStockViviendaFood = atoi(val);
             else if (strcmp(key, "StockViviendaWater") == 0) cfg->marketStockViviendaWater = atoi(val);
+            else if (strcmp(key, "StockViviendaWine") == 0) cfg->marketStockViviendaWine = atoi(val);
+            else if (strcmp(key, "StockViviendaMeat") == 0) cfg->marketStockViviendaMeat = atoi(val);
             else if (strcmp(key, "StockUrbanoFood") == 0) cfg->marketStockUrbanoFood = atoi(val);
             else if (strcmp(key, "StockUrbanoWater") == 0) cfg->marketStockUrbanoWater = atoi(val);
             else if (strcmp(key, "StockUrbanoCattle") == 0) cfg->marketStockUrbanoCattle = atoi(val);
             else if (strcmp(key, "StockUrbanoInitiates") == 0) cfg->marketStockUrbanoInitiates = atoi(val);
+            else if (strcmp(key, "StockUrbanoWine") == 0) cfg->marketStockUrbanoWine = atoi(val);
+            else if (strcmp(key, "StockUrbanoMeat") == 0) cfg->marketStockUrbanoMeat = atoi(val);
         }
         else if (strcmp(section, "ARMORY") == 0) {
             if (strcmp(key, "PromoteInitiateCost") == 0) cfg->armoryPromoteInitiateCost = atoi(val);
@@ -365,6 +410,35 @@ bool Balance_LoadFromFile(BalanceConfig* cfg, const char* filepath) {
         else if (strcmp(section, "MAPGEN") == 0) {
             if (strcmp(key, "MaxDaysToSettlement") == 0) cfg->maxDaysToSettlement = (float)atof(val);
             else if (strcmp(key, "HexPerDay") == 0) cfg->hexPerDay = atoi(val);
+        }
+        else if (strcmp(section, "MUTINY") == 0) {
+            if (strcmp(key, "WarnMoral1") == 0) cfg->warnMoral1 = (float)atof(val);
+            else if (strcmp(key, "WarnMoral2") == 0) cfg->warnMoral2 = (float)atof(val);
+            else if (strcmp(key, "CheckMoral") == 0) cfg->checkMoral = (float)atof(val);
+            else if (strcmp(key, "MoralAfterMutiny") == 0) cfg->moralAfterMutiny = (float)atof(val);
+            else if (strcmp(key, "GraceDays") == 0) cfg->graceDays = atoi(val);
+            else if (strcmp(key, "ReturnMoral") == 0) cfg->returnMoral = (float)atof(val);
+        }
+        else if (strcmp(section, "LOYALTY") == 0) {
+            if (strcmp(key, "AcceptAdvice") == 0) cfg->acceptAdvice = atoi(val);
+            else if (strcmp(key, "IgnoreAdvice") == 0) cfg->ignoreAdvice = atoi(val);
+            else if (strcmp(key, "DailyDriftWhenMoralBelow30") == 0) cfg->dailyDriftWhenMoralBelow30 = atoi(val);
+        }
+        else if (strcmp(section, "RATIONS") == 0) {
+            if (strcmp(key, "HumanDrinkNeed") == 0) cfg->humanDrinkNeed = (float)atof(val);
+            else if (strcmp(key, "HumanFoodNeed") == 0) cfg->humanFoodNeed = (float)atof(val);
+            else if (strcmp(key, "CattleDrinkNeed") == 0) cfg->cattleDrinkNeed = (float)atof(val);
+            else if (strcmp(key, "CattleFoodNeed") == 0) cfg->cattleFoodNeed = (float)atof(val);
+            else if (strcmp(key, "RationFullThreshold") == 0) cfg->rationFullThreshold = (float)atof(val);
+            else if (strcmp(key, "RationReducedThreshold") == 0) cfg->rationReducedThreshold = (float)atof(val);
+            else if (strcmp(key, "ReducedMoraleLossPerDay") == 0) cfg->reducedMoraleLossPerDay = (float)atof(val);
+            else if (strcmp(key, "LuxuryThresholdPct") == 0) cfg->luxuryThresholdPct = (float)atof(val);
+            else if (strcmp(key, "LuxuryMoraleBonus") == 0) cfg->luxuryMoraleBonus = (float)atof(val);
+            else if (strcmp(key, "LuxuryMoraleBonusCap") == 0) cfg->luxuryMoraleBonusCap = (float)atof(val);
+            else if (strcmp(key, "SargentosDailySatisfactionDecay") == 0) cfg->sargentosDailySatisfactionDecay = (float)atof(val);
+            else if (strcmp(key, "SargentosLuxurySatisfactionBonus") == 0) cfg->sargentosLuxurySatisfactionBonus = (float)atof(val);
+            else if (strcmp(key, "SargentosSatisfactionMax") == 0) cfg->sargentosSatisfactionMax = (float)atof(val);
+            else if (strcmp(key, "CattleMeatYield") == 0) cfg->cattleMeatYield = atoi(val);
         }
     }
 

@@ -1,13 +1,22 @@
 #include "map_view.h"
+#include "controllers/game_master.h"
+#include "controllers/camera_controller.h"
+#include "presentation/ui_widgets.h"
+#include "presentation/tween.h"
+#include "presentation/sequence.h"
+#include "presentation/audio_manager.h"
+#include "presentation/screen_fx.h"
+#include "raymath.h"
 #include "rlgl.h"
 #include <stddef.h>
+#include <string.h>
 #include <math.h>
 #include <stdlib.h>
 
 /* ============================================================
-   PERSPECTIVA ISOM�TRICA
+   PERSPECTIVA ISOMï¿½TRICA
    Factor de aplastamiento 2:1. El eje Y se multiplica por 0.5
-   para dar la ilusi�n de profundidad.
+   para dar la ilusiï¿½n de profundidad.
    ============================================================ */
 
 #define ISO_SCALE_Y 0.5f
@@ -22,7 +31,7 @@ Vector2 HexToPixel(HexCoord coord, float radius)
 
 HexCoord PixelToHex(Vector2 position, float radius)
 {
-    /* Revertir el aplastamiento del eje Y antes de la conversi�n inversa */
+    /* Revertir el aplastamiento del eje Y antes de la conversiï¿½n inversa */
     float unscaledY = position.y / ISO_SCALE_Y;
 
     float q = (sqrtf(3.0f) / 3.0f * position.x - 1.0f / 3.0f * unscaledY) / radius;
@@ -54,47 +63,47 @@ float GetBiomeHeight(BiomeType biome)
 {
     switch (biome) {
         case BIOME_WATER:    return  2.0f;
-        case BIOME_PLAINS:   return 10.0f;
-        case BIOME_DESERT:   return 12.0f;
-        case BIOME_JUNGLE:   return 10.0f;
-        case BIOME_FOREST:   return 14.0f;
-        case BIOME_MOUNTAIN: return 35.0f;
-        default:             return 10.0f;
+        case BIOME_PLAINS:   return  9.0f;
+        case BIOME_DESERT:   return 10.0f;
+        case BIOME_JUNGLE:   return 11.0f;
+        case BIOME_FOREST:   return 12.0f;
+        case BIOME_MOUNTAIN: return 20.0f;
+        default:             return  9.0f;
     }
 }
 
-/* Color de cara lateral (fallback cuando no hay textura) */
+/* Color de cara lateral (acorde con la paleta de Edad del Bronce y Grecia ClÃ¡sica) */
 static Color GetBiomeSideColor(BiomeType biome)
 {
     switch (biome) {
-        case BIOME_WATER:    return (Color){ 45, 105, 185, 255 };
-        case BIOME_FOREST:   return (Color){ 18,  70,  30, 255 };
-        case BIOME_DESERT:   return (Color){ 180, 150,  70, 255 };
-        case BIOME_JUNGLE:   return (Color){ 10,  55,  42, 255 };
-        case BIOME_MOUNTAIN: return (Color){ 105,  95,  90, 255 };
-        default:             return (Color){ 80,  145,  50, 255 };
+        case BIOME_WATER:    return (Color){  36,  72,  98, 255 };
+        case BIOME_FOREST:   return (Color){  62,  76,  48, 255 };
+        case BIOME_DESERT:   return (Color){ 168, 122,  68, 255 };
+        case BIOME_JUNGLE:   return (Color){  42,  68,  52, 255 };
+        case BIOME_MOUNTAIN: return (Color){ 102,  94,  86, 255 };
+        default:             return (Color){ 116, 102,  66, 255 };
     }
 }
 
-/* Color de cara superior (fallback sin textura) */
+/* Color de cara superior (fallback sin textura y minimapa) */
 static Color GetBiomeTopColor(BiomeType biome)
 {
     switch (biome) {
-        case BIOME_WATER:    return (Color){ 95, 175, 235, 255 };
-        case BIOME_FOREST:   return (Color){ 35, 115,  50, 255 };
-        case BIOME_DESERT:   return (Color){ 230, 200, 110, 255 };
-        case BIOME_JUNGLE:   return (Color){ 20,  95,  75, 255 };
-        case BIOME_MOUNTAIN: return (Color){ 155, 145, 138, 255 };
-        default:             return (Color){ 140, 205,  90, 255 };
+        case BIOME_WATER:    return (Color){  56, 108, 142, 255 };
+        case BIOME_FOREST:   return (Color){  56,  82,  44, 255 };
+        case BIOME_DESERT:   return (Color){ 208, 166,  92, 255 };
+        case BIOME_JUNGLE:   return (Color){  36,  72,  58, 255 };
+        case BIOME_MOUNTAIN: return (Color){ 128, 118, 106, 255 };
+        default:             return (Color){ 134, 152,  78, 255 };
     }
 }
 
 /* ============================================================
-   DIBUJO DEL BLOQUE ISOM�TRICO (caras laterales + cara superior)
+   DIBUJO DEL BLOQUE ISOMï¿½TRICO (caras laterales + cara superior)
    ============================================================ */
 
 /*
- * V�rtices del hex�gono "pointy-top" aplastado:
+ * Vï¿½rtices del hexï¿½gono "pointy-top" aplastado:
  *
  *        0
  *      /   \
@@ -134,13 +143,29 @@ static void DrawHexTop(Vector2 center, float radius,
             if (pts[i].y < minY) minY = pts[i].y;
             if (pts[i].y > maxY) maxY = pts[i].y;
         }
-        
-        Rectangle dest = { minX, minY, maxX - minX, maxY - minY };
+
+        float hexW = maxX - minX;
+        float hexH = maxY - minY;
+
+        /* Soporte de relieve superior (Overhang):
+         * La base hexagonal canÃ³nica mide 64x37 px. Si la textura es mÃ¡s alta (ej. 64x60),
+         * los pÃ­xeles extra corresponden a copas de Ã¡rboles o cumbres que sobresalen hacia arriba. */
+        float baseTexH = srcFrame.width * (37.0f / 64.0f);
+        float overhangTexH = (srcFrame.height > baseTexH + 0.5f) ? (srcFrame.height - baseTexH) : 0.0f;
+        float overhangScreenH = (baseTexH > 0.0f) ? (overhangTexH * (hexH / baseTexH)) : 0.0f;
+
+        Rectangle dest = {
+            roundf(minX),
+            roundf(minY - overhangScreenH),
+            roundf(hexW),
+            roundf(hexH + overhangScreenH)
+        };
         DrawTexturePro(tex, srcFrame, dest, (Vector2){ 0, 0 }, 0.0f, tint);
 
-        /* Borde fino */
-        for (int i = 0; i < 6; i++)
-            DrawLineV(pts[i], pts[(i + 1) % 6], (Color){ 0, 0, 0, 80 });
+        /* Aristas inferiores sutiles (2->1 y 1->0) para separar la cara superior del bloque lateral */
+        Color edgeCol = (Color){ 26, 22, 20, 145 };
+        DrawLineV(pts[2], pts[1], edgeCol);
+        DrawLineV(pts[1], pts[0], edgeCol);
     } else {
         rlBegin(RL_TRIANGLES);
         Color finalCol = { (unsigned char)(topColor.r * tint.r / 255.0f),
@@ -163,58 +188,75 @@ static void DrawHexTop(Vector2 center, float radius,
         rlEnd();
 
         for (int i = 0; i < 6; i++)
-            DrawLineV(pts[i], pts[(i + 1) % 6], BLACK);
+            DrawLineV(pts[i], pts[(i + 1) % 6], (Color){ 26, 22, 20, 60 });
     }
 }
 
-/* Dibuja el cuerpo lateral (prisma) del bloque isom�trico */
+/* Dibuja el cuerpo lateral (prisma) del bloque isomï¿½trico */
+/* Dibuja un cuadrilÃ¡tero relleno usando dos triÃ¡ngulos en ambos sentidos de giro
+   para evitar que el backface culling de rlgl descarte caras laterales */
+static void DrawQuadSolid(Vector2 a, Vector2 b, Vector2 c, Vector2 d, Color col)
+{
+    DrawTriangle(a, b, c, col);
+    DrawTriangle(a, c, b, col);
+    DrawTriangle(a, c, d, col);
+    DrawTriangle(a, d, c, col);
+}
+
 static void DrawHexSides(Vector2 baseCenter, float radius,
                           float height, Color sideColor)
 {
     if (height <= 0.0f) return;
 
-    Vector2 base[6], top[6];
+    Vector2 base[6], top[6], lip[6];
     ComputeHexVertices(baseCenter, radius, base);
+    float lipH = (height > 6.0f) ? 3.5f : (height * 0.4f);
     for (int i = 0; i < 6; i++) {
         top[i].x = base[i].x;
         top[i].y = base[i].y - height;
+        lip[i].x = base[i].x;
+        lip[i].y = top[i].y + lipH;
     }
 
-    /* Solo las caras visibles desde el sur: derecha (0-1) y frontal (5-0) */
-    /* Cara derecha: v�rtices 0, 1 (top) ? 1, 0 (base) */
-    rlBegin(RL_QUADS);
-    Color dark = (Color){ (unsigned char)(sideColor.r * 0.7f),
-                           (unsigned char)(sideColor.g * 0.7f),
-                           (unsigned char)(sideColor.b * 0.7f), 255 };
-    rlColor4ub(dark.r, dark.g, dark.b, dark.a);
-    rlVertex2f(top[0].x,  top[0].y);
-    rlVertex2f(top[1].x,  top[1].y);
-    rlVertex2f(base[1].x, base[1].y);
-    rlVertex2f(base[0].x, base[0].y);
+    /* En nuestro sistema de Ã¡ngulos (30Â° + i*60Â° con Y hacia abajo):
+     * VÃ©rtice 0 = 30Â°  (abajo-derecha)
+     * VÃ©rtice 1 = 90Â°  (abajo-centro / punta sur)
+     * VÃ©rtice 2 = 150Â° (abajo-izquierda)
+     * Por lo tanto, las dos caras visibles desde el sur son:
+     *   - Cara frontal izquierda: vÃ©rtices 2 -> 1
+     *   - Cara frontal derecha:   vÃ©rtices 1 -> 0 */
+    Color lipLeft  = (Color){ (unsigned char)(sideColor.r * 0.94f),
+                              (unsigned char)(sideColor.g * 0.94f),
+                              (unsigned char)(sideColor.b * 0.94f), 255 };
+    Color lipRight = (Color){ (unsigned char)(sideColor.r * 0.78f),
+                              (unsigned char)(sideColor.g * 0.78f),
+                              (unsigned char)(sideColor.b * 0.78f), 255 };
+    Color rockLeft = (Color){ (unsigned char)(sideColor.r * 0.74f),
+                              (unsigned char)(sideColor.g * 0.70f),
+                              (unsigned char)(sideColor.b * 0.66f), 255 };
+    Color rockRight= (Color){ (unsigned char)(sideColor.r * 0.58f),
+                              (unsigned char)(sideColor.g * 0.55f),
+                              (unsigned char)(sideColor.b * 0.52f), 255 };
 
-    /* Cara frontal izquierda: 5-0 (top) ? 0-5 (base) */
-    Color mid = (Color){ (unsigned char)(sideColor.r * 0.85f),
-                          (unsigned char)(sideColor.g * 0.85f),
-                          (unsigned char)(sideColor.b * 0.85f), 255 };
-    rlColor4ub(mid.r, mid.g, mid.b, mid.a);
-    rlVertex2f(top[5].x,  top[5].y);
-    rlVertex2f(top[0].x,  top[0].y);
-    rlVertex2f(base[0].x, base[0].y);
-    rlVertex2f(base[5].x, base[5].y);
-    rlEnd();
+    /* Cara frontal izquierda (2 -> 1) */
+    DrawQuadSolid(top[2],  top[1],  lip[1],  lip[2],  lipLeft);
+    DrawQuadSolid(lip[2],  lip[1],  base[1], base[2], rockLeft);
 
-    /* Aristas de contorno */
-    DrawLineV(top[0],  base[0],  BLACK);
-    DrawLineV(top[1],  base[1],  BLACK);
-    DrawLineV(top[5],  base[5],  BLACK);
-    DrawLineV(top[5],  top[0],   BLACK);
-    DrawLineV(top[0],  top[1],   BLACK);
-    DrawLineV(base[5], base[0],  BLACK);
-    DrawLineV(base[0], base[1],  BLACK);
+    /* Cara frontal derecha (1 -> 0) */
+    DrawQuadSolid(top[1],  top[0],  lip[0],  lip[1],  lipRight);
+    DrawQuadSolid(lip[1],  lip[0],  base[0], base[1], rockRight);
+
+    /* Aristas de contorno en piedra oscura cÃ¡lida (#1A1614) */
+    Color outline = (Color){ 26, 22, 20, 230 };
+    DrawLineV(top[2],  base[2],  outline);
+    DrawLineV(top[1],  base[1],  outline);
+    DrawLineV(top[0],  base[0],  outline);
+    DrawLineV(base[2], base[1],  outline);
+    DrawLineV(base[1], base[0],  outline);
 }
 
 /* ============================================================
-   DIBUJO DE ESTRUCTURAS CON TEXTURA (o fallback geom�trico)
+   DIBUJO DE ESTRUCTURAS CON TEXTURA (o fallback geomï¿½trico)
    ============================================================ */
 
 static void DrawStructure(StructureType type, Vector2 topPos, float radius, bool isPrimary, bool isGuarded, const GameAssets* assets, Color tint) {
@@ -242,27 +284,29 @@ static void DrawStructure(StructureType type, Vector2 topPos, float radius, bool
         if (type == STRUCT_BRIDGE) {
             /* El puente se dibuja plano SOBRE la cara superior del tile,
              * centrado tanto horizontal como verticalmente. */
-            float scale = (radius * 1.4f) / tw;
-            float dw = tw * scale;
-            float dh = th * scale;
+            float scale = (radius * 1.35f) / tw;
+            float dw = roundf(tw * scale);
+            float dh = roundf(th * scale);
             Rectangle src = { 0, 0, tw, th };
-            Rectangle dst = { topPos.x - dw / 2.0f,
-                               topPos.y - dh / 2.0f,
-                               dw, dh };
-            DrawTexturePro(tex, src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
+            Rectangle dst = { roundf(topPos.x - dw / 2.0f),
+                              roundf(topPos.y - dh / 2.0f),
+                              dw, dh };
+            DrawTexturePro(tex, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
         } else {
-            /* Estructuras que se "paran" sobre el tile (torres, casas, etc.)
-             * se anclan en su base coincidiendo con el centro de la cara superior. */
-            float scale = (radius * 1.8f) / tw;
-            float dw = tw * scale;
-            float dh = th * scale;
+            /* Sombra elÃ­ptica cÃ¡lida para asentar la estructura sin pedestal circular */
+            DrawEllipse((int)topPos.x, (int)(topPos.y + 1.0f), radius * 0.48f, radius * 0.20f, (Color){ 18, 14, 12, 135 });
+
+            /* Estructuras que se "paran" sobre el tile (torres, casas, etc.) */
+            float scale = (radius * 1.55f) / tw;
+            float dw = roundf(tw * scale);
+            float dh = roundf(th * scale);
             Rectangle src = { 0, 0, tw, th };
-            Rectangle dst = { topPos.x - dw / 2.0f, topPos.y - dh, dw, dh };
-            DrawTexturePro(tex, src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
+            Rectangle dst = { roundf(topPos.x - dw / 2.0f), roundf(topPos.y - dh + radius * 0.22f), dw, dh };
+            DrawTexturePro(tex, src, dst, (Vector2){ 0, 0 }, 0.0f, tint);
         }
 
     } else {
-        /* Fallback geom�trico del sistema anterior */
+        /* Fallback geomï¿½trico del sistema anterior */
         switch (type) {
             case STRUCT_ALTAR:
                 DrawRectangle((int)(topPos.x - radius*0.22f), (int)(topPos.y - radius*0.4f),
@@ -361,7 +405,7 @@ static bool IsTileInRange(const HexTile* tile, HexCoord center, int renderRadius
 }
 
 /* ============================================================
-   FUNCI�N PRINCIPAL DE DIBUJADO
+   FUNCIï¿½N PRINCIPAL DE DIBUJADO
    ============================================================ */
 
 void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnections, HexCoord viewCenter, int renderRadius, Vector2 armyPos, const GameAssets* assets, bool debugRevealMap) {
@@ -385,7 +429,7 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
         count++;
     }
 
-    /* 2. Ordenar atr�s?adelante (Y menor = m�s al norte = se dibuja antes) */
+    /* 2. Ordenar atrï¿½s?adelante (Y menor = mï¿½s al norte = se dibuja antes) */
     qsort(nodes, count, sizeof(RenderNode), CompareRenderNodes);
 
     /* 3. Dibujar cada tile */
@@ -428,44 +472,78 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
                     (float)tileTex.width, (float)tileTex.height };
             }
         }
+
         DrawHexTop(topPos, radius, topColor, tileTex, srcFrame, hasAssets && tileTex.id != 0, tint);
 
-        /* -- R�os entre vecinos -- */
-        for (int d = 0; d < 6; d++) {
-            const HexTile* nb = t->neighbors[d];
-            if (!nb) continue;
-            Vector2 nBase = HexToPixel(nb->coord, radius);
-            nBase.x += origin.x; nBase.y += origin.y;
-            Vector2 nTop = { nBase.x, nBase.y - GetBiomeHeight(nb->biome) };
-            Vector2 mid  = { (topPos.x + nTop.x) / 2.0f,
-                              (topPos.y + nTop.y) / 2.0f };
+        /* -- Rios entre vecinos -- */
+        if (t->river == RIVER_PRESENT) {
+            DrawCircleV(topPos, radius * 0.10f, (Color){ 62, 118, 154, 255 });
+            for (int d = 0; d < 6; d++) {
+                const HexTile* nb = t->neighbors[d];
+                if (!nb || nb->river != RIVER_PRESENT) continue;
+                Vector2 nBase = HexToPixel(nb->coord, radius);
+                nBase.x += origin.x; nBase.y += origin.y;
+                Vector2 nTop = { nBase.x, nBase.y - GetBiomeHeight(nb->biome) };
+                Vector2 mid  = { (topPos.x + nTop.x) * 0.5f,
+                                 (topPos.y + nTop.y) * 0.5f };
 
-            if (t->river == RIVER_PRESENT && nb->river == RIVER_PRESENT)
-                DrawLineEx(topPos, mid, radius * 0.28f, SKYBLUE);
-
-            if (t->isRoad && nb->isRoad) {
-                bool  isMain = (t->road == ROAD_MAIN && nb->road == ROAD_MAIN);
-                float rw     = isMain ? radius * 0.28f : radius * 0.14f;
-                Color rc     = isMain ? (Color){ 105,70,40,255 }
-                                      : (Color){ 185,140,85,255 };
-                DrawLineEx(topPos, mid, rw, rc);
+                /* Ribera oscura + cauce azul Egeo + reflejo central */
+                DrawLineEx(topPos, mid, radius * 0.28f, (Color){  34,  58,  74, 255 });
+                DrawLineEx(topPos, mid, radius * 0.18f, (Color){  62, 118, 154, 255 });
+                DrawLineEx(topPos, mid, radius * 0.07f, (Color){ 136, 186, 212, 220 });
             }
         }
 
+        /* -- Caminos entre vecinos -- */
+        if (t->isRoad) {
+            bool isTileMain = (t->road == ROAD_MAIN);
+            float hubR      = isTileMain ? (radius * 0.24f * 0.5f) : (radius * 0.14f * 0.5f);
+            Color hubBorder = isTileMain ? (Color){  68,  48,  32, 255 } : (Color){  84,  62,  40, 240 };
+            Color hubFill   = isTileMain ? (Color){ 168, 136,  92, 255 } : (Color){ 186, 152, 102, 255 };
+
+            /* Hub de union en el centro del hexagono para intersecciones y giros limpios */
+            DrawCircleV(topPos, hubR * 1.35f, hubBorder);
+            DrawCircleV(topPos, hubR, hubFill);
+
+            for (int d = 0; d < 6; d++) {
+                const HexTile* nb = t->neighbors[d];
+                if (!nb || !nb->isRoad) continue;
+                Vector2 nBase = HexToPixel(nb->coord, radius);
+                nBase.x += origin.x; nBase.y += origin.y;
+                Vector2 nTop = { nBase.x, nBase.y - GetBiomeHeight(nb->biome) };
+                Vector2 mid  = { (topPos.x + nTop.x) * 0.5f,
+                                 (topPos.y + nTop.y) * 0.5f };
+
+                bool isMain = (t->road == ROAD_MAIN && nb->road == ROAD_MAIN);
+                if (isMain) {
+                    /* Calzada real empedrada: bordillo oscuro + superficie de piedra calida + eje central */
+                    DrawLineEx(topPos, mid, radius * 0.26f, (Color){  68,  48,  32, 255 });
+                    DrawLineEx(topPos, mid, radius * 0.18f, (Color){ 168, 136,  92, 255 });
+                    DrawLineEx(topPos, mid, radius * 0.07f, (Color){ 212, 184, 136, 255 });
+                } else {
+                    /* Sendero secundario de tierra apisonada / grava */
+                    DrawLineEx(topPos, mid, radius * 0.16f, (Color){  84,  62,  40, 240 });
+                    DrawLineEx(topPos, mid, radius * 0.11f, (Color){ 186, 152, 102, 255 });
+                }
+            }
+        }
         /* -- Estructuras -- */
         if (t->structure.type != STRUCT_NONE)
             DrawStructure(t->structure.type, topPos, radius, t->structure.settlementType == SETTLEMENT_PRIMARY, t->structure.isGuarded, assets, tint);
 
         /* -- Marcadores de inicio / fin -- */
-        if (t->special == TILE_SPECIAL_START)
-            DrawCircleV(topPos, radius * 0.35f, GOLD);
-        else if (t->special == TILE_SPECIAL_END)
-            DrawCircleV(topPos, radius * 0.35f, RED);
+        if (t->special == TILE_SPECIAL_START) {
+            DrawCircleV(topPos, radius * 0.26f, (Color){ 26, 22, 20, 220 });
+            DrawCircleV(topPos, radius * 0.20f, (Color){ 216, 174, 72, 255 });
+        } else if (t->special == TILE_SPECIAL_END) {
+            DrawCircleV(topPos, radius * 0.26f, (Color){ 26, 22, 20, 220 });
+            DrawCircleV(topPos, radius * 0.20f, (Color){ 186, 56, 48, 255 });
+        }
 
                 /* -- Token removido del loop -- */
     }
 
-    /* -- Token del ej�rcito Interpolado -- */
+    /* -- Token del ejï¿½rcito Interpolado -- */
     Vector2 topPos = armyPos;
     topPos.x += origin.x;
     topPos.y += origin.y;
@@ -482,17 +560,22 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
     }
     topPos.y -= currentHeight;
 
+    /* Sombra de suelo para asentar el token tridimensionalmente */
+    DrawEllipse((int)topPos.x, (int)(topPos.y - 2.0f), radius * 0.44f, radius * 0.20f, (Color){ 0, 0, 0, 110 });
+
     if (hasAssets && assets->armyToken.id != 0) {
         float tw = (float)assets->armyToken.width;
         float th = (float)assets->armyToken.height;
-        float scale = (radius * 1.6f) / tw;
+        float breath = sinf((float)GetTime() * 3.5f) * 0.035f;
+        float scale = (radius * (1.6f + breath)) / tw;
         Rectangle src = { 0, 0, tw, th };
         Rectangle dst = { topPos.x - tw*scale/2.0f, topPos.y - th*scale - radius*0.1f, tw*scale, th*scale };
         DrawTexturePro(assets->armyToken, src, dst, (Vector2){0,0}, 0.0f, WHITE);
     } else {
         DrawCircleV((Vector2){ topPos.x, topPos.y - radius*0.4f }, radius * 0.4f, (Color){ 200,150,50,255 });
         DrawCircleLines((int)topPos.x, (int)(topPos.y - radius*0.4f), radius * 0.4f, BLACK);
-        DrawText("ARMY", (int)(topPos.x - 12), (int)(topPos.y - radius*0.4f - 4), 10, WHITE);
+        Vector2 asz = UI_MeasureText("ARMY", 10);
+        UI_DrawText("ARMY", (Vector2){ topPos.x - asz.x / 2.0f, topPos.y - radius*0.4f - 5.0f }, 10, WHITE);
     }
 
     /* -- Rumores de asentamientos no descubiertos (D2) -- */
@@ -512,10 +595,10 @@ void MapView_Draw(const Map* map, float radius, Vector2 origin, bool drawConnect
             HexCoord armyHex = PixelToHex((Vector2){armyPos.x - origin.x, armyPos.y - origin.y}, radius);
             float distDays = (float)HexDistance(armyHex, t->coord) / 9.0f;
             const char* rText = TextFormat("Rumor %.1fd", distDays);
-            int tw = MeasureText(rText, 10);
-            DrawRectangle((int)rBase.x - tw / 2 - 4, (int)rBase.y + (int)(radius * 0.38f), tw + 8, 14, (Color){15, 15, 25, 210});
-            DrawRectangleLines((int)rBase.x - tw / 2 - 4, (int)rBase.y + (int)(radius * 0.38f), tw + 8, 14, GOLD);
-            DrawText(rText, (int)rBase.x - tw / 2, (int)rBase.y + (int)(radius * 0.38f) + 2, 10, GOLD);
+            Vector2 tw = UI_MeasureText(rText, 10);
+            DrawRectangle((int)(rBase.x - tw.x / 2.0f - 4), (int)rBase.y + (int)(radius * 0.38f), (int)tw.x + 8, 14, (Color){15, 15, 25, 210});
+            DrawRectangleLines((int)(rBase.x - tw.x / 2.0f - 4), (int)rBase.y + (int)(radius * 0.38f), (int)tw.x + 8, 14, GOLD);
+            UI_DrawText(rText, (Vector2){ rBase.x - tw.x / 2.0f, rBase.y + radius * 0.38f + 2.0f }, 10, GOLD);
         }
     }
 
@@ -538,8 +621,26 @@ void MapView_DrawHexHighlight(const HexTile* tile, float radius, Vector2 origin,
         corners[i].x = center.x + radius * cosf(angle_rad);
         corners[i].y = center.y + (radius * sinf(angle_rad)) * ISO_SCALE_Y;
     }
+
+    float pulse = (sinf((float)GetTime() * 4.5f) + 1.0f) * 0.5f;
+    Color fillCol = color;
+    fillCol.a = (unsigned char)(25 + (int)(35 * pulse));
+
+    /* Relleno sutil con blending */
+    rlBegin(RL_TRIANGLES);
+    rlColor4ub(fillCol.r, fillCol.g, fillCol.b, fillCol.a);
+    for (int i = 0; i < 6; i++) {
+        rlVertex2f(center.x, center.y);
+        rlVertex2f(corners[i].x, corners[i].y);
+        rlVertex2f(corners[i+1].x, corners[i+1].y);
+    }
+    rlEnd();
+
+    Color lineCol = color;
+    lineCol.a = (unsigned char)(170 + (int)(85 * pulse));
+    float thick = 3.0f + pulse * 1.5f;
     for(int i = 0; i < 6; i++) {
-        DrawLineEx(corners[i], corners[i+1], 4.0f, color);
+        DrawLineEx(corners[i], corners[i+1], thick, lineCol);
     }
 }
 /* ============================================================
@@ -610,17 +711,9 @@ void MapView_DrawMinimap(const Map* map, Rectangle dest,
             topCol.b = (unsigned char)(topCol.b * 0.4f);
         }
 
-        /* En el minimapa usamos solo la cara plana (sin volumen) para mayor claridad */
-        if (hasAssets && t->biome != BIOME_WATER) {
-            Texture2D tileTex = Assets_GetBiomeTile(assets, t->biome);
-            Rectangle src = { 0, 0, (float)tileTex.width, (float)tileTex.height };
-            DrawHexTop(pos, miniR, topCol, tileTex, src, true, tint);
-        } else if (hasAssets && t->biome == BIOME_WATER) {
-            Rectangle srcF = AnimSprite_GetFrame(&assets->waterAnim);
-            DrawHexTop(pos, miniR, topCol, assets->waterAnim.sheet, srcF, true, tint);
-        } else {
-            DrawHexTop(pos, miniR, topCol, (Texture2D){ 0 }, (Rectangle){ 0 }, false, tint);
-        }
+        /* En el minimapa usamos la cara plana coloreada para nitidez absoluta a baja escala */
+        (void)hasAssets;
+        DrawHexTop(pos, miniR, topCol, (Texture2D){ 0 }, (Rectangle){ 0 }, false, tint);
     }
 
     /* Rumores en el minimapa (D2) */
@@ -734,7 +827,7 @@ void MapView_DrawOffscreenRumors(
         /* Distancia en dias hacia el asentamiento rumor */
         float distDays = (float)HexDistance(playerPos, t->coord) / 9.0f;
         const char* badgeText = TextFormat("Rumor: %.1fd", distDays);
-        int textW = MeasureText(badgeText, 11);
+        int textW = (int)UI_MeasureText(badgeText, 11).x;
 
         /* Flecha direccional apuntando hacia el rumor fuera de pantalla */
         float angle = atan2f(dy, dx);
@@ -750,7 +843,111 @@ void MapView_DrawOffscreenRumors(
         /* Insignia con texto */
         DrawRectangle((int)edgePos.x - textW / 2 - 8, (int)edgePos.y - 12, textW + 16, 24, (Color){ 20, 20, 30, 230 });
         DrawRectangleLines((int)edgePos.x - textW / 2 - 8, (int)edgePos.y - 12, textW + 16, 24, GOLD);
-        DrawText(badgeText, (int)edgePos.x - textW / 2, (int)edgePos.y - 6, 11, GOLD);
+        UI_DrawText(badgeText, (Vector2){ (float)(edgePos.x - textW / 2), (float)(edgePos.y - 6) }, 11, GOLD);
     }
 }
 
+void MapView_Init(MapViewState* state) {
+    if (!state) return;
+    memset(state, 0, sizeof(MapViewState));
+    state->hexRadius = 35.0f;
+    state->origin = (Vector2){ 0.0f, 0.0f };
+    state->firstFrame = true;
+    state->skyR = 255.0f;
+    state->skyG = 255.0f;
+    state->skyB = 255.0f;
+    state->lastTimeOfDay = TIME_MORNING;
+    state->debugRevealMap = false;
+    state->selectedTile = NULL;
+    for (int i = 0; i < 64; i++) {
+        state->enemyFirstFrame[i] = true;
+        state->enemyIsTweening[i] = false;
+    }
+}
+
+void MapView_SyncToArmy(MapViewState* state, HexCoord armyPos, CameraController* cc) {
+    if (!state) return;
+    state->visualArmyPos = HexToPixel(armyPos, state->hexRadius);
+    state->selectedTile = NULL;
+    state->firstFrame = false;
+    for (int i = 0; i < 64; i++) {
+        state->enemyFirstFrame[i] = true;
+        state->enemyIsTweening[i] = false;
+    }
+    if (cc) {
+        Vector2 focusPos = {
+            state->visualArmyPos.x + state->origin.x,
+            state->visualArmyPos.y + state->origin.y
+        };
+        CameraController_FocusOn(cc, focusPos);
+    }
+}
+
+void MapView_UpdateWorldVisuals(
+    MapViewState* state,
+    const struct GameMaster* gm,
+    const struct Army* army,
+    CameraController* cc,
+    float dt
+)
+{
+    if (!state || !gm || !army) return;
+
+    if (state->lastTimeOfDay != (int)gm->timeOfDay) {
+        Audio_SetAmbientTimeOfDay(gm->timeOfDay);
+        if (gm->timeOfDay == TIME_NIGHT) {
+            Audio_PlaySfxByName("night_fall");
+        }
+        float targetR = 255.0f, targetG = 255.0f, targetB = 255.0f;
+        switch (gm->timeOfDay) {
+            case TIME_MORNING:   targetR = 255.0f; targetG = 240.0f; targetB = 220.0f; break;
+            case TIME_MIDDAY:    targetR = 255.0f; targetG = 255.0f; targetB = 255.0f; break;
+            case TIME_AFTERNOON: targetR = 255.0f; targetG = 200.0f; targetB = 150.0f; break;
+            case TIME_NIGHT:     targetR = 100.0f; targetG = 120.0f; targetB = 180.0f; break;
+        }
+        Tween_Start(&state->skyR, targetR, 1.5f, Ease_Linear);
+        Tween_Start(&state->skyG, targetG, 1.5f, Ease_Linear);
+        Tween_Start(&state->skyB, targetB, 1.5f, Ease_Linear);
+        state->lastTimeOfDay = (int)gm->timeOfDay;
+    }
+
+    Tween_Update(dt);
+    Sequence_Update(dt);
+    ScreenFX_Update(dt);
+
+    if (army->isMoving || Sequence_IsBusy()) {
+        if (cc) cc->camera.target = state->visualArmyPos;
+    }
+
+    if (state->firstFrame) {
+        state->visualArmyPos = HexToPixel(army->position, state->hexRadius);
+        state->firstFrame = false;
+    }
+
+    bool anyEnemyMoving = false;
+    for (int i = 0; i < gm->enemyCount && i < 64; i++) {
+        if (!gm->enemies[i].isActive) continue;
+        Vector2 target = HexToPixel(gm->enemies[i].position, state->hexRadius);
+        if (state->enemyFirstFrame[i]) {
+            state->visualEnemyPos[i] = target;
+            state->enemyFirstFrame[i] = false;
+        }
+        float dist = Vector2Distance(state->visualEnemyPos[i], target);
+        if (dist > 1.0f) {
+            if (!state->enemyIsTweening[i]) {
+                Tween_Start(&state->visualEnemyPos[i].x, target.x, 0.4f, Ease_OutCubic);
+                Tween_Start(&state->visualEnemyPos[i].y, target.y, 0.4f, Ease_OutCubic);
+                state->enemyIsTweening[i] = true;
+                anyEnemyMoving = true;
+            }
+        } else {
+            state->enemyIsTweening[i] = false;
+        }
+    }
+
+    if (anyEnemyMoving) {
+        SeqAction enemyMoveAct = {0};
+        enemyMoveAct.duration = 0.45f;
+        Sequence_Push(enemyMoveAct);
+    }
+}

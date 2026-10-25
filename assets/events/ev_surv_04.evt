@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_surv_04
+Name=La Ciénaga Asfixiante
+Description=El camino se hunde en un barrizal pestilente cubierto de miasmas. El lodo llega a las rodillas de los bueyes y los carros amenazan con encallarse para siempre.
+Trigger=RANDOM
+Biome=JUNGLE,FOREST
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Forzar el paso a brazo y pala, empujando carretas en el fango
+Result_pool=res_surv_04_forzar_clean:60,res_surv_04_forzar_cost:40
+
+[OPTION_2]
+Text=Abandonar parte del equipaje pesado para aligerar la marcha
+Result_pool=res_surv_04_soltar_clean:65,res_surv_04_soltar_craso:35
+
+[OPTION_3]
+Text=Tender una calzada de troncos y fajinas con ingeniería militar
+Requires=exec>=2
+Result_pool=res_surv_04_exec:100

@@ -20,7 +20,10 @@ typedef enum {
     TRIGGER_CASTLE,
     TRIGGER_ARMORY,
     TRIGGER_NIGHT,
-    TRIGGER_CAMP_AMBUSH
+    TRIGGER_CAMP_AMBUSH,
+    TRIGGER_ADVICE,
+    TRIGGER_GROUP_STARVING,
+    TRIGGER_SARGENTOS_UNSATISFIED
 } EventTrigger;
 
 
@@ -43,6 +46,7 @@ typedef struct {
     
     int resultPoolCount;
     char resultPool[5][32]; // IDs de los posibles resultados
+    int resultWeights[5];    // Pesos relativos de sorteo (default 1)
 
     char requiresCondition[64];
     bool enabled;
@@ -53,9 +57,10 @@ typedef struct {
     char id[32];
     char name[64];
     char description[MAX_TEXT_LEN];
+    char requiredFlag[64]; // Condición de flag opcional: 'flag:id' o '!flag:id'
     
     bool hasTriggerKey;
-    bool triggers[16]; // Mapeado a EventTrigger
+    bool triggers[32]; // Mapeado a EventTrigger
     
     bool hasTimeKey;
     bool timesOfDay[4]; // MORNING=0, MIDDAY=1, AFTERNOON=2, NIGHT=3
@@ -80,13 +85,18 @@ typedef struct {
 
 #include "../models/army.h"
 
+struct GameMaster;
+
 // Carga todos los archivos .evt de un directorio
 int Event_LoadAll(const char* directory, EventDef* outEvents, int maxEvents);
-void Event_EvaluateOptions(EventDef* event, const Army* army);
+void Event_EvaluateOptions(EventDef* event, const Army* army, const struct GameMaster* gm);
 
 int Result_LoadAll(const char* directory, EventResult* outResults, int maxResults);
 
-void Event_ApplyResult(const EventResult* res, Army* army, float* gmInfamy);
+void Event_ApplyResult(const EventResult* res, Army* army, struct GameMaster* gm);
+
+/* Busca un evento por su Id (usado para eventos forzados: motin, regreso del general) */
+EventDef* Event_FindById(EventDef* events, int count, const char* id);
 
 #endif /* EVENT_H */
 

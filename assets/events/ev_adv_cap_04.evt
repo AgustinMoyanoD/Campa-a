@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_cap_04
+Name=Consejo del Capellán: El Santuario de los Manantiales
+Description=Vitelio descubrió un pequeño templo junto a un arroyo. Exige detener la marcha para purificar a los soldados enfermos y renovar los votos con las divinidades.
+Trigger=ADVICE
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aceptar la vigilia de purificación en el templo
+Result_pool=res_adv_cap_04_acc_clean:65,res_adv_cap_04_acc_cost:35
+
+[OPTION_2]
+Text=Llenar odres con prisa y seguir sin rezos
+Result_pool=res_adv_cap_04_ign_clean:60,res_adv_cap_04_ign_fallo:40
+
+[OPTION_3]
+Text=Planificar turnos de culto sincronizados con la aguada militar
+Requires=plan>=2
+Result_pool=res_adv_cap_04_plan:100

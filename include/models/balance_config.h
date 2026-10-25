@@ -36,6 +36,8 @@ typedef struct {
     float lootGoldPerStr;
     float lootFoodPerStr;
     float lootVariancePct;
+    float lootWineChanceLarge;
+    float lootMeatChanceLarge;
 
     /* Campamento (7.3) */
     float campRecoverMoral;
@@ -86,12 +88,18 @@ typedef struct {
     int   marketPriceWater;
     int   marketPriceCattle;
     int   marketPriceInitiate;
+    int   marketPriceWine;
+    int   marketPriceMeat;
     int   marketStockViviendaFood;
     int   marketStockViviendaWater;
+    int   marketStockViviendaWine;
+    int   marketStockViviendaMeat;
     int   marketStockUrbanoFood;
     int   marketStockUrbanoWater;
     int   marketStockUrbanoCattle;
     int   marketStockUrbanoInitiates;
+    int   marketStockUrbanoWine;
+    int   marketStockUrbanoMeat;
 
     /* Armería (9.3) */
     int   armoryPromoteInitiateCost;
@@ -135,6 +143,35 @@ typedef struct {
     /* Generación de Mapa y Asentamientos (D1) */
     float maxDaysToSettlement;
     int hexPerDay;
+
+    /* Motín y Oficiales (Bloque E) */
+    float warnMoral1;
+    float warnMoral2;
+    float checkMoral;
+    float moralAfterMutiny;
+    int   graceDays;
+    float returnMoral;
+
+    /* Lealtad y Consejos (Bloque E3) */
+    int   acceptAdvice;
+    int   ignoreAdvice;
+    int   dailyDriftWhenMoralBelow30;
+
+    /* Raciones y Consumo Diario (Reparto de Raciones) */
+    float humanDrinkNeed;
+    float humanFoodNeed;
+    float cattleDrinkNeed;
+    float cattleFoodNeed;
+    float rationFullThreshold;
+    float rationReducedThreshold;
+    float reducedMoraleLossPerDay;
+    float luxuryThresholdPct;
+    float luxuryMoraleBonus;
+    float luxuryMoraleBonusCap;
+    float sargentosDailySatisfactionDecay;
+    float sargentosLuxurySatisfactionBonus;
+    float sargentosSatisfactionMax;
+    int   cattleMeatYield;
 } BalanceConfig;
 
 void Balance_InitDefaults(BalanceConfig* cfg);

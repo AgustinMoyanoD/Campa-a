@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_int_01
+Name=Consejo del Intendente: Recorte Preventivo de Raciones
+Description=Marco Craso exhibe los libros de carga. Con días inciertos de marcha por delante, propone reducir un cuarto de ración diaria a toda la tropa para estirar reservas.
+Trigger=ADVICE
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=10
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aprobar el racionamiento estricto de Craso
+Result_pool=res_adv_int_01_acc_clean:60,res_adv_int_01_acc_cost:25,res_adv_int_01_acc_fallo:15
+
+[OPTION_2]
+Text=Rechazar el recorte: un estómago vacío no empuña el escudo
+Result_pool=res_adv_int_01_ign_clean:65,res_adv_int_01_ign_craso:35
+
+[OPTION_3]
+Text=Negociar raciones escalonadas según el esfuerzo del rango
+Requires=eval>=2
+Result_pool=res_adv_int_01_eval:100

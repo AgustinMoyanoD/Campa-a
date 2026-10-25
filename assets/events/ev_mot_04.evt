@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_mot_04
+Name=El Juicio del Centinela Sedicioso
+Description=Un veterano de tres campañas es descubierto incitando a la insubordinación frente a la caldera de rancho. Los sargentos exigen su degradación pública.
+Trigger=RANDOM,ROAD
+Probability=1
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Degradar al veterano a recluta raso y asignarlo a abrir trincheras
+Result_pool=res_mot_04_degradar_clean:65,res_mot_04_degradar_cost:35
+
+[OPTION_2]
+Text=Perdonarlo bajo fianza personal de su decurión
+Result_pool=res_mot_04_perdon_clean:65,res_mot_04_perdon_fallo:35
+
+[OPTION_3]
+Text=Confrontar sus quejas en público y demostrar que la estrategia vencerá
+Requires=plan>=2
+Result_pool=res_mot_04_plan:100

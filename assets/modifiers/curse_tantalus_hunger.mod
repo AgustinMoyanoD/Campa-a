@@ -1,13 +1,13 @@
 [MODIFIER]
 Id=curse_tantalus_hunger
-Name=Maldición de Tántalo
-Description=Una bruma sepulcral reduce el alcance de visión en el mapa por 5 días.
+Name=Bruma de Tantalo
+Description=Una bruma sepulcral y un espejismo asfixiante ciegan la marcha. Reduce en 2 el alcance de vision en el mapa por 5 dias.
 Kind=CURSE
-Source=HADES
+Source=TARTARO
 Rarity=RARE
 Target=ARMY
+Tags=MALDICION, VISION
 Duration=DAYS:5
-Tags=VISION, EXPLORATION
 
 [RULE]
 Hook=MAP_VISION

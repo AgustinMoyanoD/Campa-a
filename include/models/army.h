@@ -4,6 +4,7 @@
 #include "hex_tile.h"
 #include "general.h"
 #include "models/rng.h"
+#include "models/ration.h"
 #include <stdbool.h>
 
 #define MAX_ARMY_LIEUTENANTS 6
@@ -16,7 +17,7 @@
    Registra todos los efectos de consumo, desgaste y supervivencia.
    ============================================================ */
 
-typedef struct {
+typedef struct DayReport {
     int dayNumber;
     float foodConsumed;
     float waterConsumed;
@@ -35,14 +36,17 @@ typedef struct {
     int deadInitiates;
     int deadSoldiers;
     int deadSergeants;
+
+    bool mutinyOccurred;
+    bool triggerWarn1;
+    bool triggerWarn2;
 } DayReport;
 
 /* ============================================================
    ESTRUCTURA DE LA ARMY (EJÉRCITO / DIVISIÓN)
    ============================================================ */
 
-typedef struct {
-    /* Posición en el mapa hexagonal */
+typedef struct Army {
     HexCoord position;
     HexCoord previousPosition;
 
@@ -62,6 +66,8 @@ typedef struct {
     /* Recursos logísticos de utilidad */
     float agua_disponible;
     float comida_disponible;
+    float vino_disponible;
+    float carne_disponible;
     int monedas;
     int ganado;     /* Animales vivos: reserva de emergencia y carga */
     int commandTokens; /* Fichas de mando para repetir tiradas o sumar +2 */
@@ -75,6 +81,12 @@ typedef struct {
     float salud;    /* 0.0f a 100.0f */
     int infamia;    /* Escala con saqueos y agresiones */
 
+    /* Estado por grupo de raciones (Iniciados, Soldados, Sargentos, Ganado) */
+    GroupState groupState[RG_COUNT];
+    RationPlan lastRationPlan;
+    bool hasLastRationPlan;
+    bool dayRationCommitted;
+
     /* Supervivencia y Noche (arreglo_exploracion.md) */
     int daysWithoutFood;
     int daysWithoutWater;
@@ -87,6 +99,13 @@ typedef struct {
     float moveTimer;
     bool isMoving;
 
+    /* Oficiales y Motin (Bloque E) */
+    General deposedGeneral;
+    bool hasDeposedGeneral;
+    int mutinyGraceDaysLeft;
+    bool warnedMoral1;
+    bool warnedMoral2;
+
 } Army;
 
 
@@ -94,7 +113,7 @@ typedef struct {
    ESTADÍSTICAS CALCULADAS DE LA ARMY
    ============================================================ */
 
-typedef struct {
+typedef struct ArmyStats {
     float vision;
     float movilidad;    /* Puntos de dirigencia / movimiento por turno */
     float evaluacion;   /* Etapa 1 del combate: reconocimiento enemigo */
@@ -102,6 +121,29 @@ typedef struct {
     float ejecucion;    /* Etapa 3 del combate: poder de choque */
 } ArmyStats;
 
+
+/* ============================================================
+   CONFIGURACIÓN E INICIALIZACIÓN DE LA ARMY (PANTALLA DE SETUP)
+   ============================================================ */
+
+typedef struct {
+    GeneralConfig general;
+    LieutenantConfig lieutenants[MAX_ARMY_LIEUTENANTS];
+    int lieutenantCount;
+    int unspentStatPoints; /* Puntos libres para asignar en la futura pantalla de selección */
+
+    /* Dotación y recursos iniciales */
+    int sargentos;
+    int soldados;
+    int iniciados;
+    int ganado;
+    float agua;
+    float comida;
+    int monedas;
+} ArmySetupConfig;
+
+void ArmySetup_InitDefault(ArmySetupConfig* setup);
+void Army_Init(Army* army, const ArmySetupConfig* setup, HexCoord startPos);
 
 /* ============================================================
    FUNCIONES DE CONSTRUCCIÓN Y GESTIÓN
@@ -137,10 +179,18 @@ void Army_ConsumeTurnResources(Army* army);
 void  Army_EndDay(Army* army, DayReport* report, Rng* rng);
 float Army_DaysOfSupply(const Army* army);
 
+/* Gestión de Moral y Salud derivada (Sistema de Raciones) */
+void Army_RecalculateAggregates(Army* army);
+void Army_ApplyMoraleDelta(Army* army, float delta);
+void Army_ApplyHealthDelta(Army* army, float delta);
+void Army_ApplyGroupMoraleDelta(Army* army, RationGroup g, float delta);
+void Army_ApplyGroupHealthDelta(Army* army, RationGroup g, float delta);
+void Army_CalculateRankCasualties(int* count, float desertPct, float deathPct, float rankMult, int* outDesert, int* outDead, Rng* rng);
+
 /* Pronóstico unificado de suministros (Sec A3) */
 struct Map;
 typedef struct Map Map;
-typedef struct {
+typedef struct SupplyForecast {
     float campDays;
     float marchDays;
     float nightMarchDays;
@@ -172,6 +222,11 @@ ArmyStats Army_GetStats(const Army* army, float B);
 
 float Army_CalculateMutinyRisk(const Army* army);
 bool Army_CheckMutiny(Army* army, int* outRebelLieutenantIndex);
+bool Army_TriggerMutiny(Army* army, int rebelLieutenantIndex);
+bool Army_RestoreGeneral(Army* army);
+void Army_DismissGeneral(Army* army);
+Lieutenant* Army_GetLieutenantByRole(Army* army, OfficerRole role);
+void Army_ApplyAdviceEffect(Army* army, OfficerRole role, int loyaltyDelta);
 
 typedef struct ModifierDef ModifierDef;
 

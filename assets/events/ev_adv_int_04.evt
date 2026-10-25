@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_int_04
+Name=Consejo del Intendente: Odres en Reserva
+Description=Bajo un calor sofocante, Craso propone sellar los barriles de agua potable con resina y no abrirlos salvo orden escrita suya, aunque la tropa jadee.
+Trigger=ADVICE
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=10
+MinArmySize=0
+
+[OPTION_1]
+Text=Aprobar el cerrojo de agua de Craso
+Result_pool=res_adv_int_04_acc_clean:65,res_adv_int_04_acc_cost:35
+
+[OPTION_2]
+Text=Permitir a los soldados beber según su sed de marcha
+Result_pool=res_adv_int_04_ign_clean:65,res_adv_int_04_ign_craso:35
+
+[OPTION_3]
+Text=Organizar turnos de consumo con sombra y hierbas refrescantes
+Requires=plan>=2
+Result_pool=res_adv_int_04_plan:100

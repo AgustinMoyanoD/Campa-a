@@ -9,10 +9,12 @@
 #include "models/combat.h"
 #include "models/day_clock.h"
 #include "models/city.h"
+#include "models/ration.h"
 #include <stdbool.h>
 
 typedef enum {
     PHASE_MENU,
+    PHASE_SETUP,
     PHASE_PLAYER,
     PHASE_ENEMY,
     PHASE_EVENT,
@@ -34,7 +36,11 @@ typedef struct {
     int cattle;
     int daysWithoutFood;
     int daysWithoutWater;
+    int factionId;
 } EventContext;
+
+#define MAX_FLAGS 64
+#define MAX_FLAG_LEN 32
 
 typedef struct GameMaster {
     int currentTurn;
@@ -46,7 +52,7 @@ typedef struct GameMaster {
     
     EventDef events[64];
     int eventCount;
-    EventResult results[128];
+    EventResult results[256];
     int resultCount;
     EventResult* activeResult;
     EventDef* activeEvent;
@@ -75,10 +81,14 @@ typedef struct GameMaster {
 
     /* Campamento y Noche (Fase 2) */
     bool showCampDecision;
+    float campDecisionTimer;
     bool isEncamped;
+    bool spentNightAtInn;
     bool hasForagedToday;
+    bool rationPending;
+    RationPlan pendingRationPlan;
 
-    /* Cazador y Posición de Retaguardia (Fase 3) */
+    /* Cazador y PosiciÃ³n de Retaguardia (Fase 3) */
     int lastHunterSpawnDay;
     HexCoord lastCampPos;
 
@@ -86,6 +96,16 @@ typedef struct GameMaster {
     bool canInteractStructure;
     HexCoord interactStructureCoord;
     CityContext activeCity;
+
+    /* Transicion e interaccion de eventos en estructuras ([E]) */
+    bool pendingCityAfterEvent;
+    HexCoord pendingCityCoord;
+    bool pendingCityBlocked;
+    int currentEventFactionId;
+
+    /* Banderas Narrativas Persistentes (Flags / Memoria) */
+    char flags[MAX_FLAGS][MAX_FLAG_LEN];
+    int flagCount;
 
     /* Facciones y Asedio (Fase 5) */
     Faction factions[3];
@@ -95,6 +115,8 @@ typedef struct GameMaster {
 } GameMaster;
 
 void GameMaster_Init(GameMaster* gm);
+void GameMaster_StartCampaign(GameMaster* gm, Map* map, Army* playerArmy, const ArmySetupConfig* setup, int provinceLevel);
+void GameMaster_TransitionProvince(GameMaster* gm, Map* map, Army* playerArmy, int provinceLevel);
 void GameMaster_InitFactions(GameMaster* gm);
 void GameMaster_SpawnTestEnemies(GameMaster* gm, Map* map, HexCoord playerPos);
 void GameMaster_StartTurn(GameMaster* gm, Army* playerArmy);
@@ -105,10 +127,25 @@ int GameMaster_GetVisionModifier(const GameMaster* gm, const Army* army);
 bool GameMaster_Forage(GameMaster* gm, Army* army, Map* map);
 void GameMaster_ChooseCamp(GameMaster* gm, Map* map, Army* playerArmy);
 void GameMaster_ChooseNightMarch(GameMaster* gm, Map* map, Army* playerArmy);
+void GameMaster_ChooseInn(GameMaster* gm, Map* map, Army* playerArmy);
 void GameMaster_OpenCity(GameMaster* gm, Map* map, Army* playerArmy);
 void GameMaster_CloseCity(GameMaster* gm, Map* map, Army* playerArmy);
+bool GameMaster_InteractStructure(GameMaster* gm, Map* map, Army* playerArmy);
 void GameMaster_StartSiege(GameMaster* gm, Map* map, Army* playerArmy, HexCoord targetCoord);
 void GameMaster_ResolveSiegeVictory(GameMaster* gm, Map* map, Army* playerArmy, HexCoord targetCoord);
+
+/* Reparto de Raciones (Paso 4) */
+bool GameMaster_RationPending(const GameMaster* gm);
+bool GameMaster_SubmitRation(GameMaster* gm, Army* playerArmy, const RationPlan* plan);
+int  GameMaster_SlaughterCattle(GameMaster* gm, Army* playerArmy, int heads);
+
+/* Banderas Narrativas */
+bool GameMaster_HasFlag(const GameMaster* gm, const char* flag);
+void GameMaster_SetFlag(GameMaster* gm, const char* flag);
+void GameMaster_ClearFlag(GameMaster* gm, const char* flag);
+
+/* Opinion de Facciones */
+void GameMaster_ApplyFactionOpinion(GameMaster* gm, const char* targetStr, int delta);
 
 EventDef* GameMaster_FindTriggeredEvent(GameMaster* gm, const EventContext* context);
 

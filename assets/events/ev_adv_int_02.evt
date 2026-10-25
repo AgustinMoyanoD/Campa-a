@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_int_02
+Name=Consejo del Intendente: Requisición Forzosa en Graneros
+Description=La columna pasa cerca de un caserío de colonos. Craso insiste en confiscar la mitad de sus graneros y tinajas: "Es tasa marcial de paso, o comeremos piedras".
+Trigger=ADVICE
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Autorizar la requisición militar por la fuerza
+Result_pool=res_adv_int_02_acc_clean:60,res_adv_int_02_acc_cost:40
+
+[OPTION_2]
+Text=Prohibir el expolio a los colonos y seguir de largo
+Result_pool=res_adv_int_02_ign_craso:65,res_adv_int_02_ign_hambre:35
+
+[OPTION_3]
+Text=Pagar precio justo a los campesinos con fondos del arca
+Requires=gold>=20
+Result_pool=res_adv_int_02_oro:100

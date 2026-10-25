@@ -1,0 +1,27 @@
+[EVENT]
+Id=ev_surv_03
+Name=Noche de Frío Polar en la Estepa
+Description=Un viento helado desciende de las cumbres. Los soldados se apiñan en las tiendas tiritando; la falta de leña seca amenaza con congelar a los centinelas.
+Trigger=NIGHT
+Time=NIGHT
+Biome=PLAINS,MOUNTAIN,DESERT
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Quemar carros auxiliares viejos para alimentar grandes fogatas
+Result_pool=res_surv_03_carros_clean:65,res_surv_03_carros_craso:35
+
+[OPTION_2]
+Text=Apretar filas y resistir la helada sin encender fuego
+Result_pool=res_surv_03_resistir_clean:60,res_surv_03_resistir_cost:40
+
+[OPTION_3]
+Text=Construir parapetos cortavientos de tierra y ramas secas
+Requires=plan>=2
+Result_pool=res_surv_03_plan:100

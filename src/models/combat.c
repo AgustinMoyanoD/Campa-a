@@ -18,7 +18,14 @@ void Combat_Init(CombatContext* ctx, struct GameMaster* gm, Army* army, EnemySqu
     ctx->round = 1;
     ctx->previousPlan = PLAN_NONE;
     ctx->selectedPlan = PLAN_NONE;
+    ctx->selectedDivineCardSlot = -1;
+    ctx->activeInvocationDef = NULL;
     ctx->lootMultiplier = 1.0f;
+    ctx->lootGold = 0;
+    ctx->lootFood = 0;
+    ctx->lootWater = 0;
+    ctx->lootWine = 0;
+    ctx->lootMeat = 0;
 
     const BalanceConfig* cfg = Balance_GetGlobal();
     ctx->maxRounds = (cfg->maxCombatRounds > 0) ? cfg->maxCombatRounds : 4;
@@ -172,12 +179,34 @@ void Combat_UseCommandToken_Reroll(CombatContext* ctx, int dice1, int dice2) {
 }
 
 void Combat_SelectPlan(CombatContext* ctx, CombatPlan plan) {
-    // Si bien el GDD marca EXECUTION despues, el plan lo setea el input.
+    if (plan != PLAN_DIVINE_INVOCATION) {
+        ctx->selectedDivineCardSlot = -1;
+        ctx->activeInvocationDef = NULL;
+    }
     ctx->selectedPlan = plan;
     
     if (ctx->log.count < MAX_STEPS) {
         ctx->log.steps[ctx->log.count].type = STEP_PLAN_CHOSEN;
         ctx->log.steps[ctx->log.count].as.plan_chosen.plan = plan;
+        ctx->log.count++;
+    }
+}
+
+void Combat_SelectDivineInvocation(CombatContext* ctx, int slot) {
+    if (!ctx || !ctx->playerArmy || !ctx->gm) return;
+    ModifierInstance* inst = Commander_GetCardInstance(ctx->playerArmy->commander, slot);
+    if (!inst || inst->isExhausted) return;
+
+    const ModifierDef* def = Modifier_GetById(ctx->gm->modRegistry.defs, ctx->gm->modRegistry.count, inst->id);
+    if (!def || !def->hasInvocation) return;
+
+    ctx->selectedDivineCardSlot = slot;
+    ctx->activeInvocationDef = def;
+    ctx->selectedPlan = PLAN_DIVINE_INVOCATION;
+
+    if (ctx->log.count < MAX_STEPS) {
+        ctx->log.steps[ctx->log.count].type = STEP_PLAN_CHOSEN;
+        ctx->log.steps[ctx->log.count].as.plan_chosen.plan = PLAN_DIVINE_INVOCATION;
         ctx->log.count++;
     }
 }
@@ -193,8 +222,18 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
     if (ctx->selectedPlan == PLAN_ASSAULT) playerPlanMods = 2;
     else if (ctx->selectedPlan == PLAN_PIKES) playerPlanMods = -1;
     else if (ctx->selectedPlan == PLAN_FLANK) playerPlanMods = 4;
+    else if (ctx->selectedPlan == PLAN_DIVINE_INVOCATION && ctx->activeInvocationDef) {
+        playerPlanMods += ctx->activeInvocationDef->invocationRollMod;
+        if (ctx->activeInvocationDef->invocationHighVariance) {
+            // Alta varianza divina: tirada par +4, impar -3
+            if ((ctx->execRoll % 2) == 0) {
+                playerPlanMods += 4;
+            } else {
+                playerPlanMods -= 3;
+            }
+        }
+    }
     
-    // I2: Active troops only?
     // Calculo de fuerza con tropas activas (D4 / Sec 4)
     int actInit = ctx->playerArmy->iniciados - ctx->outOfActionInitiates;
     int actSold = ctx->playerArmy->soldados - ctx->outOfActionSoldiers;
@@ -210,7 +249,19 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
 
     if (playerForce < 1.0f) playerForce = 1.0f;
     
-    float enemyForce = (float)ctx->enemy->baseStrength;
+    // Calculo de fuerza enemiga considerando composiciÃ³n de tropas y salud
+    float enemyTroopForce = 0.0f;
+    if (ctx->enemy) {
+        enemyTroopForce = (ctx->enemy->initiates * 1.0f) + 
+                          (ctx->enemy->soldiers * 2.0f) + 
+                          (ctx->enemy->sergeants * 5.0f);
+    }
+    float enemyForce = (enemyTroopForce > 0.0f) ? 
+        ((enemyTroopForce + (float)ctx->enemy->baseStrength) * 0.5f) : 
+        (ctx->enemy ? (float)ctx->enemy->baseStrength : 20.0f);
+    
+    float enemySaludFactor = (ctx->enemyHealth > 10.0f) ? (ctx->enemyHealth / 100.0f) : 0.1f;
+    enemyForce *= enemySaludFactor;
     if (enemyForce < 1.0f) enemyForce = 1.0f;
     
     float ratio = playerForce / enemyForce;
@@ -218,6 +269,135 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
     if (ctx->forceAdvantage > 8) ctx->forceAdvantage = 8;
     if (ctx->forceAdvantage < -8) ctx->forceAdvantage = -8;
     
+    float dmgFactor = 10.0f;
+    if (ctx->selectedPlan == PLAN_SKIRMISH) dmgFactor *= 0.7f;
+    else if (ctx->selectedPlan == PLAN_PIKES) dmgFactor *= 0.6f;
+    else if (ctx->selectedPlan == PLAN_ASSAULT) dmgFactor *= 1.2f;
+    else if (ctx->selectedPlan == PLAN_DIVINE_INVOCATION && ctx->activeInvocationDef) {
+        dmgFactor *= ctx->activeInvocationDef->invocationClashMult;
+    }
+
+    int enemyPlanMods = 0;
+
+    // Contrajuegos de Intencion vs Plan
+    if (ctx->enemyIntent == 0) { // Carga (Agresivo)
+        if (ctx->selectedPlan == PLAN_PIKES) { 
+            playerPlanMods += 3; 
+            dmgFactor *= 0.4f; 
+        } else if (ctx->selectedPlan == PLAN_SKIRMISH) { 
+            enemyPlanMods += 2; 
+            dmgFactor *= 1.5f; 
+        } else if (ctx->selectedPlan == PLAN_ASSAULT) { 
+            dmgFactor *= 1.3f; 
+        }
+    } else if (ctx->enemyIntent == 1) { // Asedio / Hold (Defensivo)
+        if (ctx->selectedPlan == PLAN_FLANK) { 
+            playerPlanMods += 3; 
+            dmgFactor *= 1.2f; 
+        } else if (ctx->selectedPlan == PLAN_SKIRMISH) { 
+            playerPlanMods += 2; 
+            dmgFactor *= 0.8f; 
+        } else if (ctx->selectedPlan == PLAN_ASSAULT) { 
+            enemyPlanMods += 3; 
+            dmgFactor *= 1.3f; 
+        }
+    } else if (ctx->enemyIntent == 2) { // Repliegue / Maneuver (Tactico)
+        if (ctx->selectedPlan == PLAN_ASSAULT) { 
+            playerPlanMods += 3; 
+            dmgFactor *= 1.5f; 
+        } else if (ctx->selectedPlan == PLAN_PIKES) { 
+            enemyPlanMods += 2; 
+            dmgFactor *= 0.5f; 
+        }
+    }
+
+    // Contrajuego de Invocación Divina contra la intención enemiga
+    if (ctx->selectedPlan == PLAN_DIVINE_INVOCATION && ctx->activeInvocationDef) {
+        if (ctx->activeInvocationDef->invocationCounterIntent >= 0 &&
+            ctx->activeInvocationDef->invocationCounterIntent == ctx->enemyIntent) {
+            playerPlanMods += 4;
+            dmgFactor *= 1.3f;
+        }
+    }
+
+    // Fatiga por repetir plan consecutivamente
+    if (ctx->selectedPlan != PLAN_NONE && ctx->selectedPlan == ctx->previousPlan) {
+        playerPlanMods /= 2;
+        dmgFactor = 10.0f + (dmgFactor - 10.0f) * 0.5f;
+    }
+    
+    // Criticos y pifias del jugador
+    if (ctx->criticalHit) {
+        playerPlanMods += 5; // Enormous bonus
+        dmgFactor *= 1.5f;   // Extra damage multiplier
+    } else if (ctx->criticalFumble) {
+        playerPlanMods -= 5;
+        dmgFactor *= 0.5f;
+    }
+
+    // Tirada real de dados (2d6) para el enemigo
+    int enemyD1 = 0, enemyD2 = 0;
+    if (ctx->gm && ctx->gm->rng.state != 0) {
+        enemyD1 = Rng_Range(&ctx->gm->rng, 1, 6);
+        enemyD2 = Rng_Range(&ctx->gm->rng, 1, 6);
+    } else {
+        enemyD1 = (rand() % 6) + 1;
+        enemyD2 = (rand() % 6) + 1;
+    }
+    int enemyRoll = enemyD1 + enemyD2;
+    ctx->enemyRoll = enemyRoll;
+
+    // Bonificaciones tacticas del enemigo segun doctrina, mando y composicion
+    if (ctx->enemy) {
+        // Los sargentos aportan mando/liderazgo (1 punto por cada 2 sargentos, max +4)
+        int enemyLeadership = ctx->enemy->sergeants / 2;
+        if (enemyLeadership > 4) enemyLeadership = 4;
+        enemyPlanMods += enemyLeadership;
+
+        // Influencia de etiquetas (Tags) del escuadron enemigo
+        if (Enemy_HasTag(ctx->enemy, TAG_FORTIFIED)) {
+            enemyPlanMods += 2;
+        }
+        if (Enemy_HasTag(ctx->enemy, TAG_HEAVILY_ARMORED)) {
+            enemyPlanMods += 1;
+        }
+        if (Enemy_HasTag(ctx->enemy, TAG_CAVALRY)) {
+            enemyPlanMods += 1;
+        }
+        if (Enemy_HasTag(ctx->enemy, TAG_AMBUSH) && ctx->ambushed && ctx->initiator == 1) {
+            enemyPlanMods += 2; // Emboscada sorpresa
+        }
+        if (Enemy_HasTag(ctx->enemy, TAG_DISORGANIZED)) {
+            enemyPlanMods -= 2;
+        }
+        if (Enemy_HasTag(ctx->enemy, TAG_EXPOSED_FLANK)) {
+            enemyPlanMods -= 2;
+        }
+    }
+
+    // Critico o pifia del enemigo
+    if (enemyD1 == 6 && enemyD2 == 6) {
+        enemyPlanMods += 4;
+        dmgFactor *= 1.3f;
+    } else if (enemyD1 == 1 && enemyD2 == 1) {
+        enemyPlanMods -= 4;
+        dmgFactor *= 0.7f;
+    }
+
+    // Calculo y registro de puntuaciones finales
+    int playerScore = ctx->execRoll + ctx->forceAdvantage + playerPlanMods;
+    ModContext mCtx = { &ctx->gm->modRegistry, ctx->playerArmy, ctx->enemy, ctx, 0, 0 };
+    playerScore = Modifier_Query(HOOK_EXEC_ROLL, EFFECT_EXECUTION, EFFECT_SIDE_SELF, &mCtx, playerScore, &ctx->breakdown);
+    
+    int enemyScore = enemyRoll + enemyPlanMods;
+    enemyScore = Modifier_Query(HOOK_EXEC_ROLL, EFFECT_EXECUTION, EFFECT_SIDE_OPPONENT, &mCtx, enemyScore, NULL);
+    
+    ctx->playerScore = playerScore;
+    ctx->enemyScore = enemyScore;
+    
+    int margin = enemyScore - playerScore;
+    ctx->margin = margin;
+
     if (ctx->log.count < MAX_STEPS) {
         ctx->log.steps[ctx->log.count].type = STEP_ADVANTAGE;
         ctx->log.steps[ctx->log.count].as.advantage.advantage = ctx->forceAdvantage;
@@ -225,9 +405,7 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
         ctx->log.steps[ctx->log.count].as.advantage.enemyForce = (int)enemyForce;
         ctx->log.count++;
     }
-    
-    int playerScore = ctx->execRoll + ctx->forceAdvantage + playerPlanMods;
-    
+
     if (ctx->log.count < MAX_STEPS) {
         ctx->log.steps[ctx->log.count].type = STEP_ROLL;
         ctx->log.steps[ctx->log.count].as.roll.d1 = dice1;
@@ -236,53 +414,8 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
         ctx->log.count++;
     }
     
-    ModContext mCtx = { &ctx->gm->modRegistry, ctx->playerArmy, ctx->enemy, ctx, 0, 0 };
-    playerScore = Modifier_Query(HOOK_EXEC_ROLL, EFFECT_EXECUTION, EFFECT_SIDE_SELF, &mCtx, playerScore, &ctx->breakdown);
-    
-    int enemyRoll = 7;
-    int enemyPlanMods = 0;
-    int enemyScore = enemyRoll + enemyPlanMods;
-    enemyScore = Modifier_Query(HOOK_EXEC_ROLL, EFFECT_EXECUTION, EFFECT_SIDE_OPPONENT, &mCtx, enemyScore, NULL);
-    
-    ctx->playerScore = playerScore;
-    ctx->enemyScore = enemyScore;
-    
-    int margin = enemyScore - playerScore;
-    
-    float dmgFactor = 10.0f;
-    if (ctx->selectedPlan == PLAN_SKIRMISH) dmgFactor *= 0.7f;
-    else if (ctx->selectedPlan == PLAN_PIKES) dmgFactor *= 0.6f;
-    else if (ctx->selectedPlan == PLAN_ASSAULT) dmgFactor *= 1.2f;
-
-    // Contrajuegos de Intencion vs Plan
-    if (ctx->enemyIntent == 0) { // Carga
-        if (ctx->selectedPlan == PLAN_PIKES) { playerPlanMods += 3; dmgFactor *= 0.4f; }
-        if (ctx->selectedPlan == PLAN_SKIRMISH) { playerPlanMods -= 2; dmgFactor *= 1.5f; }
-    } else if (ctx->enemyIntent == 1) { // Asedio
-        if (ctx->selectedPlan == PLAN_FLANK) { playerPlanMods += 3; dmgFactor *= 1.2f; }
-        if (ctx->selectedPlan == PLAN_SKIRMISH) { playerPlanMods += 2; dmgFactor *= 0.8f; }
-        if (ctx->selectedPlan == PLAN_ASSAULT) { playerPlanMods -= 3; dmgFactor *= 1.3f; }
-    } else if (ctx->enemyIntent == 2) { // Repliegue
-        if (ctx->selectedPlan == PLAN_ASSAULT) { playerPlanMods += 3; dmgFactor *= 1.5f; }
-        if (ctx->selectedPlan == PLAN_PIKES) { playerPlanMods -= 2; dmgFactor *= 0.5f; }
-    }
-
-    if (ctx->selectedPlan != PLAN_NONE && ctx->selectedPlan == ctx->previousPlan) {
-        playerPlanMods /= 2;
-        // Move dmgFactor halfway towards 10.0f
-        dmgFactor = 10.0f + (dmgFactor - 10.0f) * 0.5f;
-    }
-    
-    if (ctx->criticalHit) {
-        playerPlanMods += 5; // Enormous bonus
-        dmgFactor *= 1.5f; // Extra damage multiplier
-    } else if (ctx->criticalFumble) {
-        playerPlanMods -= 5;
-        dmgFactor *= 0.5f;
-    }
-    
     if (margin > 0) {
-        // Player takes damage
+        // Jugador recibe dano (pierde el choque por margin)
         float lostHealth = (float)margin * dmgFactor;
         
         // Hook Bajas transformado en Hook Salud (Sec 11)
@@ -299,9 +432,12 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
             ctx->log.count++;
         }
     } else {
-        // Enemy takes damage
+        // Enemigo recibe dano (jugador gana o empata el choque)
         float lostHealth = (float)(-margin) * dmgFactor;
-        if (lostHealth == 0.0f) lostHealth = 5.0f * dmgFactor; // Empate rompe a favor de algo de dao?
+        if (lostHealth == 0.0f) lostHealth = 5.0f * dmgFactor; // Empate rompe con golpe leve
+        
+        lostHealth = (float)Modifier_Query(HOOK_EXEC_DAMAGE, EFFECT_EXECUTION, EFFECT_SIDE_SELF, &mCtx, (int)lostHealth, NULL);
+        if (lostHealth < 1.0f) lostHealth = 1.0f;
         
         ctx->enemyHealth -= lostHealth;
         if (ctx->enemyHealth < 0) ctx->enemyHealth = 0;
@@ -315,33 +451,59 @@ void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2) {
         }
     }
     
+    if (ctx->selectedPlan == PLAN_DIVINE_INVOCATION && ctx->selectedDivineCardSlot >= 0 && ctx->playerArmy) {
+        Commander_SetCardExhausted(ctx->playerArmy->commander, ctx->selectedDivineCardSlot, true);
+    }
+
     ctx->state = COMBAT_STATE_ROUND_CLOSE;
 }
 
 void Combat_ComputeLoot(CombatContext* ctx, Rng* rng) {
     if (!ctx || !ctx->enemy) return;
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    ctx->lootWine = 0;
+    ctx->lootMeat = 0;
+
     if (ctx->enemy->behavior == AI_BEAST) {
         ctx->lootGold = 0;
-        ctx->lootFood = 0;
+        int beastStr = ctx->enemy->baseStrength;
+        if (beastStr <= 0) beastStr = 20;
+        ctx->lootFood = (int)roundf((float)beastStr * 0.8f);
+        if (ctx->lootFood < 15) ctx->lootFood = 15;
+        ctx->lootWater = (int)roundf((float)beastStr * 0.4f);
+        if (ctx->lootWater < 10) ctx->lootWater = 10;
+
+        /* Bestias grandes (fuerza >= 25): probabilidad de soltar Carne fresca */
+        if (beastStr >= 25) {
+            float meatChance = (cfg && cfg->lootMeatChanceLarge > 0.0f) ? cfg->lootMeatChanceLarge : 0.45f;
+            int roll = rng ? Rng_Range(rng, 1, 100) : 50;
+            if (roll <= (int)(meatChance * 100.0f)) {
+                ctx->lootMeat = 2 + (beastStr - 20) / 10;
+                if (ctx->lootMeat < 2) ctx->lootMeat = 2;
+            }
+        }
         return;
     }
-    const BalanceConfig* cfg = Balance_GetGlobal();
 
     int enemyStr = ctx->enemy->baseStrength;
     if (enemyStr <= 0) enemyStr = 25;
 
     float baseGold = (float)enemyStr * cfg->lootGoldPerStr;
     float baseFood = (float)enemyStr * cfg->lootFoodPerStr;
+    float baseWater = (float)enemyStr * (cfg->lootFoodPerStr * 0.8f);
 
     float variance = (cfg->lootVariancePct > 0.0f) ? cfg->lootVariancePct : 20.0f;
     float factorGold = 1.0f;
     float factorFood = 1.0f;
+    float factorWater = 1.0f;
 
     if (rng) {
         float rollG = (float)Rng_Range(rng, (int)(-variance), (int)variance) / 100.0f;
         float rollF = (float)Rng_Range(rng, (int)(-variance), (int)variance) / 100.0f;
+        float rollW = (float)Rng_Range(rng, (int)(-variance), (int)variance) / 100.0f;
         factorGold += rollG;
         factorFood += rollF;
+        factorWater += rollW;
     }
 
     float mult = (ctx->lootMultiplier > 0.0f) ? ctx->lootMultiplier : 1.0f;
@@ -349,10 +511,42 @@ void Combat_ComputeLoot(CombatContext* ctx, Rng* rng) {
     ctx->lootGold = (int)roundf(baseGold * factorGold * mult);
     if (ctx->lootGold < 5) ctx->lootGold = 5;
 
-    ctx->lootFood = roundf(baseFood * factorFood * mult);
-    if (ctx->lootFood < 2.0f) ctx->lootFood = 2.0f;
+    ctx->lootFood = (int)roundf(baseFood * factorFood * mult);
+    if (ctx->lootFood < 5) ctx->lootFood = 5;
 
-    /* Botín garantizado de asedio contra guarnición fortificada (C3) */
+    ctx->lootWater = (int)roundf(baseWater * factorWater * mult);
+    if (ctx->lootWater < 5) ctx->lootWater = 5;
+
+    /* Tropas enemigas grandes: alta probabilidad de arrojar Vino y Carne */
+    bool isLargeTroop = (enemyStr >= 35) || (ctx->enemy->sergeants >= 3) || (ctx->enemy->tags & TAG_FORTIFIED);
+
+    float wineChance = isLargeTroop ?
+        ((cfg && cfg->lootWineChanceLarge > 0.0f) ? cfg->lootWineChanceLarge : 0.45f) : 0.15f;
+    float meatChance = isLargeTroop ?
+        ((cfg && cfg->lootMeatChanceLarge > 0.0f) ? cfg->lootMeatChanceLarge : 0.45f) : 0.15f;
+
+    if (ctx->enemy->tags & TAG_FORTIFIED) {
+        wineChance = 0.80f;
+        meatChance = 0.80f;
+    }
+
+    int rollWine = rng ? Rng_Range(rng, 1, 100) : 50;
+    if (rollWine <= (int)(wineChance * 100.0f)) {
+        int baseWine = isLargeTroop ? (2 + (enemyStr - 30) / 8) : 1;
+        if (baseWine < 1) baseWine = 1;
+        ctx->lootWine = (int)roundf((float)baseWine * mult);
+        if (ctx->lootWine < 1) ctx->lootWine = 1;
+    }
+
+    int rollMeat = rng ? Rng_Range(rng, 1, 100) : 50;
+    if (rollMeat <= (int)(meatChance * 100.0f)) {
+        int baseMeat = isLargeTroop ? (2 + (enemyStr - 30) / 8) : 1;
+        if (baseMeat < 1) baseMeat = 1;
+        ctx->lootMeat = (int)roundf((float)baseMeat * mult);
+        if (ctx->lootMeat < 1) ctx->lootMeat = 1;
+    }
+
+    /* BotÃ­n garantizado de asedio contra guarniciÃ³n fortificada (C3) */
     if (ctx->enemy && (ctx->enemy->tags & TAG_FORTIFIED)) {
         int targetGold = (cfg->siegeBaseGold > 0) ? cfg->siegeBaseGold : 200;
         if (ctx->lootGold < targetGold) ctx->lootGold = targetGold;
@@ -360,8 +554,15 @@ void Combat_ComputeLoot(CombatContext* ctx, Rng* rng) {
         if (ctx->playerArmy) {
             float dailyUsage = Army_CalculateFoodUsage(Army_GetTotalSoldiers(ctx->playerArmy), ctx->playerArmy->ganado);
             float targetFood = (cfg->siegeSupplyDays > 0.0f ? cfg->siegeSupplyDays : 5.0f) * dailyUsage;
-            if (ctx->lootFood < targetFood) ctx->lootFood = targetFood;
+            if (ctx->lootFood < (int)targetFood) ctx->lootFood = (int)targetFood;
+
+            float dailyWater = Army_CalculateWaterUsage(Army_GetTotalSoldiers(ctx->playerArmy), ctx->playerArmy->ganado);
+            float targetWater = (cfg->siegeSupplyDays > 0.0f ? cfg->siegeSupplyDays : 5.0f) * dailyWater;
+            if (ctx->lootWater < (int)targetWater) ctx->lootWater = (int)targetWater;
         }
+
+        if (ctx->lootWine < 6) ctx->lootWine = 6;
+        if (ctx->lootMeat < 8) ctx->lootMeat = 8;
     }
 }
 
@@ -441,6 +642,8 @@ void Combat_RoundClose(CombatContext* ctx) {
         ctx->state = COMBAT_STATE_END;
     } else {
         ctx->previousPlan = ctx->selectedPlan;
+        ctx->selectedPlan = PLAN_NONE;
+        ctx->activeInvocationDef = NULL;
         ctx->round++;
         ctx->state = COMBAT_STATE_PLANNING;
         ctx->enemyIntent = rand() % 3;
@@ -512,7 +715,8 @@ void Combat_Recount(CombatContext* ctx) {
 void Combat_Commit(CombatContext* ctx) {
     if (ctx->state != COMBAT_STATE_DONE) return;
     
-    ctx->playerArmy->salud = ctx->playerHealth;
+    float healthDelta = ctx->playerHealth - ctx->playerInitialHealth;
+    Army_ApplyHealthDelta(ctx->playerArmy, healthDelta);
     
     ctx->playerArmy->iniciados -= ctx->deadInitiates;
     ctx->playerArmy->soldados -= ctx->deadSoldiers;
@@ -522,32 +726,118 @@ void Combat_Commit(CombatContext* ctx) {
     if (ctx->playerArmy->soldados < 0) ctx->playerArmy->soldados = 0;
     if (ctx->playerArmy->sargentos < 0) ctx->playerArmy->sargentos = 0;
     
-    if (ctx->endReason == COMBAT_END_FLEE) {
+    if (ctx->endReason == COMBAT_END_DEFEAT) {
+        /* Pérdida de moral en todos los niveles al ser derrotados en combate (~20 promedio) */
+        ctx->playerArmy->groupState[RG_INICIADOS].morale -= 24.0f;
+        ctx->playerArmy->groupState[RG_SOLDADOS].morale  -= 18.0f;
+        ctx->playerArmy->groupState[RG_SARGENTOS].morale -= 14.0f;
+        for (int g = 0; g < RG_COUNT; g++) {
+            if (ctx->playerArmy->groupState[g].morale < 0.0f) {
+                ctx->playerArmy->groupState[g].morale = 0.0f;
+            }
+        }
+        
+        // Empuje de 2 hexágonos en retirada alejándose del enemigo
+        HexCoord enemyPos = ctx->enemy ? ctx->enemy->position : ctx->playerArmy->position;
+        HexCoord p1 = ctx->playerArmy->previousPosition;
+        int dq = p1.q - enemyPos.q;
+        int dr = p1.r - enemyPos.r;
+        if (dq != 0 || dr != 0) {
+            ctx->playerArmy->position = (HexCoord){ p1.q + dq, p1.r + dr };
+        } else {
+            ctx->playerArmy->position = p1;
+        }
+
+        if (ctx->gm) {
+            GameMaster_SetFlag(ctx->gm, "derrota_reciente");
+        }
+    } else if (ctx->endReason == COMBAT_END_FLEE) {
         ctx->playerArmy->comida_disponible -= ctx->fleeCostFood;
-        ctx->playerArmy->moral -= ctx->fleeCostMorale;
+        ctx->playerArmy->groupState[RG_INICIADOS].morale -= (float)ctx->fleeCostMorale * 1.25f;
+        ctx->playerArmy->groupState[RG_SOLDADOS].morale  -= (float)ctx->fleeCostMorale * 1.0f;
+        ctx->playerArmy->groupState[RG_SARGENTOS].morale -= (float)ctx->fleeCostMorale * 0.75f;
+        for (int g = 0; g < RG_COUNT; g++) {
+            if (ctx->playerArmy->groupState[g].morale < 0.0f) {
+                ctx->playerArmy->groupState[g].morale = 0.0f;
+            }
+        }
         ctx->playerArmy->position = ctx->playerArmy->previousPosition;
+    }
+    Army_RecalculateAggregates(ctx->playerArmy);
+
+    // Progresión de recarga de cartas divinas agotadas
+    if (ctx->playerArmy && ctx->playerArmy->commander.ptr) {
+        for (int c = 0; c < 8; c++) {
+            ModifierInstance* inst = Commander_GetCardInstance(ctx->playerArmy->commander, c);
+            if (!inst) break;
+            if (inst->isExhausted) {
+                if (c != ctx->selectedDivineCardSlot) {
+                    if (inst->battlesUntilRecharge > 0) inst->battlesUntilRecharge--;
+                    if (inst->battlesUntilRecharge <= 0) inst->isExhausted = false;
+                }
+            }
+        }
     }
     
     if (ctx->endReason == COMBAT_END_VICTORY) {
-        if (ctx->lootGold == 0 && ctx->lootFood == 0.0f) {
+        if (ctx->lootGold == 0 && ctx->lootFood == 0 && ctx->lootWater == 0 && ctx->lootWine == 0 && ctx->lootMeat == 0) {
             Combat_ComputeLoot(ctx, (ctx->gm) ? &ctx->gm->rng : NULL);
         }
+        
+        // Aplicar bonificaciones de fin de combate (HOOK_COMBAT_END)
+        if (ctx->gm && ctx->playerArmy) {
+            ModContext mCtx = {
+                .reg = &ctx->gm->modRegistry,
+                .army = ctx->playerArmy,
+                .enemy = ctx->enemy,
+                .combat = ctx,
+                .timeOfDay = ctx->gm->timeOfDay,
+                .infamy = ctx->playerArmy->infamia
+            };
+            ModAction actions[16];
+            int nAct = Modifier_CollectActions(HOOK_COMBAT_END, &mCtx, actions, 16);
+            for (int a = 0; a < nAct; a++) {
+                if (actions[a].type == EFFECT_GOLD) ctx->lootGold += (int)actions[a].value;
+                else if (actions[a].type == EFFECT_FOOD) ctx->lootFood += (int)actions[a].value;
+                else if (actions[a].type == EFFECT_WATER) ctx->lootWater += (int)actions[a].value;
+                else if (actions[a].type == EFFECT_WINE) ctx->lootWine += (int)actions[a].value;
+                else if (actions[a].type == EFFECT_MEAT) ctx->lootMeat += (int)actions[a].value;
+                else if (actions[a].type == EFFECT_MORAL) Army_ApplyMoraleDelta(ctx->playerArmy, actions[a].value);
+            }
+        }
+        
         ctx->playerArmy->monedas += ctx->lootGold;
-        ctx->playerArmy->comida_disponible += ctx->lootFood;
+        ctx->playerArmy->comida_disponible += (float)ctx->lootFood;
+        ctx->playerArmy->agua_disponible += (float)ctx->lootWater;
+        ctx->playerArmy->vino_disponible += (float)ctx->lootWine;
+        ctx->playerArmy->carne_disponible += (float)ctx->lootMeat;
         if (ctx->enemy) ctx->enemy->isActive = false;
     } else if (ctx->endReason == COMBAT_END_STALEMATE || ctx->endReason == COMBAT_END_DEFEAT || ctx->endReason == COMBAT_END_FLEE) {
-        if (ctx->endReason != COMBAT_END_FLEE) {
-            ctx->playerArmy->position = ctx->playerArmy->previousPosition;
-        }
-        if (ctx->enemy) {
-            const BalanceConfig* cfg = Balance_GetGlobal();
-            int fleeHeadStart = (cfg && cfg->aiFleeHeadStartPhases > 0) ? cfg->aiFleeHeadStartPhases : 1;
-            int chaseTurns = (cfg && cfg->aiChaseTurns > 0) ? cfg->aiChaseTurns : 6;
-            ctx->enemy->aiState = AIS_CHASING;
-            ctx->enemy->currentIntent = INTENT_CHASE;
-            ctx->enemy->chaseTurnsLeft = chaseTurns;
-            ctx->enemy->skipNextPhase = fleeHeadStart;
-            ctx->enemy->lastKnownPlayerPos = ctx->playerArmy->position;
+        if (ctx->endReason == COMBAT_END_DEFEAT) {
+            // El jugador ya fue empujado 2 hexes en retirada.
+            // El enemigo victorioso entra en descanso/saqueo y no persigue de inmediato (rompe la espiral de derrota)
+            if (ctx->enemy) {
+                ctx->enemy->aiState = AIS_RESTING;
+                ctx->enemy->currentIntent = INTENT_NONE;
+                ctx->enemy->patrolWaitTurns = 2; // 2 turnos de descanso/saqueo
+                ctx->enemy->chaseTurnsLeft = 0;
+                ctx->enemy->skipNextPhase = 2;
+                ctx->enemy->lastKnownPlayerPos = ctx->playerArmy->position;
+            }
+        } else {
+            if (ctx->endReason != COMBAT_END_FLEE) {
+                ctx->playerArmy->position = ctx->playerArmy->previousPosition;
+            }
+            if (ctx->enemy) {
+                const BalanceConfig* cfg = Balance_GetGlobal();
+                int fleeHeadStart = (cfg && cfg->aiFleeHeadStartPhases > 0) ? cfg->aiFleeHeadStartPhases : 1;
+                int chaseTurns = (cfg && cfg->aiChaseTurns > 0) ? cfg->aiChaseTurns : 6;
+                ctx->enemy->aiState = AIS_CHASING;
+                ctx->enemy->currentIntent = INTENT_CHASE;
+                ctx->enemy->chaseTurnsLeft = chaseTurns;
+                ctx->enemy->skipNextPhase = fleeHeadStart;
+                ctx->enemy->lastKnownPlayerPos = ctx->playerArmy->position;
+            }
         }
     }
 }
@@ -628,6 +918,31 @@ CombatPlanInfo Combat_GetPlanInfo(const CombatContext* ctx, CombatPlan plan) {
             info.counterIntent = -1;
             info.isUnlocked = true;
             info.pointsNeeded = 0;
+            break;
+
+        case PLAN_DIVINE_INVOCATION:
+            if (ctx && ctx->activeInvocationDef) {
+                info.name = ctx->activeInvocationDef->invocationName;
+                info.description = ctx->activeInvocationDef->invocationDesc;
+                info.requiredRoll = 0;
+                info.rollModifier = ctx->activeInvocationDef->invocationRollMod;
+                info.clashMultiplier = ctx->activeInvocationDef->invocationClashMult;
+                info.counterIntent = ctx->activeInvocationDef->invocationCounterIntent;
+                info.isUnlocked = true;
+                info.pointsNeeded = 0;
+                if (ctx->intentRevealed && info.counterIntent >= 0) {
+                    if (ctx->enemyIntent == info.counterIntent) info.hasAdvantage = true;
+                }
+            } else {
+                info.name = "Invocacion Divina";
+                info.description = "Canaliza el poder de un dios patron para desatar un milagro en combate.";
+                info.requiredRoll = 0;
+                info.rollModifier = 0;
+                info.clashMultiplier = 1.0f;
+                info.counterIntent = -1;
+                info.isUnlocked = true;
+                info.pointsNeeded = 0;
+            }
             break;
 
         default:

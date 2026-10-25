@@ -1,6 +1,7 @@
-﻿#include "views/draft_view.h"
+#include "views/draft_view.h"
 #include "presentation/ui_widgets.h"
 #include "presentation/ui_theme.h"
+#include "presentation/audio_manager.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,96 +32,118 @@ void DraftView_Init(DraftContext* ctx, const ModifierRegistry* reg) {
 int DraftView_UpdateDraw(DraftContext* ctx, Army* army, int SW, int SH) {
     if (!ctx || !army) return 1;
     
-    DrawRectangle(0, 0, SW, SH, Fade(BLACK, 0.8f));
+    DrawRectangle(0, 0, SW, SH, Fade(BLACK, 0.82f));
     
     int cx = SW / 2;
     int cy = SH / 2;
     
-    UI_DrawText("Altar de los Dioses", (Vector2){cx - MeasureText("Altar de los Dioses", 34)/2, cy - 250}, 34, UI_COLOR_GOLD);
+    int cardH = (SH >= 900) ? 600 : ((SH >= 760) ? 570 : 530);
+    int py = (SH - cardH - 100) / 2 + 42;
+
+    Vector2 titleSz = UI_MeasureText("Altar de los Dioses", 38);
+    float titleY = (ctx->state == ALTAR_STATE_OFFER) ? (cy - 250.0f) : (float)(py - 74);
+    UI_DrawText("Altar de los Dioses", (Vector2){cx - titleSz.x/2.0f, titleY}, 38, UI_COLOR_GOLD);
     
     if (ctx->state == ALTAR_STATE_OFFER) {
-        UI_DrawText("Los dioses exigen un tributo a cambio de su favor.", (Vector2){cx - MeasureText("Los dioses exigen un tributo a cambio de su favor.", 20)/2, cy - 180}, 20, RAYWHITE);
+        Rectangle offerPanel = { (float)(cx - 310), (float)(cy - 210), 620.0f, 430.0f };
+        UI_DrawPanelStyled(offerPanel, UI_STYLE_PANEL_DARK);
+
+        const char* msg = "Los dioses exigen un tributo a cambio de su favor.";
+        Vector2 msgSz = UI_MeasureText(msg, 20);
+        UI_DrawText(msg, (Vector2){cx - msgSz.x/2.0f, cy - 175.0f}, 20, RAYWHITE);
+        UI_DrawStatusChip((Rectangle){ (float)(cx - 210), (float)(cy - 135), 420.0f, 26.0f },
+                          "El aura del Altar ha reconsagrado tus cartas divinas",
+                          UI_STYLE_CHIP_OK, UI_ICON_OK);
         
         bool canPayGold = army->monedas >= 50;
         
-        if (UI_DrawButton((Rectangle){cx - 200, cy - 50, 400, 50}, TextFormat("Ofrendar Oro (50 Monedas) [%d disponibles]", army->monedas), !canPayGold)) {
+        if (UI_DrawButtonStyledSfx((Rectangle){cx - 260, cy - 50, 520, 54}, TextFormat("Ofrendar Oro (50 Monedas) [%d disponibles]", army->monedas), UI_STYLE_BTN_DEFAULT, !canPayGold, "altar_offer")) {
             army->monedas -= 50;
             ctx->state = ALTAR_STATE_REVEAL;
-            Audio_PlaySfx(SFX_CARD_TRIGGER);
         }
         
-        if (UI_DrawButton((Rectangle){cx - 200, cy + 30, 400, 50}, "Aceptar Maldicion (Pacto Sangriento)", false)) {
+        if (UI_DrawButtonStyledSfx((Rectangle){cx - 260, cy + 30, 520, 54}, "Aceptar Maldicion (Pacto Sangriento)", UI_STYLE_BTN_CURSE, false, NULL)) {
             if (ctx->hiddenCurse) {
-                // Agregar maldicion oculta
-                General* g = &army->general;
-                if (g->curseCount < 4) {
-                    strncpy(g->curses[g->curseCount].id, ctx->hiddenCurse->id, 31);
-                    g->curses[g->curseCount].remaining = -1;
-                    g->curseCount++;
-                }
+                // Agregar maldicion a la armada/general sin ocupar ranuras de cartas divinas
+                Army_EquipModifier(army, ctx->hiddenCurse);
+                Audio_PlaySfxByName("curse_acquired");
             }
             ctx->state = ALTAR_STATE_REVEAL;
-            Audio_PlaySfx(SFX_CARD_TRIGGER); // Sonido ominoso podria ir aqui
         }
         
-        if (UI_DrawButton((Rectangle){cx - 100, cy + 150, 200, 40}, "Alejarse del Altar", false)) {
+        if (UI_DrawButtonStyled((Rectangle){cx - 130, cy + 150, 260, 46}, "Alejarse del Altar", UI_STYLE_BTN_DEFAULT, false)) {
             return 1;
         }
     } 
     else if (ctx->state == ALTAR_STATE_REVEAL) {
-        UI_DrawText("Los dioses han respondido...", (Vector2){cx - MeasureText("Los dioses han respondido...", 22)/2, cy - 180}, 22, UI_COLOR_GOOD);
+        int cardH = (SH >= 900) ? 600 : ((SH >= 760) ? 570 : 530);
+        int cardW = (cardH * 2) / 3;
+        int px = cx - cardW / 2;
+        int py = (SH - cardH - 100) / 2 + 42;
+
+        const char* respMsg = "Los dioses han respondido con su bendicion...";
+        Vector2 respSz = UI_MeasureText(respMsg, 20);
+        UI_DrawText(respMsg, (Vector2){cx - respSz.x/2.0f, (float)(py - 28)}, 20, UI_COLOR_GOOD);
         
         if (ctx->pulledCard) {
-            int cardW = 220, cardH = 320;
-            int px = cx - cardW/2;
-            int py = cy - 120;
+            Rectangle cardBounds = { (float)px, (float)py, (float)cardW, (float)cardH };
+            UISkin_DrawGlow(cardBounds, (Color){ 255, 220, 140, 255 }, 0.75f, 0);
+            UI_DrawModifierCard(ctx->pulledCard, cardBounds);
             
-            DrawRectangle(px, py, cardW, cardH, (Color){30,30,40,255});
-            DrawRectangleLines(px, py, cardW, cardH, GOLD);
-            UI_DrawText(ctx->pulledCard->name, (Vector2){px + 10, py + 10}, 18, UI_COLOR_GOOD);
-            DrawTextEx(GetFontDefault(), ctx->pulledCard->description, (Vector2){px + 10, py + 50}, 14, 1, LIGHTGRAY);
-            
-            if (UI_DrawButton((Rectangle){cx - 100, py + cardH + 30, 200, 40}, "Aceptar Bendicion", false)) {
+            if (UI_DrawButtonStyledSfx((Rectangle){cx - 140, py + cardH + 16, 280, 46}, "Aceptar Bendicion", UI_STYLE_BTN_PRIMARY, false, NULL)) {
                 if (army->general.cardCount >= 3) {
+                    Audio_PlaySfxByName("altar_offer");
                     ctx->state = ALTAR_STATE_REPLACE;
                 } else {
                     Army_ReplaceCard(army, army->general.cardCount, ctx->pulledCard);
-                    Audio_PlaySfx(SFX_CARD_TRIGGER);
+                    Audio_PlaySfxByName("divine_card_acquired");
                     return 1;
                 }
             }
         } else {
             UI_DrawText("No hay dioses escuchando (Error de pool).", (Vector2){cx - 150, cy}, 20, RED);
-            if (UI_DrawButton((Rectangle){cx - 100, cy + 100, 200, 40}, "Continuar", false)) return 1;
+            if (UI_DrawButtonStyled((Rectangle){cx - 100, cy + 100, 200, 44}, "Continuar", UI_STYLE_BTN_DEFAULT, false)) return 1;
         }
     }
     else if (ctx->state == ALTAR_STATE_REPLACE) {
-        UI_DrawText("Tus ranuras estan llenas. Elige una bendicion para REEMPLAZAR:", (Vector2){cx - MeasureText("Tus ranuras estan llenas. Elige una bendicion para REEMPLAZAR:", 20)/2, cy - 200}, 20, RED);
-        
-        int cardW = 200;
-        int cardH = 200;
-        int startX = cx - (cardW*3 + 40)/2;
-        int py = cy - 100;
+        int cardH = (SH >= 900) ? 450 : ((SH >= 760) ? 410 : 370);
+        int cardW = (cardH * 2) / 3;
+        int gap = 24;
+        int startX = cx - (cardW * 3 + gap * 2) / 2;
+        int py = (SH - cardH - 100) / 2 + 42;
+
+        const char* replMsg = "Tus 3 ranuras estan llenas. Elige una bendicion para REEMPLAZAR:";
+        Vector2 replSz = UI_MeasureText(replMsg, 20);
+        UI_DrawText(replMsg, (Vector2){cx - replSz.x/2.0f, (float)(py - 28)}, 20, (Color){245, 90, 80, 255});
         
         for (int i=0; i<3; i++) {
             if (i >= army->general.cardCount) continue;
-            int px = startX + i*(cardW + 20);
+            int px = startX + i * (cardW + gap);
+            Rectangle cardRec = { (float)px, (float)py, (float)cardW, (float)cardH };
+            bool hover = CheckCollisionPointRec(GetMousePosition(), cardRec);
             
-            bool hover = CheckCollisionPointRec(GetMousePosition(), (Rectangle){px, py, cardW, cardH});
-            DrawRectangle(px, py, cardW, cardH, hover ? (Color){60,30,30,255} : (Color){40,20,20,255});
-            DrawRectangleLines(px, py, cardW, cardH, hover ? RED : DARKGRAY);
-            
+            if (hover) {
+                UISkin_DrawGlow(cardRec, (Color){ 245, 60, 60, 255 }, 0.85f, 0);
+            }
+
             ModifierDef* d = Modifier_GetById(ctx->registry->defs, ctx->registry->count, army->general.cards[i].id);
-            UI_DrawText(d ? d->name : "Desconocida", (Vector2){px + 10, py + 10}, 16, UI_COLOR_TEXT_MAIN);
+            if (d) {
+                UI_DrawModifierCardEx(d, cardRec, army->general.cards[i].isExhausted, army->general.cards[i].battlesUntilRecharge);
+            }
+            
+            if (hover) {
+                UI_DrawStatusChip((Rectangle){ (float)(px + 12), (float)(py + cardH - 42), (float)(cardW - 24), 32.0f }, "SACRIFICAR", UI_STYLE_CHIP_BAD, UI_ICON_PELIGRO);
+            }
             
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hover) {
+                Audio_PlaySfxByName("card_sacrificed");
                 Army_ReplaceCard(army, i, ctx->pulledCard);
-                Audio_PlaySfx(SFX_CARD_TRIGGER);
+                Audio_PlaySfxByName("divine_card_acquired");
                 return 1; // Finished
             }
         }
         
-        if (UI_DrawButton((Rectangle){cx - 100, cy + 150, 200, 40}, "Cancelar (Conservar Actuales)", false)) {
+        if (UI_DrawButtonStyled((Rectangle){cx - 150, py + cardH + 18, 300, 44}, "Cancelar (Conservar Actuales)", UI_STYLE_BTN_DEFAULT, false)) {
             return 1;
         }
     }

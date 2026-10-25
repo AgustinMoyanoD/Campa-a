@@ -32,6 +32,7 @@ typedef enum {
     PLAN_FLEE,
     PLAN_PIKES,
     PLAN_FLANK,
+    PLAN_DIVINE_INVOCATION,
     PLAN_NONE
 } CombatPlan;
 
@@ -85,6 +86,9 @@ typedef struct CombatContext {
     // Botin (solo si victoria)
     int lootGold;
     int lootFood;
+    int lootWater;
+    int lootWine;
+    int lootMeat;
     float lootMultiplier;
     
     CombatLog log;
@@ -110,10 +114,15 @@ typedef struct CombatContext {
     
     int playerScore;
     int enemyScore;
+    int enemyRoll;
     int margin;
     bool criticalHit;
     bool criticalFumble;
     ModBreakdown breakdown;
+
+    /* Invocación divina activa */
+    int selectedDivineCardSlot;
+    const struct ModifierDef* activeInvocationDef;
 
     /* Puntos de contacto (Sección 11) */
     bool ambushed;
@@ -128,6 +137,7 @@ void Combat_RollPlanning(CombatContext* ctx, int dice1, int dice2);
 void Combat_UseCommandToken_Add(CombatContext* ctx);
 void Combat_UseCommandToken_Reroll(CombatContext* ctx, int dice1, int dice2);
 void Combat_SelectPlan(CombatContext* ctx, CombatPlan plan);
+void Combat_SelectDivineInvocation(CombatContext* ctx, int slot);
 void Combat_RollExecution(CombatContext* ctx, int dice1, int dice2);
 void Combat_RoundClose(CombatContext* ctx);
 void Combat_Recount(CombatContext* ctx);

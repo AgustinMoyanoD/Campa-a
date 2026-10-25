@@ -1,10 +1,17 @@
 [MODIFIER]
 Id=zeus_tormenta
-Name=Zeus: Tormenta
+Name=Tormenta Olimpica
+Description=Relampagos celestiales calcinan las formaciones enemigas. Incrementa un 50% el dano de choque infligido y suma +3 a las tiradas de Ejecucion.
 Kind=CARD
-Duration=BATTLES:3
+Source=ZEUS
+Rarity=EPIC
+Tags=COMBATE, DANO
+Duration=PERMANENTE
 
-[HOOK_1]
+[RULE]
 Hook=EXEC_DAMAGE
-Effect=execution:+20%
+Effect=execution:+50%
 
+[RULE]
+Hook=EXEC_ROLL
+Effect=execution:+3

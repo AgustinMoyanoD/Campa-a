@@ -135,11 +135,15 @@ void City_InitVisit(CityContext* ctx, HexCoord coord, StructureType structType, 
     if (structType == STRUCT_TOWN_HOUSES) {
         ctx->stockFood = cfg->marketStockViviendaFood;
         ctx->stockWater = cfg->marketStockViviendaWater;
+        ctx->stockWine = cfg->marketStockViviendaWine;
+        ctx->stockMeat = cfg->marketStockViviendaMeat;
         ctx->stockCattle = 0;
         ctx->stockInitiates = 0;
     } else {
         ctx->stockFood = cfg->marketStockUrbanoFood;
         ctx->stockWater = cfg->marketStockUrbanoWater;
+        ctx->stockWine = cfg->marketStockUrbanoWine;
+        ctx->stockMeat = cfg->marketStockUrbanoMeat;
         ctx->stockCattle = cfg->marketStockUrbanoCattle;
         ctx->stockInitiates = cfg->marketStockUrbanoInitiates;
     }
@@ -192,6 +196,42 @@ int City_GetBuyPriceWater(const CityContext* ctx) {
 
 int City_GetSellPriceWater(const CityContext* ctx) {
     int buy = City_GetBuyPriceWater(ctx);
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    float ratio = (cfg && cfg->marketSellRatio > 0.0f) ? cfg->marketSellRatio : 0.4f;
+    int sell = (int)floorf((float)buy * ratio);
+    if (sell >= buy) sell = buy - 1;
+    if (sell < 1) sell = 1;
+    return sell;
+}
+
+int City_GetBuyPriceWine(const CityContext* ctx) {
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    int base = (cfg && cfg->marketPriceWine > 0) ? cfg->marketPriceWine : 6;
+    float mult = (ctx && ctx->factionPriceMult > 0.0f) ? ctx->factionPriceMult : 1.0f;
+    int p = (int)roundf((float)base * mult);
+    return (p > 0) ? p : 1;
+}
+
+int City_GetSellPriceWine(const CityContext* ctx) {
+    int buy = City_GetBuyPriceWine(ctx);
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    float ratio = (cfg && cfg->marketSellRatio > 0.0f) ? cfg->marketSellRatio : 0.4f;
+    int sell = (int)floorf((float)buy * ratio);
+    if (sell >= buy) sell = buy - 1;
+    if (sell < 1) sell = 1;
+    return sell;
+}
+
+int City_GetBuyPriceMeat(const CityContext* ctx) {
+    const BalanceConfig* cfg = Balance_GetGlobal();
+    int base = (cfg && cfg->marketPriceMeat > 0) ? cfg->marketPriceMeat : 5;
+    float mult = (ctx && ctx->factionPriceMult > 0.0f) ? ctx->factionPriceMult : 1.0f;
+    int p = (int)roundf((float)base * mult);
+    return (p > 0) ? p : 1;
+}
+
+int City_GetSellPriceMeat(const CityContext* ctx) {
+    int buy = City_GetBuyPriceMeat(ctx);
     const BalanceConfig* cfg = Balance_GetGlobal();
     float ratio = (cfg && cfg->marketSellRatio > 0.0f) ? cfg->marketSellRatio : 0.4f;
     int sell = (int)floorf((float)buy * ratio);
@@ -266,6 +306,50 @@ bool City_SellWater(CityContext* ctx, Army* army, int amount) {
     int revenue = amount * City_GetSellPriceWater(ctx);
 
     army->agua_disponible -= (float)amount;
+    army->monedas += revenue;
+    return true;
+}
+
+bool City_BuyWine(CityContext* ctx, Army* army, int amount) {
+    if (!ctx || !army || amount <= 0) return false;
+    if (ctx->stockWine < amount) return false;
+    int cost = amount * City_GetBuyPriceWine(ctx);
+    if (army->monedas < cost) return false;
+
+    army->monedas -= cost;
+    ctx->stockWine -= amount;
+    army->vino_disponible += (float)amount;
+    return true;
+}
+
+bool City_SellWine(CityContext* ctx, Army* army, int amount) {
+    if (!ctx || !army || amount <= 0) return false;
+    if (army->vino_disponible < (float)amount) return false;
+    int revenue = amount * City_GetSellPriceWine(ctx);
+
+    army->vino_disponible -= (float)amount;
+    army->monedas += revenue;
+    return true;
+}
+
+bool City_BuyMeat(CityContext* ctx, Army* army, int amount) {
+    if (!ctx || !army || amount <= 0) return false;
+    if (ctx->stockMeat < amount) return false;
+    int cost = amount * City_GetBuyPriceMeat(ctx);
+    if (army->monedas < cost) return false;
+
+    army->monedas -= cost;
+    ctx->stockMeat -= amount;
+    army->carne_disponible += (float)amount;
+    return true;
+}
+
+bool City_SellMeat(CityContext* ctx, Army* army, int amount) {
+    if (!ctx || !army || amount <= 0) return false;
+    if (army->carne_disponible < (float)amount) return false;
+    int revenue = amount * City_GetSellPriceMeat(ctx);
+
+    army->carne_disponible -= (float)amount;
     army->monedas += revenue;
     return true;
 }
@@ -400,8 +484,7 @@ bool City_HealArmy(CityContext* ctx, Army* army, int pointsToHeal) {
     if (army->monedas < cost) return false;
 
     army->monedas -= cost;
-    army->salud += (float)pointsToHeal;
-    if (army->salud > 100.0f) army->salud = 100.0f;
+    Army_ApplyHealthDelta(army, (float)pointsToHeal);
     return true;
 }
 
@@ -413,12 +496,22 @@ int City_GetTempleCurseRemoveCost(const CityContext* ctx, const Army* army) {
 }
 
 bool City_RemoveCurse(CityContext* ctx, Army* army) {
-    if (!ctx || !army || army->curseCount <= 0) return false;
+    if (!ctx || !army) return false;
+    int cmdCurses = Commander_GetCurseCount(army->commander);
+    if (army->curseCount <= 0 && cmdCurses <= 0) return false;
     int cost = City_GetTempleCurseRemoveCost(ctx, army);
     if (army->monedas < cost) return false;
 
     army->monedas -= cost;
-    army->curseCount--;
+    if (army->curseCount > 0) {
+        army->curseCount--;
+    } else if (army->commander.ptr) {
+        if (army->commander.type == OFFICER_GENERAL) {
+            if (((General*)army->commander.ptr)->curseCount > 0) ((General*)army->commander.ptr)->curseCount--;
+        } else {
+            if (((Lieutenant*)army->commander.ptr)->curseCount > 0) ((Lieutenant*)army->commander.ptr)->curseCount--;
+        }
+    }
     army->cursesRemovedCount++;
     ctx->cursesRemoved++;
     return true;
@@ -442,8 +535,20 @@ bool City_RestAtInn(CityContext* ctx, Army* army) {
     float moralRec = (cfg && cfg->servicesInnRecoverMoral > 0.0f) ? cfg->servicesInnRecoverMoral : 15.0f;
 
     army->monedas -= cost;
-    army->moral += moralRec;
-    if (army->moral > 100.0f) army->moral = 100.0f;
+    Army_ApplyMoraleDelta(army, moralRec);
+
+    /* La posada alimenta al ejército automáticamente (todos reciben ración Completa) */
+    for (int g = 0; g < RG_COUNT; g++) {
+        army->groupState[g].daysUnfed = 0;
+    }
+    army->groupState[RG_SARGENTOS].satisfaction += 2.0f;
+    if (army->groupState[RG_SARGENTOS].satisfaction > army->groupState[RG_SARGENTOS].satisfactionMax) {
+        army->groupState[RG_SARGENTOS].satisfaction = army->groupState[RG_SARGENTOS].satisfactionMax;
+    }
+    army->daysWithoutFood = 0;
+    army->daysWithoutWater = 0;
+    army->dayRationCommitted = true;
+
     ctx->daySpent = true;
     return true;
 }

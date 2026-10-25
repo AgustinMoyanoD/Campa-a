@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_mutiny_warn2
+Name=Ultimatum de los Oficiales
+Description=Una delegacion armada se presenta ante tu tienda. La moral esta por los suelos y exigen soluciones inmediatas o tomaran el mando.
+Trigger=NONE
+Probability=0
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Comprar lealtad con donativos (Cuesta 50 Oro, +15 Moral, +5 Lealtad)
+Requires=gold>=50
+Result_pool=res_mutiny_warn2_oro
+
+[OPTION_2]
+Text=Ejecutar al cabecilla como advertencia (+10 Moral, -1 Iniciado, +5 Infamia)
+Requires=initiates>=1
+Result_pool=res_mutiny_warn2_ejecutar
+
+[OPTION_3]
+Text=Prometer saqueo en el proximo asentamiento (+8 Moral, +10 Infamia)
+Result_pool=res_mutiny_warn2_saqueo

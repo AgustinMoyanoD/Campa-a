@@ -1,14 +1,14 @@
 [MODIFIER]
 Id=curse_styx_thirst
-Name=Maldición de la Estigia
-Description=El agua negra debilita los músculos reduciendo el choque de combate por 5 días.
+Name=Sed de la Estigia
+Description=El agua negra del rio Estigia debilita los musculos y el pulso militar. Resta 3 puntos a la tirada de Ejecucion durante 5 dias.
 Kind=CURSE
-Source=HADES
+Source=TARTARO
 Rarity=RARE
 Target=ARMY
+Tags=MALDICION, DEBILIDAD
 Duration=DAYS:5
-Tags=DAMAGE, COMBAT
 
 [RULE]
 Hook=EXEC_ROLL
-Effect=execution:-2
+Effect=execution:-3

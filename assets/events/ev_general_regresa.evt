@@ -1,0 +1,20 @@
+[EVENT]
+Id=ev_general_regresa
+Name=El Retorno del General Depuesto
+Description=Al ingresar a la nueva provincia con la moral restablecida, antiguos partidarios del general depuesto reclaman su restauracion al mando supremo.
+Trigger=NONE
+Probability=0
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Restaurar al General Supremo (Recupera sus 3 cartas y stats; el teniente pierde 20 de lealtad)
+Result_pool=res_general_regresa_si
+
+[OPTION_2]
+Text=Mantener al Teniente en el Mando (El general es exiliado definitivamente)
+Result_pool=res_general_regresa_no

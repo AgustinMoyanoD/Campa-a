@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_surv_01
+Name=El Pozo de Aguas Amargas
+Description=Tras leguas de marcha sofocante, la columna alcanza un pozo de piedra en la llanura. El agua huele a azufre y tierra estancada, pero los odres están secos.
+Trigger=RANDOM
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+DaysWithoutWater=1
+
+[OPTION_1]
+Text=Permitir a los hombres beber de inmediato para saciar la sed
+Result_pool=res_surv_01_beber_clean:60,res_surv_01_beber_cost:40
+
+[OPTION_2]
+Text=Prohibir el consumo y continuar la marcha con la boca seca
+Result_pool=res_surv_01_prohibir_clean:65,res_surv_01_prohibir_fallo:35
+
+[OPTION_3]
+Text=Filtrar el agua con arena, carbón vegetal y hervirla con rito
+Requires=plan>=2
+Result_pool=res_surv_01_plan:100

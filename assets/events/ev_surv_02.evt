@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_surv_02
+Name=Reserva Podrida por la Humedad
+Description=Al abrir los barriles de intendencia tras cruzar las marismas, Craso palidece: la mitad del grano ha criado moho verde y los sacos están infestados de gorgojos.
+Trigger=RANDOM
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=15
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Arrojar la comida enmohecida y asumir la escasez inmediata
+Result_pool=res_surv_02_tirar_clean:65,res_surv_02_tirar_craso:35
+
+[OPTION_2]
+Text=Aventar el grano, tostarlo en calderos y mezclarlo en el rancho
+Result_pool=res_surv_02_cocinar_clean:60,res_surv_02_cocinar_cost:40
+
+[OPTION_3]
+Text=Clasificar metódicamente el cereal y cazar forraje fresco
+Requires=eval>=2
+Result_pool=res_surv_02_eval:100

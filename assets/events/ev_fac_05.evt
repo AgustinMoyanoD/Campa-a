@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_fac_05
+Name=Pueblo en Rumor: El Estandarte Temido
+Description=Al divisar tu vanguardia, los aldeanos de un poblado abierto tocan campanas a rebato y esconden mujeres y ganado. Tu infamia te precede en los caminos.
+Trigger=ROAD
+Probability=3
+MinInfamy=30.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aprovechar el terror para exigir tributo inmediato de comida
+Result_pool=res_fac_05_terror_clean:65,res_fac_05_terror_cost:35
+
+[OPTION_2]
+Text=Hacer acampar al ejército fuera de las empalizadas y proclamar paz
+Result_pool=res_fac_05_paz_clean:65,res_fac_05_paz_craso:35
+
+[OPTION_3]
+Text=Enviar a Lucio Vitelio a bendecir el pozo comunal con ritos de Hestia
+Requires=eval>=2
+Result_pool=res_fac_05_vitelio:100

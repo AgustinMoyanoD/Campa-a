@@ -295,5 +295,192 @@ Implementación del Bloque D de `arreglo_correcciones.md`.
 * **Verificación Automatizada:**
   * `tests/test_settlement_guarantee.c`: Valida $1.000$ mapas procedimentales ($3.000$ rutas y $>55.000$ casillas evaluadas). Cero violaciones de la garantía (distancia máxima $\le 18$), generación promedio de $\sim 34.8$ postes/mapa y verificación de ciclo completo de rumor (revelación y promoción).
 
+---
+
+## 10. Subsistema de Audio e Integración Sonora (`presentation/audio_manager.h`, `assets/audio.cfg`, `assets/audio_manifest.md`)
+
+Gestor centralizado de audio del juego en capa de presentación. Cumple con la arquitectura desacoplada: `models/` no conoce Raylib ni audio; todos los eventos se disparan desde controladores o vistas (`Sequence`, `CombatView`, `CityView`, `DraftView`).
+
+### 10.1. Pistas Musicales y Contextos (`AudioMusicContext`)
+Controla la reproducción continua de 4 pistas en streaming (`menu_theme`, `main_theme`, `combat_theme`, `city_theme`).
+
+```c
+typedef enum {
+    MUSIC_CTX_NONE = 0,
+    MUSIC_CTX_MENU,     /* menu_theme: Menú principal de inicio */
+    MUSIC_CTX_MAIN,     /* main_theme: Exploración del mapa */
+    MUSIC_CTX_COMBAT,   /* combat_theme: Pantalla de combate táctico */
+    MUSIC_CTX_CITY,     /* city_theme: Asentamientos y ciudades */
+    MUSIC_CTX_COUNT
+} AudioMusicContext;
+```
+
+* **Transiciones con Fundido (`FadeSeconds`):** Las pistas nunca sufren cortes secos. El cambio de contexto ejecuta un fundido cruzado gradual configurado en `assets/audio.cfg`.
+* **Retención de Exploración (Pausa y Reanudación):** Al entrar en combate o ciudad desde el mapa, `main_theme` se pausa (`PauseMusicStream`) en su posición exacta. Al regresar al mapa de exploración, retoma donde quedó con un fundido suave.
+* **Bucle Automático:** Si una pista finaliza y el contexto no ha cambiado, se repite desde el inicio en streaming.
+
+### 10.2. Efectos de Sonido (`SfxId`)
+Identificadores de efectos separados por categoría de botón/acción con control de saturación:
+
+```c
+typedef enum {
+    /* Imprescindibles */
+    SFX_COMBAT_START = 0,
+    SFX_COMBAT_END,
+    SFX_DAMAGE_DEALT,
+    SFX_MARKET_BUY,
+    SFX_DIVINE_CARD_ACQUIRED,
+
+    /* Interfaz, Botones por Categoría y Dados */
+    SFX_UI_CLICK,       /* ui_click: Navegación genérica (pestañas, paneles, volver) */
+    SFX_MENU_CLICK,     /* menu_click: Botones del menú principal */
+    SFX_UI_CONFIRM,     /* ui_confirm: Confirmación de fases tácticas, reportes y modales */
+    SFX_UI_HOVER,       /* ui_hover: Pasar el cursor sobre botones */
+    SFX_DICE_ROLL,
+    SFX_DICE_LAND,
+
+    /* Movimiento, Acciones de Mapa y Campaña */
+    SFX_STEP,
+    SFX_TURN_END,
+    SFX_FORAGE,         /* forage: Botón Forrajear (F) en HUD */
+    SFX_CAMP_REST,      /* camp_rest: Elegir Acampar en la tarde */
+    SFX_NIGHT_MARCH,    /* night_march: Elegir Marcha Nocturna en la tarde */
+    SFX_NIGHT_FALL,
+    SFX_EVENT_OPEN,
+    SFX_EVENT_CHOICE,   /* event_choice: Elegir una opción de evento narrativo */
+
+    /* Combate Táctico */
+    SFX_DAMAGE_TAKEN,
+    SFX_CRITICAL_HIT,
+
+    /* Economía, Servicios de Ciudad y Altar */
+    SFX_MARKET_SELL,
+    SFX_MARKET_DENIED,
+    SFX_ALTAR_OFFER,    /* altar_offer: Ofrendar oro en el altar divino */
+    SFX_CURSE_ACQUIRED,
+    SFX_CARD_SACRIFICED,
+    SFX_PROMOTE_TROOPS,
+    SFX_HEAL,
+    SFX_INN_REST,       /* inn_rest: Descansar y subir moral en la Posada */
+
+    /* Eventos Mayores y Alertas */
+    SFX_SIEGE_START,
+    SFX_SIEGE_VICTORY,
+    SFX_ENEMY_ALERT,
+    SFX_LOW_SUPPLY_WARNING,
+    SFX_MUTINY_WARNING,
+    SFX_LEVEL_COMPLETE,
+    SFX_GAME_OVER,
+
+    /* Efectos Ambientales (Aleatorios en mapa de exploracion) */
+    SFX_AMBIENT_CROW,
+    SFX_AMBIENT_WIND,
+    SFX_AMBIENT_BIRDS,
+    SFX_AMBIENT_INSECTS,
+    SFX_AMBIENT_ANIMALS,
+
+    SFX_COUNT
+} SfxId;
+```
+
+### 10.3. Funciones Públicas de la API (`presentation/audio_manager.h` y `presentation/ui_widgets.h`)
+* `void Audio_Init(void);`
+  Inicializa el dispositivo de audio de Raylib, carga `assets/audio.cfg` y ejecuta la auditoría de inicio listando en el log los archivos esperados ausentes.
+* `void Audio_Shutdown(void);`
+  Descarga todos los streams de música y el caché de sonidos de forma segura antes de cerrar el dispositivo.
+* `void Audio_Update(float dt);`
+  Actualiza los streams activos de música en cada frame, computa fundidos y descuenta el temporizador ambiental aleatorio en mapa táctico.
+* `void Audio_SetMusicContext(AudioMusicContext ctx);`
+  Modifica el contexto musical activo desencadenando el fundido progresivo o la reanudación de `main_theme`.
+* `AudioMusicContext Audio_GetMusicContext(void);`
+  Consulta el contexto musical actualmente en reproducción.
+* `void Audio_PlaySfx(SfxId id);`
+  Dispara un efecto por su identificador tipado.
+* `void Audio_PlaySfxByName(const char* name);`
+  Dispara un efecto por su nombre lógico en `assets/audio.cfg`.
+* `void Audio_PlayCombatEnd(int endReason);`
+  Evalúa las variantes de victoria (`combat_end_victory`), derrota (`combat_end_defeat`) y huida (`combat_end_flee`), con fallback automático a `combat_end`.
+* `void Audio_PlayStepBiome(int biome);`
+  Prueba la variante del bioma actual (`step_plains`, `step_forest`, etc.) con fallback automático a `step_move`.
+* `void Audio_SetVolumes(float master, float sfx, float music);`
+  Ajusta en tiempo de ejecución los multiplicadores de volumen maestro, efectos y música.
+* `void Audio_SetAmbientTimeOfDay(TimeOfDay tod);`
+  Informa la franja horaria actual al subsistema de audio para filtrar los sonidos ambientales pertinentes (aves de día, grillos de noche, viento/fauna).
+* `void Audio_TriggerRandomAmbient(void);`
+  Sortea y reproduce un efecto ambiental disponible según el momento del día y los archivos presentes en disco.
+* `bool UI_DrawButtonSfx(Rectangle bounds, const char* text, bool disabled, const char* sfxOnClick);`
+* `bool UI_DrawButtonExSfx(Rectangle bounds, const char* text, int fontSize, bool disabled, Color bgOverride, Color textOverride, Color borderOverride, const char* sfxOnClick);`
+  Permiten especificar qué efecto de sonido dispara un botón al pulsarse (p. ej. `"menu_click"`, `"altar_offer"`), o pasar `NULL` cuando la acción posterior dispara su propio sonido transaccional (`market_buy`, `market_sell`, `market_denied`, `divine_card_acquired`, `promote_troops`, `heal`, `inn_rest`, `siege_start`), evitando que `ui_click` suene encima.
+
+### 10.4. Reglas y Arquitectura de Ejecución
+1. **Resolución de Archivos:** Las rutas se escriben sin extensión en configuración y código. El motor prueba `.mp3` $\to$ `.ogg` $\to$ `.wav` en `assets/audio/sfx/`, `assets/sfx/`, `assets/audio/music/` y `assets/music/` (priorizando el archivo más reciente si existiera en ambas ubicaciones).
+2. **Tolerancia a Archivos Ausentes:** Si un archivo falta en disco, el juego permanece en silencio sin fallar ni interrumpir la ejecución, y registra la ausencia una única vez en el log.
+3. **Control de Saturación:**
+   * `MinIntervalMs`: Intervalo mínimo en milisegundos para evitar repeticiones excesivas en efectos rápidos (cursor, pasos).
+   * **Tono Natural:** Los efectos se reproducen fielmente en su tono original (`pitch = 1.0f`), sin alteraciones ni distorsiones de frecuencia.
+4. **Sincronización con Secuencias Visuales:** Los sonidos de combate (`damage_dealt`, `damage_taken`, `combat_end`) se despachan como callbacks de `SeqAction` dentro de `Sequence_Push` en `CombatView_Update`, garantizando sincronización exacta con los números flotantes y las animaciones.
+
+---
+
+## 11. Sistema de Reparto de Raciones e Interfaz (`views/ration_view.h`, `presentation/ui_widgets.h`, `views/ration_mock.h`)
+
+Arquitectura desacoplada de la interfaz de distribución diaria de provisiones entre grupos del ejército (Iniciados, Soldados, Sargentos y Ganado), con soporte de sustitución de recursos (Vino sustituye Agua 1:1, Carne sustituye Comida 1:1), arrastrar y soltar con paquetes, pronóstico en vivo y modo compacto de abundancia.
+
+### 11.1. Contrato de Datos y Tipos
+```c
+typedef enum { RG_INICIADOS, RG_SOLDADOS, RG_SARGENTOS, RG_GANADO, RG_COUNT } RationGroup;
+typedef enum { RS_AGUA, RS_VINO, RS_COMIDA, RS_CARNE, RS_COUNT } RationResource;
+typedef struct { float amount[RG_COUNT][RS_COUNT]; } RationPlan;
+typedef struct { float drink[RG_COUNT]; float food[RG_COUNT]; } RationNeeds;
+typedef enum { RATION_FULL, RATION_REDUCED, RATION_STARVING } RationLevel;
+typedef struct { RationLevel level; float moraleDelta, healthDelta, satisfactionDelta; int daysUnfed; bool risksDesertion; } GroupPreview;
+typedef struct { GroupPreview group[RG_COUNT]; float stockAfter[RS_COUNT]; float daysLeft[RS_COUNT]; } RationPreview;
+typedef struct { float morale, health; int daysUnfed; float satisfaction, satisfactionMax; } GroupState;
+```
+
+### 11.2. Componente de Arrastre y Soltar (`presentation/ui_widgets.h`)
+Máquina de estados pura para operaciones de Drag and Drop sin efectos colaterales de renderizado:
+```c
+typedef struct {
+    bool active;
+    int sourceKind;       /* RationResource o tipo de ítem */
+    int sourceGroup;      /* RationGroup de origen (-1 si proviene de pila general) */
+    float amount;         /* Cantidad en el paquete arrastrado */
+    Vector2 currentPos;   /* Posición actual del ratón */
+    char label[32];
+    Color color;
+} UIDragDrop;
+
+void UIDragDrop_Init(UIDragDrop* dd);
+bool UIDragDrop_Start(UIDragDrop* dd, int sourceKind, int sourceGroup, float amount, Vector2 mouse, const char* label, Color color);
+void UIDragDrop_Update(UIDragDrop* dd, Vector2 mouse);
+void UIDragDrop_Cancel(UIDragDrop* dd);
+bool UIDragDrop_Finish(UIDragDrop* dd, int* outSourceKind, int* outSourceGroup, float* outAmount);
+void UIDragDrop_DrawFloating(const UIDragDrop* dd);
+```
+* **Modificadores de Paquete:** Arrastre estándar = `5u`. Con `Shift` sostenido = paquete grande (`20u`). Con `Ctrl` sostenido = paquete unitario (`1u`).
+* **Cancelación:** Se cancela automáticamente al pulsar `ESC` o clic secundario derecho.
+
+### 11.3. Ciclo de Vida de la Vista de Raciones (`views/ration_view.h`)
+* `void RationView_Init(RationViewState* state, const Army* army, const Map* map, HexCoord pos);`
+  Inicializa el borrador del plan intentando repetir el de ayer (`Ration_Repeat`); si no es válido, asigna automático (`Ration_Auto`). Si `Ration_NeedsDecision == false`, abre directamente en cuadro compacto de abundancia.
+* `RationViewAction RationView_Update(RationViewState* state, const Army* army, const Map* map, HexCoord pos, int sw, int sh);`
+  Procesa atajos (`A` = auto, `R` = repetir, `ENTER` = confirmar), botones `+` / `-`, rueda del ratón y drag & drop. Retorna acciones tipadas para el controlador (`RATION_ACTION_SUBMIT_PLAN`, `RATION_ACTION_SLAUGHTER_CATTLE`, `RATION_ACTION_CLOSE_REPORT`).
+* `void RationView_Draw(const RationViewState* state, const Army* army, const Map* map, HexCoord pos, int sw, int sh);`
+  Renderiza el modal con distribución uniforme y sin solapamiento de slots o etiquetas de recursos, chips de glosario interactivos y pronóstico en tiempo real.
+* `void RationView_ShowReport(RationViewState* state, const DayReport* report);`
+  Despliega la página 2 con el desglose de salud, moral y bajas tras confirmar el reparto del día.
+
+### 11.4. Mock de Desarrollo (`views/ration_mock.h`)
+Implementación simulada completa para pruebas de interfaz y testing desacoplado:
+* Escenarios soportados: `MOCK_SCENARIO_ABUNDANCE`, `MOCK_SCENARIO_SHORTAGE`, `MOCK_SCENARIO_STARVING_GROUP`, `MOCK_SCENARIO_ZERO_SATISFACTION`.
+* Todas las consultas puras (`RationMock_GetNeeds`, `RationMock_GetStock`, `RationMock_GetGroupState`, `RationMock_Preview`, `RationMock_Validate`) se enlazan mediante `views/ration_mock.h` en modo test o simulación.
+
+### 11.5. Extensión del HUD y Panel de Grupos (`views/hud.h`)
+* **Indicador de Suministro:** Se sustituye la línea estática por días restantes individuales (`Agua`, `Vino`, `Comida`, `Carne`) y tres indicadores anímicos (`Moral`, `Salud`, `Sargentos`).
+* **Modal de Grupos:** Accesible en cualquier momento pulsando la tecla `G` o haciendo clic en el botón `[GRUPOS]` de la barra de estado del ejército. Muestra el estado integral de los cuatro grupos, días sin ración y satisfacción de los Sargentos con tooltips de glosario.
+
+
+
 
 

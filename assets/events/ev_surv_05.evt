@@ -1,0 +1,27 @@
+[EVENT]
+Id=ev_surv_05
+Name=Paso de Ganado Agotado
+Description=Las reses de la retaguardia están exhaustas y lastimadas por las piedras. Si no se descansan medio día o se sacrifican, morirán en la cuneta.
+Trigger=RANDOM
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinCattle=1
+MinArmySize=0
+
+[OPTION_1]
+Text=Faenar una res al instante para cecina y cecinar la marcha
+Requires=cattle>=1
+Result_pool=res_surv_05_faenar_clean:65,res_surv_05_faenar_cost:35
+
+[OPTION_2]
+Text=Detener el avance medio día para dar forraje y descanso al hato
+Result_pool=res_surv_05_descanso_clean:65,res_surv_05_descanso_varro:35
+
+[OPTION_3]
+Text=Tratar las pezuñas con pez y herraje improvisado de campamento
+Requires=plan>=2
+Result_pool=res_surv_05_plan:100

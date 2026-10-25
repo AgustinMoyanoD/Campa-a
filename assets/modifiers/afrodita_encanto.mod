@@ -1,10 +1,17 @@
 [MODIFIER]
 Id=afrodita_encanto
-Name=Afrodita: Encanto
+Name=Encanto de Afrodita
+Description=Una gracia irresistible desarma el odio de los contrincantes. Reduce 35% las bajas recibidas en combate y premia con +20 de Moral tras la victoria.
 Kind=CARD
-Duration=BATTLES:3
+Source=AFRODITA
+Rarity=EPIC
+Tags=DEFENSA, MORAL
+Duration=PERMANENTE
 
-[HOOK_1]
-Hook=EXEC_ROLL
-Effect=execution:+1
+[RULE]
+Hook=HEALTH_DAMAGE_RECEIVED
+Effect=casualties:-35%
 
+[RULE]
+Hook=COMBAT_END
+Effect=moral:+20

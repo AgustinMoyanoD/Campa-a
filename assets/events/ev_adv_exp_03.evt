@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_exp_03
+Name=Consejo del Explorador: El Centinela Cautivo
+Description=Varro trajo a rastras a un vigía enemigo capturado. Propone someterlo a tormento inmediato para sacarle las señales del campamento rival. Vitelio se opone.
+Trigger=ADVICE
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Permitir el interrogatorio despiadado de Varro
+Result_pool=res_adv_exp_03_acc_clean:60,res_adv_exp_03_acc_cost:40
+
+[OPTION_2]
+Text=Entregar el cautivo al Capellán para un trato honorable
+Result_pool=res_adv_exp_03_ign_vitelio:65,res_adv_exp_03_ign_engaño:35
+
+[OPTION_3]
+Text=Evaluar la psicología del prisionero y negociar sin tortura
+Requires=eval>=2
+Result_pool=res_adv_exp_03_eval:100

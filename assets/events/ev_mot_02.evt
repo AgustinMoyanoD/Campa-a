@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_mot_02
+Name=Complot en la Tienda de Campaña
+Description=Un sargento leal te despierta a medianoche: varios cabecillas entre los soldados han afilado sus espadas y planean deponer al mando al amanecer.
+Trigger=NIGHT
+Probability=1
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Arrestar a los conspiradores de noche y ejecutarlos sin juicio
+Result_pool=res_mot_02_purga_clean:60,res_mot_02_purga_cost:40
+
+[OPTION_2]
+Text=Convocar a los oficiales de inmediato y exigir lealtad bajo juramento
+Result_pool=res_mot_02_oficiales_clean:65,res_mot_02_oficiales_fractura:35
+
+[OPTION_3]
+Text=Desarticular el complot encarando a los cabecillas cara a cara
+Requires=exec>=2
+Result_pool=res_mot_02_exec:100

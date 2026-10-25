@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_cap_02
+Name=Consejo del Capellán: Rito Funerario en el Campo de Huesos
+Description=La columna tropieza con los restos insepultos de soldados caídos días atrás. Vitelio exige detener la marcha para cavar zanjas y enterrarlos con rito.
+Trigger=ADVICE
+Probability=2
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Detener la columna y brindar sepultura sagrada
+Result_pool=res_adv_cap_02_acc_clean:65,res_adv_cap_02_acc_cost:35
+
+[OPTION_2]
+Text=Acelerar el paso y dejar los huesos a las alimañas
+Result_pool=res_adv_cap_02_ign_clean:60,res_adv_cap_02_ign_fallo:40
+
+[OPTION_3]
+Text=Ordenar una pira colectiva rápida con honores militares
+Requires=exec>=2
+Result_pool=res_adv_cap_02_exec:100

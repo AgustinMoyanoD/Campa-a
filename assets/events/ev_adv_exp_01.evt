@@ -1,0 +1,25 @@
+[EVENT]
+Id=ev_adv_exp_01
+Name=Consejo del Explorador: Desfiladero de Sombras
+Description=Publio Varro regresa jadeando de la cresta. Divisó una columna enemiga en la calzada inferior y propone un desfiladero escarpado para flanquearla o emboscarla.
+Trigger=ADVICE
+Probability=3
+MinInfamy=0
+MaxInfamy=100
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aceptar el atajo escarpado de Varro
+Result_pool=res_adv_exp_01_acc_clean:60,res_adv_exp_01_acc_cost:25,res_adv_exp_01_acc_fallo:15
+
+[OPTION_2]
+Text=Descartar el atajo y mantener la marcha por la calzada
+Result_pool=res_adv_exp_01_ign_craso:65,res_adv_exp_01_ign_emboscada:35
+
+[OPTION_3]
+Text=Ordenar a los batidores marcar el terreno antes de mover a la tropa
+Requires=eval>=2
+Result_pool=res_adv_exp_01_tactica:100

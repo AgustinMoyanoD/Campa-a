@@ -25,9 +25,14 @@ typedef struct {
     Rectangle rollBtnRect;  /* Area clickeable del boton ROLL */
     Rectangle forageBtnRect;/* Area clickeable del boton FORAGE */
     Rectangle endTurnBtnRect;/* Area clickeable del boton PASAR TURNO */
+    Rectangle officersBtnRect;/* Area clickeable del boton OFICIALES */
+    bool showOfficersPanel; /* TRUE = modal de lista de oficiales visible (E3) */
+    Rectangle groupsBtnRect;  /* Area clickeable del boton GRUPOS (Moral y Estado) */
+    bool showGroupsPanel;   /* TRUE = modal de grupos del ejercito visible */
 } HudState;
 
 /* Inicializa el estado del HUD */
+void Hud_InitState(HudState* hud);
 HudState Hud_Init(void);
 
 /* Actualiza timers internos (llamar cada frame con deltaTime) */
@@ -45,7 +50,7 @@ void Hud_DrawCommanderPanel(
 );
 
 /* Dibuja el panel de stats y recursos del ejercito (abajo izquierda) */
-void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, const Map* map, int x, int y, int w, int h);
+void Hud_DrawArmyStatsPanel(const Army* army, const GameMaster* gm, const Map* map, HudState* hud, int x, int y, int w, int h);
 
 /* Dibuja el panel de dados (abajo centro) */
 void Hud_DrawDicePanel(HudState* hud, const GameMaster* gm, const Army* army, const Map* map, int x, int y, int w, int h);
@@ -63,5 +68,13 @@ bool Hud_HandleDayReportInput(GameMaster* gm, int screenWidth, int screenHeight)
 /* Modal de decision de campamento / marcha nocturna (Fase 2) */
 void Hud_DrawCampDecisionModal(const GameMaster* gm, const Army* army, const Map* map, int screenWidth, int screenHeight);
 bool Hud_HandleCampDecisionInput(GameMaster* gm, Map* map, Army* army, int screenWidth, int screenHeight);
+
+/* Modal del panel de oficiales y tenientes (E3) */
+void Hud_DrawOfficersPanel(const Army* army, const GameMaster* gm, HudState* hud, int screenWidth, int screenHeight);
+bool Hud_HandleOfficersPanelInput(HudState* hud, int screenWidth, int screenHeight);
+
+/* Modal del panel de grupos del ejercito (moral, salud, raciones y satisfaccion) */
+void Hud_DrawGroupsPanel(const Army* army, const GameMaster* gm, HudState* hud, int screenWidth, int screenHeight);
+bool Hud_HandleGroupsPanelInput(HudState* hud, int screenWidth, int screenHeight);
 
 #endif /* HUD_H */

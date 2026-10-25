@@ -1,0 +1,26 @@
+[EVENT]
+Id=ev_urb_01
+Name=Puertas Cerradas en los Arrabales
+Description=El vigía de la torre urbana atranca los portones ante tu estandarte. Exigen que el ejército permanezca extramuros o paguen tributo por franquear el foso.
+Trigger=CITY,MARKET
+Probability=4
+MinInfamy=15.0
+MaxInfamy=100.0
+MinGold=0
+MinFood=0
+MinWater=0
+MinArmySize=0
+
+[OPTION_1]
+Text=Aceptar acampar extramuros y enviar emisarios con oro para comerciar
+Requires=gold>=20
+Result_pool=res_urb_01_acampar_clean:65,res_urb_01_acampar_timo:35
+
+[OPTION_2]
+Text=Exigir apertura inmediata bajo amenaza de asedio marcial
+Result_pool=res_urb_01_amenaza_clean:60,res_urb_01_amenaza_cost:40
+
+[OPTION_3]
+Text=Invocar el pacto sellado con el Gremio de Comerciantes
+Requires=flag:pacto_comerciantes
+Result_pool=res_urb_01_eval:100

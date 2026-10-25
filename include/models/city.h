@@ -62,6 +62,8 @@ typedef struct {
     int stockWater;
     int stockCattle;
     int stockInitiates;
+    int stockWine;
+    int stockMeat;
     
     // Contadores de ascensos realizados en esta visita
     int promotedInitiates;
@@ -84,6 +86,10 @@ int City_GetBuyPriceFood(const CityContext* ctx);
 int City_GetSellPriceFood(const CityContext* ctx);
 int City_GetBuyPriceWater(const CityContext* ctx);
 int City_GetSellPriceWater(const CityContext* ctx);
+int City_GetBuyPriceWine(const CityContext* ctx);
+int City_GetSellPriceWine(const CityContext* ctx);
+int City_GetBuyPriceMeat(const CityContext* ctx);
+int City_GetSellPriceMeat(const CityContext* ctx);
 int City_GetBuyPriceCattle(const CityContext* ctx);
 int City_GetSellPriceCattle(const CityContext* ctx);
 int City_GetBuyPriceInitiate(const CityContext* ctx);
@@ -93,6 +99,10 @@ bool City_BuyFood(CityContext* ctx, Army* army, int amount);
 bool City_SellFood(CityContext* ctx, Army* army, int amount);
 bool City_BuyWater(CityContext* ctx, Army* army, int amount);
 bool City_SellWater(CityContext* ctx, Army* army, int amount);
+bool City_BuyWine(CityContext* ctx, Army* army, int amount);
+bool City_SellWine(CityContext* ctx, Army* army, int amount);
+bool City_BuyMeat(CityContext* ctx, Army* army, int amount);
+bool City_SellMeat(CityContext* ctx, Army* army, int amount);
 bool City_BuyCattle(CityContext* ctx, Army* army, int amount);
 bool City_SellCattle(CityContext* ctx, Army* army, int amount);
 bool City_RecruitInitiates(CityContext* ctx, Army* army, int amount);
