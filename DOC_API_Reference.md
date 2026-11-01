@@ -480,6 +480,118 @@ Implementación simulada completa para pruebas de interfaz y testing desacoplado
 * **Indicador de Suministro:** Se sustituye la línea estática por días restantes individuales (`Agua`, `Vino`, `Comida`, `Carne`) y tres indicadores anímicos (`Moral`, `Salud`, `Sargentos`).
 * **Modal de Grupos:** Accesible en cualquier momento pulsando la tecla `G` o haciendo clic en el botón `[GRUPOS]` de la barra de estado del ejército. Muestra el estado integral de los cuatro grupos, días sin ración y satisfacción de los Sargentos con tooltips de glosario.
 
+---
+
+## 12. Generación de Nivel: Bastión Central, Huellas, Murallas, Cruce de Ríos y Victoria
+
+Arquitectura integral de topología provincial centrada en el Bastión, eliminación de `TILE_SPECIAL_END`, huellas de estructuras de varias casillas, murallas infranqueables, puertas transitables, cruce peligroso de ríos advertido previamente, gradiente de dificultad y pantalla de victoria insular.
+
+### 12.1. Configuración de Balance (`assets/balance.cfg` - `[LEVEL_GEN]`)
+* `StartMinDaysFromBastion = 3.5`: Distancia mínima de inicio en días de marcha ($\ge 31$ hexágonos).
+* `TilesPerDayOfMarch = 9.0`: Factor de conversión canónico entre casillas hexagonales y días de marcha.
+* `ClusterCount = 3`: Número de clusters urbanos secundarios/principales distribuidos en sectores angulares y bandas concéntricas.
+* `MinClusterDistance = 22`: Distancia mínima entre clusters urbanos.
+* `MinBastionDistance = 28`: Distancia mínima de los clusters al Bastión central.
+* `MinStartClusterDistance = 20`: Distancia mínima de los clusters al punto de inicio.
+* `RiverCrossIntermediateLossPercent = 0.08`: Pérdida de suministros en resultado intermedio (5 a 7 en 2d6).
+* `RiverCrossBadLossPercent = 0.15`: Pérdida de suministros en resultado desfavorable ($\le 4$ en 2d6).
+* `RiverCrossBadSoldierLossPercent = 0.03`: Pérdida de soldados en resultado desfavorable ($\le 4$ en 2d6).
+* `FordCrossBonus = 2`: Bono a la tirada 2d6 al cruzar por un vado natural (`isFord = true`).
+* `DifficultyBorder = 1.0`, `DifficultyInterior = 1.6`, `DifficultyBastion = 2.0`: Gradiente de dificultad espacial.
+* `WalledGarrisonBonus = 1.25`: Multiplicador de guarnición para estructuras amuralladas (Bastión: $150 \times 2.0 \times 1.25 = 375$ HP).
+
+### 12.2. Modelo de Huellas y Roles (`include/models/hex_tile.h`)
+```c
+typedef enum {
+    FOOTPRINT_ROLE_NONE = 0,
+    FOOTPRINT_ROLE_ANCHOR,  /* Casilla ancla (centro lógico de la estructura) */
+    FOOTPRINT_ROLE_BODY,    /* Casilla interior complementaria */
+    FOOTPRINT_ROLE_WALL,    /* Muralla perimetral (infranqueable para jugador y enemigos) */
+    FOOTPRINT_ROLE_GATE     /* Puerta de muralla sobre camino (transitable) */
+} FootprintRole;
+```
+* **Resolución de Ancla:** Todas las interacciones de ciudad (`CityContext`), asedio (`GameMaster_StartSiege`) e inspección en el mapa resuelven automáticamente la casilla ancla original mediante `tile->footprintAnchor`.
+* **Infranqueabilidad:** Las murallas (`FOOTPRINT_ROLE_WALL`) son rechazadas en `Map_FindPathEx` y en `GameMaster_AttemptMove`.
+
+### 12.3. Funciones del Generador de Mapa (`include/models/map_generator.h`)
+* `HexCoord Map_GetStartCoord(const Map* map);`
+  Retorna la coordenada de desembarco costero garantizada sobre la masa continental principal a $\ge 31$ hexágonos del Bastión.
+* `HexCoord Map_GetBastionCoord(const Map* map);`
+  Retorna la coordenada central del Bastión.
+* `HexTile* Map_GetBastionTile(const Map* map);`
+  Retorna el tile ancla del Bastión con tipo `SETTLEMENT_BASTION` y `isBastion = true`.
+* `bool Map_HasSafePath(const Map* map, const HexTile* from, const HexTile* to);`
+  Verifica si existe un camino completamente seguro (sin murallas y sin cruzar aguas ni ríos sin puente) entre dos casillas.
+* `float Map_DifficultyAt(const Map* map, HexCoord coord);`
+  Calcula el multiplicador de dificultad espacial por interpolación lineal por tramos según la distancia relativa al Bastión.
+
+### 12.4. Cruce de Ríos y Vados
+* **Penalización de A*:** En `Map_FindPathEx`, los ríos sin puente tienen un peso de penalización (+6) para preferir desvíos seguros y puentes, manteniendo el coste real de AP del bioma.
+* **Advertencia Previa:** Las rutas con ríos no puenteados se dibujan con segmentos rojos/ámbar y marcadores de advertencia `"!"`. Se abre una ventana modal de confirmación antes de iniciar la marcha indicando las probabilidades y el bono de vado si aplica.
+* **Tirada 2d6 + Evaluación:** En `GameMaster_ResolveRiverCrossing`, se evalúa:
+  * $\ge 8$: Cruce seguro (sin bajas ni pérdidas).
+  * $5 - 7$: Cruce difícil (-8% suministros).
+  * $\le 4$: Desastre (-15% suministros, -3% soldados acumulados a `gm->totalCasualties`).
+
+### 12.5. Victoria Insular (`PHASE_VICTORY`)
+* La captura del Bastión central finaliza la provincia disparando `PHASE_VICTORY`.
+* Se despliega la pantalla de victoria con balance general de campaña: días transcurridos, bajas totales sufridas, porcentaje de asentamientos conquistados (bandera de Conquista Total 100%), nivel de provincia y semilla, con botones para `"CONTINUAR"` a la siguiente provincia o `"VOLVER AL MENÚ"`.
+* Brújula e indicador permanente en el HUD del jugador orientando siempre la distancia y ángulo al Bastión central bajo cualquier condición de niebla de guerra.
+
+---
+
+## 13. Arquitectura del Motor Desacoplado y Módulos de Juego Data-Driven
+
+El código base se encuentra formalmente desacoplado en dos capas independientes:
+1. **Motor Agnóstico Reutilizable (`include/engine/`, `src/engine/`)**: Cero dependencias de la campaña helénica, ejército, raciones ni entidades narrativas.
+2. **Juego de Campaña Data-Driven (`include/game/`, `src/game/`)**: Reglas de negocio, eventos, asedios, tropas y balance gobernado desde archivos `.cfg`.
+
+### 13.1. Módulos del Motor Agnóstico (`include/engine/`)
+
+* **`engine/core/hex_grid.h` (`HexCoord`, `HexDirection`)**:
+  * Geometría axial pura, distancias Manhattan hexagonal, vecindad y anillos concéntricos.
+  * Proyecciones isométricas y cartesianas desacopladas de vistas de juego (`HexToPixel`, `PixelToHex`).
+  * Dibujo geométrico primitivo de hexágonos (`DrawHexOutline`, `DrawHexFilled`).
+* **`engine/core/pathfinding.h` (`Pathfind_AStar`)**:
+  * Algoritmo A* polimórfico basado en punteros a función de costo y transitabilidad (`CostCallback`, `PassableCallback`, `UserData`).
+  * No conoce biomas, murallas ni entidades de juego; resuelve grafos hexagonales genéricos.
+* **`engine/core/config_parser.h` (`ConfigFile`)**:
+  * Parser genérico de formatos INI/CFG con soporte para secciones, comentarios y claves compuestas (`Config_GetSubValue`).
+  * Métodos de tipado estricto: `Config_GetInt`, `Config_GetFloat`, `Config_GetString`, `Config_GetBool`.
+* **`engine/core/rng.h` & `day_clock.h`**:
+  * Generador pseudoaleatorio determinista PCG32 con control de semillas.
+  * Reloj temporal genérico de 4 franjas horarias y días de simulación.
+* **`engine/presentation/`**:
+  * `camera_controller.h`: Control suave de cámara 2D, límites mundiales, paneo WASD/bordes y zoom.
+  * `tween.h`: Motor de interpolación con curvas de aceleración (`Ease_Linear`, `Ease_OutCubic`, `Ease_InOutQuad`).
+  * `sequence.h`: Cola de acciones secuenciales en línea de tiempo.
+  * `screen_fx.h`: Sistema de screen shake, partículas de marcha, viñeteado y transiciones de pantalla.
+  * `audio_engine.h`: Gestor de audio genérico basado en manifiestos, con crossfades y canales de música/SFX.
+  * `asset_cache.h`: Caché de texturas y reproductor de spritesheets horizontales (`AnimatedSprite`).
+* **`engine/ui/` (`ui_theme.h`, `ui_skin.h`, `ui_widgets.h`, `glossary.h`)**:
+  * Sistema de UI helénico con paneles 9-slice, slots, estandartes dorados, botones interactivos, tooltips diferidos y glosario.
+* **`engine/systems/effect_system.h` (`EffectDef`, `EffectType`)**:
+  * Parser y contenedor genérico de modificadores numéricos y de estado.
+
+### 13.2. Capa de Juego Data-Driven (`include/game/`, `src/game/`)
+
+* **Biomas Gobernados por `[BIOMES]` en `assets/balance.cfg`**:
+  * Las propiedades de cada bioma (`actionPointCost`, `foodCostMultiplier`, `waterAbundance`, `movementPenalty`, etc.) se leen de `balance.cfg` sin código C cableado.
+  * `Biome_GetProperties(biome)` consulta dinámicamente `Balance_GetGlobal()->biomes[biome]`.
+* **Inicialización de Ejército Gobernado por `[ARMY_INIT]` en `assets/balance.cfg`**:
+  * Dotaciones de tropa (`initIniciados`, `initSoldados`, `initSargentos`, `initGanado`) y logística (`initAgua`, `initComida`, `initMonedas`).
+  * `ArmySetup_InitDefault(&armySetup)` inicializa la estructura a partir de los datos configurados.
+
+### 13.3. Ciclo de Vida Modular en `src/main.c`
+
+El punto de entrada del juego (`main.c`) se encuentra estructurado en etapas con una lógica única y escalable:
+* `Engine_InitSubsystems`: Inicializa ventana, resolución, FPS, audio y UI del motor.
+* `Game_InitModules`: Inicializa configuración de balance, activos visuales, vistas y estado de campaña.
+* `App_RunSetupPhase`: Pantalla interactiva previa al despliegue (`PHASE_SETUP`) donde se previsualizan y ajustan las estadísticas del Comandante, Tenientes y recursos antes de llamar a `Game_StartCampaignSession`.
+* `Game_StartCampaignSession`: Punto único de arranque o reinicio de campaña que transiciona a `PHASE_PLAYER`.
+* `Engine_ShutdownSubsystems`: Liberación ordenada y simétrica de todos los recursos del motor y del juego.
+
+
 
 
 

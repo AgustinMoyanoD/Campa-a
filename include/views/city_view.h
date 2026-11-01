@@ -1,16 +1,4 @@
-#ifndef CITY_VIEW_H
-#define CITY_VIEW_H
-
-#include <raylib.h>
-#include "models/city.h"
-#include "models/army.h"
-#include "controllers/game_master.h"
-
-// Dibuja y maneja la interacción con el menú de la ciudad. Retorna true si se cerró el menú.
-bool CityView_UpdateDraw(CityContext* ctx, Army* army, GameMaster* gm, Map* map, int screenWidth, int screenHeight);
-
-// Libera texturas de fondo cacheadas en VRAM
-void CityView_UnloadAssets(void);
-
-#endif /* CITY_VIEW_H */
-
+#ifndef SHIM_VIEW_CITY_VIEW_H
+#define SHIM_VIEW_CITY_VIEW_H
+#include "game/views/city_view.h"
+#endif
